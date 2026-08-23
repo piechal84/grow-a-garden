@@ -43,30 +43,69 @@ function MoonBlossomGlyph({ size }: { size: number }) {
           <stop offset="0%" stopColor="#fff9e8" />
           <stop offset="100%" stopColor="#cdb8f0" />
         </radialGradient>
+        <radialGradient id="moonHalo" cx="50%" cy="50%" r="55%">
+          <stop offset="0%" stopColor="#8ff0ff" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#8ff0ff" stopOpacity="0" />
+        </radialGradient>
       </defs>
-      <circle cx="24" cy="24" r="20" fill="url(#moonGlow)" opacity="0.25" />
+      <circle cx="24" cy="24" r="23" fill="url(#moonHalo)" />
+      <circle cx="24" cy="24" r="20" fill="url(#moonGlow)" opacity="0.45" />
       {petals.map((angle) => (
         <ellipse
           key={angle}
           cx="24"
           cy="14"
-          rx="5.5"
-          ry="9"
+          rx="6"
+          ry="9.5"
           fill="url(#moonGlow)"
-          stroke="#b9a6e8"
-          strokeWidth="0.6"
+          stroke="#8f6fe0"
+          strokeWidth="1.1"
           transform={`rotate(${angle} 24 24)`}
         />
       ))}
-      <circle cx="24" cy="24" r="6.5" fill="#2f2b52" />
-      <path d="M27 19a6 6 0 100 10 5 5 0 010-10z" fill="#f2b23a" />
+      <circle cx="24" cy="24" r="7" fill="#211d40" stroke="#24e8ff" strokeWidth="0.8" />
+      <path d="M27.5 18.5a6.5 6.5 0 100 11 5.3 5.3 0 010-11z" fill="#ffd54a" />
       {[
-        [8, 10],
-        [40, 12],
-        [10, 38],
-        [38, 36],
+        [7, 9],
+        [41, 11],
+        [9, 39],
+        [39, 37],
+        [24, 4],
       ].map(([x, y], i) => (
-        <path key={i} d={`M${x},${y - 2} L${x + 1},${y} L${x},${y + 2} L${x - 1},${y} Z`} fill="#fff2c2" />
+        <path key={i} d={`M${x},${y - 3} L${x + 1.4},${y} L${x},${y + 3} L${x - 1.4},${y} Z`} fill="#fff8d6" />
+      ))}
+    </svg>
+  );
+}
+
+/** The mythic (Divine) moon crop gets a starry, glowing cosmic-cherry glyph of its own. */
+function NebulaCherryGlyph({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
+      <defs>
+        <radialGradient id="nebulaHalo" cx="50%" cy="50%" r="55%">
+          <stop offset="0%" stopColor="#ffd54a" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#ffd54a" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="cherrySheen" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="#ff9ad1" />
+          <stop offset="100%" stopColor="#d81159" />
+        </radialGradient>
+      </defs>
+      <circle cx="24" cy="26" r="21" fill="url(#nebulaHalo)" />
+      <path d="M22 18 C20 10 16 7 12 6" fill="none" stroke="#3fae5a" strokeWidth="2" strokeLinecap="round" />
+      <path d="M27 17 C28 9 32 6 36 5" fill="none" stroke="#3fae5a" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="19" cy="30" r="10" fill="url(#cherrySheen)" stroke="#a10f45" strokeWidth="1.2" />
+      <circle cx="32" cy="32" r="10" fill="url(#cherrySheen)" stroke="#a10f45" strokeWidth="1.2" />
+      <ellipse cx="16" cy="26" rx="2.2" ry="1.6" fill="#ffe3f0" opacity="0.85" />
+      <ellipse cx="29" cy="28" rx="2.2" ry="1.6" fill="#ffe3f0" opacity="0.85" />
+      {[
+        [6, 14],
+        [42, 16],
+        [8, 40],
+        [40, 40],
+      ].map(([x, y], i) => (
+        <path key={i} d={`M${x},${y - 3} L${x + 1.4},${y} L${x},${y + 3} L${x - 1.4},${y} Z`} fill="#ffd54a" />
       ))}
     </svg>
   );
@@ -75,6 +114,7 @@ function MoonBlossomGlyph({ size }: { size: number }) {
 export default function CropIcon({ crop, size = 28 }: { crop: IconCrop; size?: number }) {
   if (crop.id === "dragonfruit") return <DragonFruitGlyph size={size} />;
   if (crop.id === "moon_blossom") return <MoonBlossomGlyph size={size} />;
+  if (crop.id === "nebula_cherry") return <NebulaCherryGlyph size={size} />;
   return (
     <span style={{ fontSize: size, lineHeight: 1 }} role="img" aria-label={crop.name}>
       {crop.emoji}

@@ -1126,8 +1126,9 @@ button {
   filter: drop-shadow(0 0 6px var(--mutation-glow));
 }
 
-/* Divine (Nebula Cherry) and Celestial (Moon Blossom) get a persistent sparkle aura at every
-   growth stage — celestial runs faster/brighter as the top of the rarity ladder. */
+/* Divine (Nebula Cherry) and Celestial (Moon Blossom) get a bold, unmistakable aura at every
+   growth stage — a tight blurred glow hugging the icon plus big bright twinkles flung further
+   out. Celestial runs faster, brighter, and bigger as the top of the rarity ladder. */
 .plant-aura-divine,
 .plant-aura-celestial {
   position: relative;
@@ -1138,81 +1139,86 @@ button {
 .plant-aura-celestial::before {
   content: "";
   position: absolute;
-  inset: -50%;
+  inset: -75%;
   pointer-events: none;
   z-index: -1;
   background-image:
-    radial-gradient(circle, currentColor 0 2px, transparent 3px),
-    radial-gradient(circle, currentColor 0 1.4px, transparent 2.4px),
-    radial-gradient(circle, currentColor 0 1.4px, transparent 2.4px),
-    radial-gradient(circle, currentColor 0 1.8px, transparent 2.8px),
-    radial-gradient(circle, currentColor 0 1.4px, transparent 2.4px);
-  background-position: 10% 18%, 88% 12%, 14% 86%, 84% 80%, 50% 2%;
+    radial-gradient(circle, currentColor 0 3.4px, transparent 4.8px),
+    radial-gradient(circle, currentColor 0 2.6px, transparent 4px),
+    radial-gradient(circle, currentColor 0 2.6px, transparent 4px),
+    radial-gradient(circle, currentColor 0 3px, transparent 4.4px),
+    radial-gradient(circle, currentColor 0 2.4px, transparent 3.8px),
+    radial-gradient(circle, currentColor 0 2.8px, transparent 4.2px),
+    radial-gradient(circle, currentColor 0 2.2px, transparent 3.6px);
+  background-position: 6% 20%, 92% 8%, 6% 88%, 92% 84%, 50% -4%, 0% 52%, 100% 52%;
   background-repeat: no-repeat;
-  animation: aura-twinkle 1.7s ease-in-out infinite;
+  filter: drop-shadow(0 0 3px currentColor);
+  animation: aura-twinkle 1.3s ease-in-out infinite;
 }
 
 .plant-aura-divine::after,
 .plant-aura-celestial::after {
   content: "";
   position: absolute;
-  inset: 12%;
+  inset: -15%;
   border-radius: 50%;
-  background: radial-gradient(circle, currentColor 0%, transparent 72%);
-  opacity: 0.3;
+  background: radial-gradient(circle, currentColor 0%, currentColor 25%, transparent 68%);
+  opacity: 0.65;
   z-index: -2;
-  animation: aura-pulse 2s ease-in-out infinite;
+  filter: blur(5px);
+  animation: aura-pulse 1.5s ease-in-out infinite;
 }
 
 .plant-aura-divine {
-  color: #ffd54a;
+  color: #ffcc00;
 }
 
 .plant-aura-celestial {
-  color: #4fd8e0;
+  color: #24e8ff;
 }
 
 .plant-aura-celestial::before {
-  animation-duration: 1.3s;
+  animation-duration: 0.95s;
 }
 
 .plant-aura-celestial::after {
-  animation-duration: 1.5s;
-  opacity: 0.4;
+  animation-duration: 1.15s;
+  opacity: 0.8;
+  filter: blur(6px);
 }
 
 /* Compact contexts (shop rows) need the aura contained within their fixed icon slot. */
 .shop-row-icon.plant-aura-divine::before,
 .shop-row-icon.plant-aura-celestial::before {
-  inset: -10%;
+  inset: -25%;
 }
 
 .shop-row-icon.plant-aura-divine::after,
 .shop-row-icon.plant-aura-celestial::after {
-  inset: 22%;
+  inset: 4%;
 }
 
 @keyframes aura-twinkle {
   0%,
   100% {
-    opacity: 0.3;
-    transform: scale(0.9) rotate(0deg);
+    opacity: 0.55;
+    transform: scale(0.8) rotate(0deg);
   }
   50% {
     opacity: 1;
-    transform: scale(1.15) rotate(10deg);
+    transform: scale(1.5) rotate(16deg);
   }
 }
 
 @keyframes aura-pulse {
   0%,
   100% {
-    opacity: 0.2;
-    scale: 0.88;
+    opacity: 0.45;
+    scale: 0.85;
   }
   50% {
-    opacity: 0.5;
-    scale: 1.18;
+    opacity: 0.95;
+    scale: 1.35;
   }
 }
 
