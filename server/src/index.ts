@@ -1,0 +1,160 @@
+import cors from "cors";
+import express from "express";
+import { createServer } from "node:http";
+import { Server } from "socket.io";
+import {
+  allPositions,
+  buyGear,
+  buyMoonPack,
+  buySeed,
+  createRoom,
+  ensurePosition,
+  extractProgress,
+  findRoomByPlayer,
+  harvest,
+  joinRoom,
+  markDisconnected,
+  movePlayer,
+  plant,
+  reclaim,
+  sell,
+} from "./rooms.js";
+import type { ClientToServerEvents, RoomState, ServerToClientEvents } from "./types.js";
+import { login, register, saveProgress } from "./userStore.js";
+
+const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
+
+const app = express();
+app.use(cors());
+app.get("/health", (_req, res) => res.json({ ok: true }));
+
+const httpServer = createServer(app);
+const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
+  cors: { origin: "*" },
+});
+
+function broadcast(room: RoomState) {
+  io.to(room.code).emit("state_update", room);
+  for (const player of room.players) {
+    if (player.accountUsername) saveProgress(player.id, extractProgress(player));
+  }
+}
+
+io.on("connection", (socket) => {
+  socket.on("register", ({ username, password }, ack) => {
+    const result = register(username, password);
+    if (!result.ok || !result.user) return ack({ ok: false, error: result.error });
+    ack({ ok: true, userId: result.user.id, username: result.user.username });
+  });
+
+  socket.on("login", ({ username, password }, ack) => {
+    const result = login(username, password);
+    if (!result.ok || !result.user) return ack({ ok: false, error: result.error });
+    ack({ ok: true, userId: result.user.id, username: result.user.username });
+  });
+
+  socket.on("join_room", ({ roomCode, playerName, clientId }, ack) => {
+    const name = playerName.trim().slice(0, 20);
+    if (!name) return ack({ ok: false, error: "Enter a name." });
+    if (!clientId) return ack({ ok: false, error: "Missing client id." });
+
+    let room: RoomState;
+    if (roomCode) {
+      const result = joinRoom(roomCode, clientId, name);
+      if (result.error || !result.room) return ack({ ok: false, error: result.error ?? "Could not join room." });
+      room = result.room;
+    } else {
+      room = createRoom(clientId, name);
+    }
+
+    socket.data.clientId = clientId;
+    socket.join(room.code);
+    const player = room.players.find((p) => p.id === clientId)!;
+    const spawn = ensurePosition(room, player);
+    ack({ ok: true, roomCode: room.code, playerId: clientId, positions: allPositions(room) });
+    broadcast(room);
+    io.to(room.code).emit("player_spawned", { playerId: clientId, x: spawn.x, y: spawn.y });
+  });
+
+  function currentPlayer() {
+    const clientId = socket.data.clientId as string | undefined;
+    if (!clientId) return { room: undefined, player: undefined };
+    const room = findRoomByPlayer(clientId);
+    const player = room?.players.find((p) => p.id === clientId);
+    return { room, player };
+  }
+
+  socket.on("buy_seed", ({ cropId, quantity }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = buySeed(player, cropId, quantity);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("plant", ({ x, y, cropId }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = plant(room, player, x, y, cropId);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("harvest", ({ plantingId }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = harvest(room, player, plantingId);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("reclaim_planting", ({ plantingId }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = reclaim(player, plantingId);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("sell", ({ cropId, sizeLabel, mutations, quantity }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = sell(player, cropId, sizeLabel, mutations, quantity);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("buy_gear", ({ gearId }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = buyGear(player, gearId);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("buy_moon_pack", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const outcome = buyMoonPack(player);
+    ack?.({ ok: !outcome.error, error: outcome.error, result: outcome.result });
+    if (!outcome.error) broadcast(room);
+  });
+
+  socket.on("move", ({ x, y }) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return;
+    const { from, to, duration } = movePlayer(room, player.id, x, y);
+    io.to(room.code).emit("player_moved", { playerId: player.id, from, to, startedAt: Date.now(), duration });
+  });
+
+  socket.on("disconnect", () => {
+    const clientId = socket.data.clientId as string | undefined;
+    if (!clientId) return;
+    const room = markDisconnected(clientId);
+    if (room) broadcast(room);
+  });
+});
+
+httpServer.listen(PORT, () => {
+  console.log(`Grow Garden server listening on http://localhost:${PORT}`);
+});
