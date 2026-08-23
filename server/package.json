@@ -9,6 +9,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@upstash/redis": "^1.38.2",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "nanoid": "^5.0.7",

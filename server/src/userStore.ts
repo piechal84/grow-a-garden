@@ -1,3 +1,4 @@
+import { Redis } from "@upstash/redis";
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -54,26 +55,53 @@ function defaultProgress(): SavedProgress {
   };
 }
 
+// When UPSTASH_REDIS_REST_URL/TOKEN are set (e.g. on a Render deploy), accounts persist in
+// Redis so they survive redeploys and restarts. Without them (local dev), falls back to the
+// local JSON file. Either way, reads/writes stay synchronous against this in-memory cache —
+// Redis is only touched at boot (load) and fire-and-forget on every write (persist).
+const redis =
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+    ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
+    : null;
+
 const usersByName = new Map<string, UserRecord>();
 const usersById = new Map<string, UserRecord>();
 
-function load() {
+function ingest(list: UserRecord[]) {
+  for (const u of list) {
+    usersByName.set(u.username.toLowerCase(), u);
+    usersById.set(u.id, u);
+  }
+}
+
+export async function initUserStore(): Promise<void> {
+  if (redis) {
+    try {
+      const list = (await redis.get<UserRecord[]>("users")) ?? [];
+      ingest(list);
+      console.log(`Loaded ${list.length} account(s) from Redis.`);
+    } catch (err) {
+      console.error("Failed to load accounts from Redis — starting empty:", err);
+    }
+    return;
+  }
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
   if (!existsSync(USERS_FILE)) return;
   try {
     const list: UserRecord[] = JSON.parse(readFileSync(USERS_FILE, "utf-8"));
-    for (const u of list) {
-      usersByName.set(u.username.toLowerCase(), u);
-      usersById.set(u.id, u);
-    }
+    ingest(list);
   } catch {
     // Corrupt or unreadable file — start fresh rather than crash the server.
   }
 }
-load();
 
 function persist() {
-  writeFileSync(USERS_FILE, JSON.stringify(Array.from(usersByName.values()), null, 2), "utf-8");
+  const list = Array.from(usersByName.values());
+  if (redis) {
+    redis.set("users", list).catch((err) => console.error("Failed to save accounts to Redis:", err));
+    return;
+  }
+  writeFileSync(USERS_FILE, JSON.stringify(list, null, 2), "utf-8");
 }
 
 function hashPassword(password: string, salt: string): string {

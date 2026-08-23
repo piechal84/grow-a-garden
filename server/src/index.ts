@@ -25,7 +25,7 @@ import {
   sell,
 } from "./rooms.js";
 import type { ClientToServerEvents, RoomState, ServerToClientEvents } from "./types.js";
-import { login, register, saveProgress } from "./userStore.js";
+import { initUserStore, login, register, saveProgress } from "./userStore.js";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 
@@ -178,6 +178,7 @@ io.on("connection", (socket) => {
   });
 });
 
+await initUserStore();
 httpServer.listen(PORT, () => {
   console.log(`Grow Garden server listening on http://localhost:${PORT}`);
 });
