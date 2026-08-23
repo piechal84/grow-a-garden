@@ -47,6 +47,8 @@ export interface PlayerState {
   weeklyQuestBucket: number;
   dailyRerollCount: number;
   weeklyRerollCount: number;
+  seedStock: Record<string, number>;
+  seedStockBucket: number;
 }
 
 export interface RoomState {
@@ -78,6 +80,11 @@ export interface MoonPackAck extends ActionAck {
   result?: MoonPackResult;
 }
 
+export interface SellAllAck extends ActionAck {
+  earned?: number;
+  count?: number;
+}
+
 export interface AuthAck {
   ok: boolean;
   error?: string;
@@ -99,6 +106,7 @@ export interface ClientToServerEvents {
     payload: { cropId: string; sizeLabel: string; mutations: MutationId[]; quantity: number | "all" },
     ack?: (res: ActionAck) => void,
   ) => void;
+  sell_all: (ack?: (res: SellAllAck) => void) => void;
   buy_gear: (payload: { gearId: string }, ack?: (res: ActionAck) => void) => void;
   buy_moon_pack: (ack?: (res: MoonPackAck) => void) => void;
   move: (payload: { x: number; y: number }) => void;

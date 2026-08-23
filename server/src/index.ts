@@ -13,6 +13,7 @@ import {
   createRoom,
   ensurePosition,
   ensureQuestsFresh,
+  ensureStockFresh,
   extractProgress,
   findRoomByPlayer,
   harvest,
@@ -24,6 +25,7 @@ import {
   reclaim,
   rerollQuest,
   sell,
+  sellAll,
 } from "./rooms.js";
 import type { ClientToServerEvents, RoomState, ServerToClientEvents } from "./types.js";
 import { initUserStore, login, register, saveProgress } from "./userStore.js";
@@ -96,7 +98,10 @@ io.on("connection", (socket) => {
     if (!clientId) return { room: undefined, player: undefined };
     const room = findRoomByPlayer(clientId);
     const player = room?.players.find((p) => p.id === clientId);
-    if (player) ensureQuestsFresh(player, Date.now());
+    if (player) {
+      ensureQuestsFresh(player, Date.now());
+      ensureStockFresh(player, Date.now());
+    }
     return { room, player };
   }
 
@@ -145,6 +150,14 @@ io.on("connection", (socket) => {
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
     const result = sell(player, cropId, sizeLabel, mutations, quantity);
     ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("sell_all", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = sellAll(player);
+    ack?.({ ok: !result.error, error: result.error, earned: result.earned, count: result.count });
     if (!result.error) broadcast(room);
   });
 

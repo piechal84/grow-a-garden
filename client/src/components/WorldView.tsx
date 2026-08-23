@@ -15,7 +15,7 @@ import {
   WORLD_WIDTH,
   type Position,
 } from "../world";
-import { playThunderClap, startRainAmbience, stopRainAmbience } from "../sound";
+import { playDragonFruitEmber, playMoonBlossomChime, playThunderClap, startRainAmbience, stopRainAmbience } from "../sound";
 import GardenDecor from "./GardenDecor";
 import GearShopView from "./GearShopView";
 import MerchantView from "./MerchantView";
@@ -182,6 +182,14 @@ export default function WorldView({
   const { isDay } = phaseInfo(room.createdAt, now);
   const { temperature, sky } = getActiveWeather(room.createdAt, now);
 
+  const plantWorldPositions: Position[] = room.players.flatMap((p) => {
+    const origin = plotOrigin(p.slotIndex);
+    return p.plantings.map((planting) => ({
+      x: origin.x + (planting.x + planting.w / 2) * CELL_SIZE,
+      y: origin.y + (planting.y + planting.h / 2) * CELL_SIZE,
+    }));
+  });
+
   useEffect(() => {
     if (sky.id === "rain" || sky.id === "thunderstorm") {
       startRainAmbience();
@@ -201,6 +209,29 @@ export default function WorldView({
       window.clearInterval(interval);
     };
   }, [sky.id]);
+
+  const hasMoonBlossom = me?.plantings.some((p) => p.cropId === "moon_blossom") ?? false;
+  const hasDragonFruit = me?.plantings.some((p) => p.cropId === "dragonfruit") ?? false;
+
+  useEffect(() => {
+    if (!hasMoonBlossom) return;
+    const initial = window.setTimeout(() => playMoonBlossomChime(), 4000);
+    const interval = window.setInterval(() => playMoonBlossomChime(), 32_000);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+    };
+  }, [hasMoonBlossom]);
+
+  useEffect(() => {
+    if (!hasDragonFruit) return;
+    const initial = window.setTimeout(() => playDragonFruitEmber(), 9000);
+    const interval = window.setInterval(() => playDragonFruitEmber(), 28_000);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+    };
+  }, [hasDragonFruit]);
 
   return (
     <div className="world-scroll">
@@ -240,7 +271,7 @@ export default function WorldView({
         {sky.id === "thunderstorm" && (
           <>
             <div className="lightning-flash" />
-            <LightningBolts />
+            <LightningBolts targets={plantWorldPositions} />
           </>
         )}
 

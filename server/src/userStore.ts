@@ -25,6 +25,8 @@ export interface SavedProgress {
   weeklyQuestBucket: number;
   dailyRerollCount: number;
   weeklyRerollCount: number;
+  seedStock: Record<string, number>;
+  seedStockBucket: number;
 }
 
 export interface UserRecord {
@@ -52,6 +54,8 @@ function defaultProgress(): SavedProgress {
     weeklyQuestBucket: -1,
     dailyRerollCount: 0,
     weeklyRerollCount: 0,
+    seedStock: {},
+    seedStockBucket: -1,
   };
 }
 

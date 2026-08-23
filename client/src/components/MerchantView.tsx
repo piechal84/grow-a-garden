@@ -56,11 +56,26 @@ export default function MerchantView({ player }: { player: PlayerState }) {
     });
   }
 
+  const totalEstimate = sortedGroups.reduce((sum, g) => sum + g.unitPrice * g.count, 0);
+  const totalCount = sortedGroups.reduce((sum, g) => sum + g.count, 0);
+
+  function handleSellAll() {
+    setError(null);
+    socket.emit("sell_all", (res) => {
+      if (!res.ok) setError(res.error ?? "Could not sell.");
+    });
+  }
+
   return (
     <div className="shop-view">
       <h2>🧺 Merchant</h2>
       <p className="shop-sub">Sell your harvest for coins — bigger sizes and mutations fetch a lot more.</p>
       {error && <p className="lobby-error">{error}</p>}
+      {sortedGroups.length > 0 && (
+        <button className="btn btn-primary sell-all-btn" onClick={handleSellAll}>
+          🪙 Sell All {totalCount} Items (≈{totalEstimate})
+        </button>
+      )}
       {sortedGroups.length === 0 ? (
         <p className="modal-empty">Nothing harvested yet — go pick some crops!</p>
       ) : (

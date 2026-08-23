@@ -19,7 +19,7 @@ export const CROPS: Crop[] = [
   { id: "corn", name: "Corn", emoji: "🌽", tier: 3, seedCost: 120, growSeconds: 45, sellPrice: 200, unlockAt: 120, footprint: { w: 2, h: 1 } },
   { id: "strawberry", name: "Strawberry", emoji: "🍓", tier: 4, seedCost: 250, growSeconds: 60, sellPrice: 420, unlockAt: 250, footprint: { w: 1, h: 1 }, persistent: true },
   { id: "watermelon", name: "Watermelon", emoji: "🍉", tier: 5, seedCost: 500, growSeconds: 90, sellPrice: 850, unlockAt: 500, footprint: { w: 2, h: 2 }, persistent: true },
-  { id: "pumpkin", name: "Pumpkin", emoji: "🎃", tier: 6, seedCost: 1000, growSeconds: 120, sellPrice: 1800, unlockAt: 1000, footprint: { w: 2, h: 2 }, persistent: true },
+  { id: "grapes", name: "Grapes", emoji: "🍇", tier: 6, seedCost: 1000, growSeconds: 120, sellPrice: 1800, unlockAt: 1000, footprint: { w: 1, h: 1 }, persistent: true },
   { id: "dragonfruit", name: "Dragon Fruit", emoji: "🐉", tier: 7, seedCost: 2500, growSeconds: 180, sellPrice: 4800, unlockAt: 2500, footprint: { w: 2, h: 2 }, persistent: true },
 ];
 

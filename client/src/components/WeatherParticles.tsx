@@ -1,4 +1,5 @@
-import { WORLD_HEIGHT, WORLD_WIDTH } from "../world";
+import { useEffect, useState } from "react";
+import { WORLD_HEIGHT, WORLD_WIDTH, type Position } from "../world";
 
 interface Particle {
   left: number;
@@ -91,17 +92,46 @@ export function SnowParticles() {
   );
 }
 
-const BOLT_X = [20, 46, 70];
+const BOLT_COUNT = 3;
 
-export function LightningBolts() {
+function randomTarget(targets: Position[]): Position {
+  if (targets.length > 0) return targets[Math.floor(Math.random() * targets.length)];
+  return { x: WORLD_WIDTH * (0.15 + Math.random() * 0.7), y: WORLD_HEIGHT * (0.25 + Math.random() * 0.6) };
+}
+
+/**
+ * Bolts strike down at real crop positions when any are available (each bolt rerolls its target
+ * every time its 7s strike cycle loops via onAnimationIteration), falling back to random spots
+ * across the map when nothing is planted yet.
+ */
+export function LightningBolts({ targets }: { targets: Position[] }) {
+  const [picks, setPicks] = useState<Position[]>(() =>
+    Array.from({ length: BOLT_COUNT }, () => randomTarget(targets)),
+  );
+
+  useEffect(() => {
+    setPicks(Array.from({ length: BOLT_COUNT }, () => randomTarget(targets)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targets.length > 0]);
+
+  function reroll(i: number) {
+    setPicks((prev) => {
+      const next = [...prev];
+      next[i] = randomTarget(targets);
+      return next;
+    });
+  }
+
   return (
     <>
-      {BOLT_X.map((x, i) => (
+      {picks.map((pos, i) => (
         <svg
           key={i}
           className="lightning-bolt"
-          style={{ left: `${x}%`, animationDelay: `${i * 0.15}s` }}
+          style={{ left: pos.x - 24, height: pos.y, animationDelay: `${i * 0.15}s` }}
           viewBox="0 0 60 200"
+          preserveAspectRatio="none"
+          onAnimationIteration={() => reroll(i)}
         >
           <polygon
             points="32,0 8,95 26,95 2,200 58,78 34,78 50,0"
@@ -111,6 +141,13 @@ export function LightningBolts() {
             strokeLinejoin="round"
           />
         </svg>
+      ))}
+      {picks.map((pos, i) => (
+        <span
+          key={`impact-${i}`}
+          className="lightning-strike-impact"
+          style={{ left: pos.x, top: pos.y, animationDelay: `${i * 0.15}s` }}
+        />
       ))}
     </>
   );

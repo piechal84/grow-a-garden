@@ -1,5 +1,5 @@
 import { customAlphabet, nanoid } from "nanoid";
-import { CROPS_BY_ID, GEAR_BY_ID, MAX_PLAYERS_PER_ROOM, rollSizeTier, STARTING_COINS } from "./gameData.js";
+import { CROPS, CROPS_BY_ID, GEAR_BY_ID, MAX_PLAYERS_PER_ROOM, rollSizeTier, STARTING_COINS } from "./gameData.js";
 import { getCropDef, MOON_PACK_COST, resolveFootprint, rollMoonPack, type PackResult } from "./moonData.js";
 import {
   dayBucket,
@@ -66,9 +66,40 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     weeklyQuestBucket: saved?.weeklyQuestBucket ?? -1,
     dailyRerollCount: saved?.dailyRerollCount ?? 0,
     weeklyRerollCount: saved?.weeklyRerollCount ?? 0,
+    seedStock: saved?.seedStock ?? {},
+    seedStockBucket: saved?.seedStockBucket ?? -1,
   };
   ensureQuestsFresh(player, Date.now());
+  ensureStockFresh(player, Date.now());
   return player;
+}
+
+const STOCK_CYCLE_MS = 2 * 60 * 1000;
+/** Common through Epic (tier 0-3): always in stock once unlocked, capped and refilled each cycle. */
+const LOW_TIER_STOCK = 5;
+const LOW_TIER_MAX_CROP_TIER = 3;
+/** Mythic and above (tier 4+): usually out of stock — each cycle rolls a chance for one unit to
+ *  appear, and it isn't re-rolled away until someone buys it. */
+const HIGH_TIER_RESTOCK_CHANCE = 0.35;
+const HIGH_TIER_RESTOCK_QTY = 1;
+
+function isUnlockedFor(player: PlayerState, unlockAt: number): boolean {
+  return player.coins >= unlockAt || player.lifetimeCoins >= unlockAt;
+}
+
+/** Rolls a fresh seed-shop stock the moment the player's real-world 2-minute bucket rolls over. */
+export function ensureStockFresh(player: PlayerState, now: number) {
+  const bucket = Math.floor(now / STOCK_CYCLE_MS);
+  if (player.seedStockBucket === bucket) return;
+  player.seedStockBucket = bucket;
+  for (const crop of CROPS) {
+    if (!isUnlockedFor(player, crop.unlockAt)) continue;
+    if (crop.tier <= LOW_TIER_MAX_CROP_TIER) {
+      player.seedStock[crop.id] = LOW_TIER_STOCK;
+    } else if ((player.seedStock[crop.id] ?? 0) <= 0 && Math.random() < HIGH_TIER_RESTOCK_CHANCE) {
+      player.seedStock[crop.id] = HIGH_TIER_RESTOCK_QTY;
+    }
+  }
 }
 
 /** Regenerates a player's daily/weekly quest sets the moment their real-world bucket has rolled over. */
@@ -262,12 +293,20 @@ function isOrthogonallyAdjacent(a: Planting, b: Planting): boolean {
   return touchesHorizontally || touchesVertically;
 }
 
-/** Moon Blossom blesses every crop orthogonally next to it with +20% value ("lunar"), computed live
- *  off current board layout rather than stored, so moving/reclaiming the Blossom updates it instantly. */
+/** Each Moon Blossom blesses exactly one neighbor — whichever adjacent crop has sat there the
+ *  longest (ties broken by id for stability) — with +20% value ("lunar"). Computed live off
+ *  current board layout rather than stored, so moving/reclaiming the Blossom updates it instantly. */
+function lunarRecipientId(player: PlayerState, blossom: Planting): string | undefined {
+  const adjacent = player.plantings.filter((p) => p.id !== blossom.id && isOrthogonallyAdjacent(p, blossom));
+  if (adjacent.length === 0) return undefined;
+  return adjacent.reduce((a, b) =>
+    a.plantedAt !== b.plantedAt ? (a.plantedAt < b.plantedAt ? a : b) : a.id < b.id ? a : b,
+  ).id;
+}
+
 function withLunarAura(player: PlayerState, planting: Planting, mutations: MutationId[]): MutationId[] {
-  const blessed = player.plantings.some(
-    (p) => p.id !== planting.id && p.cropId === "moon_blossom" && isOrthogonallyAdjacent(planting, p),
-  );
+  const blossoms = player.plantings.filter((p) => p.cropId === "moon_blossom" && p.id !== planting.id);
+  const blessed = blossoms.some((b) => lunarRecipientId(player, b) === planting.id);
   if (!blessed || mutations.includes("lunar")) return mutations;
   return [...mutations, "lunar"];
 }
@@ -283,10 +322,15 @@ export function buySeed(player: PlayerState, cropId: string, quantity: number): 
   if (player.coins < crop.unlockAt && player.lifetimeCoins < crop.unlockAt) {
     return { error: `${crop.name} is still locked.` };
   }
+  const inStock = player.seedStock[cropId] ?? 0;
+  if (inStock < quantity) {
+    return { error: inStock === 0 ? `${crop.name} is out of stock right now.` : `Only ${inStock} left in stock.` };
+  }
   const totalCost = crop.seedCost * quantity;
   if (player.coins < totalCost) return { error: "Not enough coins." };
   player.coins -= totalCost;
   player.seedInventory[cropId] = (player.seedInventory[cropId] ?? 0) + quantity;
+  player.seedStock[cropId] = inStock - quantity;
   return {};
 }
 
@@ -410,6 +454,26 @@ export function sell(
   return {};
 }
 
+export function sellAll(player: PlayerState): { error?: string; earned?: number; count?: number } {
+  if (player.cropInventory.length === 0) return { error: "Nothing to sell." };
+  const mult = sellMultiplier(player);
+  let earned = 0;
+  for (const item of player.cropInventory) {
+    const crop = getCropDef(item.cropId);
+    if (!crop) continue;
+    let mutationMult = 1;
+    for (const m of item.mutations) mutationMult *= MUTATIONS[m].priceMultiplier;
+    earned += Math.round(crop.sellPrice * item.sizePriceMultiplier * mutationMult * mult);
+  }
+  const count = player.cropInventory.length;
+  player.cropInventory = [];
+  player.coins += earned;
+  player.lifetimeCoins += earned;
+  advanceQuests(player, "sell", count);
+  advanceQuests(player, "earn_coins", earned);
+  return { earned, count };
+}
+
 export function buyGear(player: PlayerState, gearId: string): { error?: string } {
   const gear = GEAR_BY_ID[gearId];
   if (!gear) return { error: "Unknown gear." };
@@ -447,6 +511,8 @@ export function extractProgress(player: PlayerState): SavedProgress {
     weeklyQuestBucket: player.weeklyQuestBucket,
     dailyRerollCount: player.dailyRerollCount,
     weeklyRerollCount: player.weeklyRerollCount,
+    seedStock: player.seedStock,
+    seedStockBucket: player.seedStockBucket,
   };
 }
 

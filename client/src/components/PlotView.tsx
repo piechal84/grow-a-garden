@@ -17,12 +17,21 @@ function isOrthogonallyAdjacent(a: Planting, b: Planting): boolean {
   return touchesHorizontally || touchesVertically;
 }
 
+/** Each Moon Blossom blesses exactly one neighbor — mirrors the server's pick so the preview
+ *  badge matches what harvest will actually roll. */
+function lunarRecipientId(allPlantings: Planting[], blossom: Planting): string | undefined {
+  const adjacent = allPlantings.filter((p) => p.id !== blossom.id && isOrthogonallyAdjacent(p, blossom));
+  if (adjacent.length === 0) return undefined;
+  return adjacent.reduce((a, b) =>
+    a.plantedAt !== b.plantedAt ? (a.plantedAt < b.plantedAt ? a : b) : a.id < b.id ? a : b,
+  ).id;
+}
+
 /** Preview of the mutations this planting would harvest with right now, including the "lunar"
- *  bonus from any adjacent Moon Blossom — the real roll is finalized server-side at harvest time. */
+ *  bonus from an adjacent Moon Blossom — the real roll is finalized server-side at harvest time. */
 function previewMutations(planting: Planting, allPlantings: Planting[]): MutationId[] {
-  const blessed = allPlantings.some(
-    (p) => p.id !== planting.id && p.cropId === "moon_blossom" && isOrthogonallyAdjacent(planting, p),
-  );
+  const blossoms = allPlantings.filter((p) => p.cropId === "moon_blossom" && p.id !== planting.id);
+  const blessed = blossoms.some((b) => lunarRecipientId(allPlantings, b) === planting.id);
   if (!blessed || planting.mutations.includes("lunar")) return planting.mutations;
   return [...planting.mutations, "lunar"];
 }

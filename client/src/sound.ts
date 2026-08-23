@@ -67,30 +67,143 @@ export function stopRainAmbience() {
 export function playThunderClap() {
   if (muted) return;
   const context = getCtx();
+  const t0 = context.currentTime;
 
+  // Sharp bright transient — the initial "snap" of the strike, tightly bandpassed so it reads
+  // as a crack rather than raw static.
   const crackSource = context.createBufferSource();
-  crackSource.buffer = makeNoiseBuffer(context, 0.4);
+  crackSource.buffer = makeNoiseBuffer(context, 0.15);
   const crackFilter = context.createBiquadFilter();
-  crackFilter.type = "highpass";
-  crackFilter.frequency.value = 900;
+  crackFilter.type = "bandpass";
+  crackFilter.frequency.value = 2800;
+  crackFilter.Q.value = 0.7;
   const crackGain = context.createGain();
-  crackGain.gain.setValueAtTime(0.28, context.currentTime);
-  crackGain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.3);
+  crackGain.gain.setValueAtTime(0.32, t0);
+  crackGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.12);
   crackSource.connect(crackFilter);
   crackFilter.connect(crackGain);
   crackGain.connect(context.destination);
-  crackSource.start();
+  crackSource.start(t0);
 
-  const rumble = context.createOscillator();
-  rumble.type = "sine";
-  rumble.frequency.setValueAtTime(120, context.currentTime);
-  rumble.frequency.exponentialRampToValueAtTime(38, context.currentTime + 1.4);
+  // Mid-body boom — fills the gap between the crack and the low rumble tail.
+  const boomSource = context.createBufferSource();
+  boomSource.buffer = makeNoiseBuffer(context, 0.6);
+  const boomFilter = context.createBiquadFilter();
+  boomFilter.type = "lowpass";
+  boomFilter.frequency.setValueAtTime(1400, t0);
+  boomFilter.frequency.exponentialRampToValueAtTime(220, t0 + 0.7);
+  const boomGain = context.createGain();
+  boomGain.gain.setValueAtTime(0.001, t0);
+  boomGain.gain.linearRampToValueAtTime(0.3, t0 + 0.06);
+  boomGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.8);
+  boomSource.connect(boomFilter);
+  boomFilter.connect(boomGain);
+  boomGain.connect(context.destination);
+  boomSource.start(t0);
+
+  // Low rolling rumble tail — two slightly detuned sines through a lowpass for a fuller,
+  // less synthetic low end than a single bare sine sweep.
+  const rumbleFilter = context.createBiquadFilter();
+  rumbleFilter.type = "lowpass";
+  rumbleFilter.frequency.value = 220;
   const rumbleGain = context.createGain();
-  rumbleGain.gain.setValueAtTime(0.001, context.currentTime);
-  rumbleGain.gain.linearRampToValueAtTime(0.22, context.currentTime + 0.1);
-  rumbleGain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 1.6);
-  rumble.connect(rumbleGain);
+  rumbleGain.gain.setValueAtTime(0.001, t0);
+  rumbleGain.gain.linearRampToValueAtTime(0.24, t0 + 0.15);
+  rumbleGain.gain.exponentialRampToValueAtTime(0.001, t0 + 2.2);
+  rumbleFilter.connect(rumbleGain);
   rumbleGain.connect(context.destination);
-  rumble.start();
-  rumble.stop(context.currentTime + 1.7);
+  for (const detune of [0, 6]) {
+    const rumble = context.createOscillator();
+    rumble.type = "sine";
+    rumble.detune.value = detune;
+    rumble.frequency.setValueAtTime(115, t0);
+    rumble.frequency.exponentialRampToValueAtTime(34, t0 + 1.8);
+    rumble.connect(rumbleFilter);
+    rumble.start(t0);
+    rumble.stop(t0 + 2.3);
+  }
+
+  // Randomized secondary crackle bursts — the rolling, uneven character of real thunder
+  // instead of one clean hit.
+  for (let i = 0; i < 3; i++) {
+    const delay = 0.15 + Math.random() * 0.5 + i * 0.25;
+    const start = t0 + delay;
+    const crackle = context.createBufferSource();
+    crackle.buffer = makeNoiseBuffer(context, 0.12);
+    const crackleFilter = context.createBiquadFilter();
+    crackleFilter.type = "bandpass";
+    crackleFilter.frequency.value = 1400 + Math.random() * 900;
+    crackleFilter.Q.value = 0.9;
+    const crackleGain = context.createGain();
+    crackleGain.gain.setValueAtTime(0.001, start);
+    crackleGain.gain.linearRampToValueAtTime(0.1 + Math.random() * 0.06, start + 0.02);
+    crackleGain.gain.exponentialRampToValueAtTime(0.001, start + 0.18);
+    crackle.connect(crackleFilter);
+    crackleFilter.connect(crackleGain);
+    crackleGain.connect(context.destination);
+    crackle.start(start);
+  }
+}
+
+const CHIME_VOLUME = 0.11;
+
+/** A shimmering wind-chime cue that periodically signals a Moon Blossom is nearby. */
+export function playMoonBlossomChime() {
+  if (muted) return;
+  const context = getCtx();
+  const t0 = context.currentTime;
+  const notes = [1046.5, 1318.5, 1568, 2093]; // C6, E6, G6, C7 — bright and airy
+  notes.forEach((freq, i) => {
+    const start = t0 + i * 0.11;
+    const osc = context.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.001, start);
+    gain.gain.linearRampToValueAtTime(CHIME_VOLUME, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 1.1);
+    osc.connect(gain);
+    gain.connect(context.destination);
+    osc.start(start);
+    osc.stop(start + 1.2);
+  });
+}
+
+/** A brief low growl + ember crackle that periodically signals a Dragon Fruit is nearby. */
+export function playDragonFruitEmber() {
+  if (muted) return;
+  const context = getCtx();
+  const t0 = context.currentTime;
+
+  const growl = context.createOscillator();
+  growl.type = "sawtooth";
+  growl.frequency.setValueAtTime(70, t0);
+  growl.frequency.exponentialRampToValueAtTime(42, t0 + 0.5);
+  const growlFilter = context.createBiquadFilter();
+  growlFilter.type = "lowpass";
+  growlFilter.frequency.value = 320;
+  const growlGain = context.createGain();
+  growlGain.gain.setValueAtTime(0.001, t0);
+  growlGain.gain.linearRampToValueAtTime(0.16, t0 + 0.08);
+  growlGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.6);
+  growl.connect(growlFilter);
+  growlFilter.connect(growlGain);
+  growlGain.connect(context.destination);
+  growl.start(t0);
+  growl.stop(t0 + 0.65);
+
+  const crackle = context.createBufferSource();
+  crackle.buffer = makeNoiseBuffer(context, 0.3);
+  const crackleFilter = context.createBiquadFilter();
+  crackleFilter.type = "bandpass";
+  crackleFilter.frequency.value = 3200;
+  crackleFilter.Q.value = 0.6;
+  const crackleGain = context.createGain();
+  crackleGain.gain.setValueAtTime(0.001, t0 + 0.1);
+  crackleGain.gain.linearRampToValueAtTime(0.09, t0 + 0.15);
+  crackleGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.45);
+  crackle.connect(crackleFilter);
+  crackleFilter.connect(crackleGain);
+  crackleGain.connect(context.destination);
+  crackle.start(t0 + 0.1);
 }

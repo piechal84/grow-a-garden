@@ -904,39 +904,15 @@ button {
   background: radial-gradient(circle, rgba(160, 220, 255, 0.2), rgba(120, 190, 250, 0.32));
 }
 
+/* Flat color washes only — the actual rain visual comes from RainParticles' individual
+   droplets, so this used to double up with a diagonal repeating-gradient "streak" texture
+   that read as a harsh stripy filter (especially layered under the dark night overlay). */
 .sky-overlay-rain {
-  background: repeating-linear-gradient(
-    115deg,
-    rgba(180, 210, 240, 0.35) 0px,
-    rgba(180, 210, 240, 0.35) 2px,
-    transparent 2px,
-    transparent 22px
-  );
-  animation: rain-fall 0.5s linear infinite;
-  mix-blend-mode: normal;
-  opacity: 0.55;
+  background: rgba(140, 170, 210, 0.22);
 }
 
 .sky-overlay-thunderstorm {
-  background: repeating-linear-gradient(
-    115deg,
-    rgba(200, 210, 230, 0.4) 0px,
-    rgba(200, 210, 230, 0.4) 2px,
-    transparent 2px,
-    transparent 18px
-  );
-  animation: rain-fall 0.35s linear infinite;
-  mix-blend-mode: normal;
-  opacity: 0.6;
-}
-
-@keyframes rain-fall {
-  from {
-    background-position: 0 0;
-  }
-  to {
-    background-position: -30px 60px;
-  }
+  background: rgba(90, 100, 135, 0.3);
 }
 
 .lightning-flash {
@@ -1096,13 +1072,26 @@ button {
 .lightning-bolt {
   position: absolute;
   top: 0;
-  width: 60px;
-  height: 220px;
+  width: 48px;
   opacity: 0;
   filter: drop-shadow(0 0 12px #fff) drop-shadow(0 0 26px #cdeaff);
   animation: lightning-strike 7s ease-in-out infinite;
   z-index: 4;
   pointer-events: none;
+}
+
+.lightning-strike-impact {
+  position: absolute;
+  width: 70px;
+  height: 36px;
+  margin-left: -35px;
+  margin-top: -10px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #fff 0%, #ffe066 35%, transparent 75%);
+  opacity: 0;
+  z-index: 5;
+  pointer-events: none;
+  animation: lightning-strike 7s ease-in-out infinite;
 }
 
 /* ---------- Mutations ---------- */
@@ -1124,6 +1113,35 @@ button {
 
 .plant-mutation-glow {
   filter: drop-shadow(0 0 6px var(--mutation-glow));
+  position: relative;
+}
+
+/* A pulsing colored halo makes a mutated crop obvious at a glance — uses a pseudo-element
+   (not the element's own `animation`) since plant-sway/plant-ready-pulse already occupy that
+   property and a second shorthand would silently replace them instead of combining. */
+.plant-mutation-glow::after {
+  content: "";
+  position: absolute;
+  inset: -22%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--mutation-glow) 0%, var(--mutation-glow) 22%, transparent 68%);
+  opacity: 0.4;
+  filter: blur(4px);
+  pointer-events: none;
+  animation: mutation-pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes mutation-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    scale: 0.82;
+  }
+  50% {
+    opacity: 0.75;
+    scale: 1.3;
+  }
 }
 
 /* Divine (Nebula Cherry) and Celestial (Moon Blossom) get a bold, unmistakable aura at every
@@ -1514,6 +1532,25 @@ button {
   color: var(--ink-soft);
   margin-top: 4px;
   flex-wrap: wrap;
+}
+
+.stock-tag {
+  font-weight: 700;
+}
+
+.stock-tag-available {
+  color: var(--leaf-dark, #2f7a3f);
+}
+
+.stock-tag-empty {
+  color: #b5442c;
+}
+
+.sell-all-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  margin-bottom: 16px;
 }
 
 .shop-row-actions {
