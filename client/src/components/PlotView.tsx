@@ -99,7 +99,7 @@ export default function PlotView({
         return (
           <div
             key={planting.id}
-            className={`stud stud-planted ${ready ? "stud-ready" : ""}`}
+            className={`stud stud-planted ${ready ? "stud-ready" : ""} ${ready && isOwner ? "stud-harvestable" : ""}`}
             style={{
               left: planting.x * CELL_SIZE,
               top: planting.y * CELL_SIZE,
@@ -148,9 +148,6 @@ export default function PlotView({
               </span>
             )}
             {!ready && <span className="stud-timer">{secondsLeft}s</span>}
-            {ready && isOwner && (
-              <span className="stud-harvest-hint">{crop.persistent ? "Tap to harvest (regrows)" : "Tap to harvest"}</span>
-            )}
           </div>
         );
       })}
