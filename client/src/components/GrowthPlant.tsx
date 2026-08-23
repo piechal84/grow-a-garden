@@ -22,19 +22,24 @@ export default function GrowthPlant({
   ready,
   targetScale,
   glowColor,
+  auraTier,
 }: {
   crop: IconCrop;
   pct: number;
   ready: boolean;
   targetScale: number;
   glowColor?: string;
+  /** Divine/Celestial moon crops get a persistent sparkle aura at every growth stage. */
+  auraTier?: "divine" | "celestial";
 }) {
+  const auraClass = auraTier ? `plant-aura-${auraTier}` : "";
+
   if (pct < SEED_END) {
     return (
       <div className="plant-visual-wrap">
         <div
           key="seed"
-          className="plant-seed plant-stage-enter"
+          className={`plant-seed plant-stage-enter ${auraClass}`}
           style={{ width: SEED_DOT_SIZE, height: SEED_DOT_SIZE }}
         />
       </div>
@@ -44,7 +49,11 @@ export default function GrowthPlant({
   if (pct < SPROUT_END) {
     return (
       <div className="plant-visual-wrap">
-        <span key="sprout" className="plant-visual plant-sway plant-stage-enter" style={{ fontSize: SPROUT_FONT_SIZE }}>
+        <span
+          key="sprout"
+          className={`plant-visual plant-sway plant-stage-enter ${auraClass}`}
+          style={{ fontSize: SPROUT_FONT_SIZE }}
+        >
           🌱
         </span>
       </div>
@@ -56,7 +65,7 @@ export default function GrowthPlant({
       <div className="plant-visual-wrap">
         <span
           key="sapling"
-          className="plant-visual plant-sway plant-stage-enter"
+          className={`plant-visual plant-sway plant-stage-enter ${auraClass}`}
           style={{ fontSize: SAPLING_FONT_SIZE }}
         >
           🌿
@@ -74,7 +83,7 @@ export default function GrowthPlant({
         key="crop"
         className={`plant-visual plant-sway plant-stage-enter ${ready ? "plant-ready-pulse" : ""} ${
           glowColor ? "plant-mutation-glow" : ""
-        }`}
+        } ${auraClass}`}
         style={{ scale: String(scale), ["--mutation-glow" as string]: glowColor }}
       >
         <CropIcon crop={crop} size={CROP_ICON_SIZE} />

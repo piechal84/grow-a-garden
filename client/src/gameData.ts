@@ -29,7 +29,8 @@ export type GearEffect =
   | { type: "growSpeed"; value: number }
   | { type: "sellBonus"; value: number }
   | { type: "expandGarden"; value: number }
-  | { type: "unlockReclaim" };
+  | { type: "unlockReclaim" }
+  | { type: "unlockMove" };
 
 export interface GearItem {
   id: string;
@@ -79,6 +80,15 @@ export const GEAR: GearItem[] = [
     cost: 350,
     repeatable: false,
     effect: { type: "unlockReclaim" },
+  },
+  {
+    id: "trowel",
+    name: "Trowel",
+    emoji: "🛠️",
+    description: "Relocate any planted crop to a new spot on your plot without losing its growth or mutations.",
+    cost: 450,
+    repeatable: false,
+    effect: { type: "unlockMove" },
   },
 ];
 

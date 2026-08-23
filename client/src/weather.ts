@@ -43,7 +43,7 @@ export function effectiveWorkBetween(roomCreatedAt: number, from: number, to: nu
 
 // ---------- Weather & mutations ----------
 
-export type MutationId = "scorched" | "frozen" | "wet" | "charged";
+export type MutationId = "scorched" | "frozen" | "wet" | "charged" | "lunar";
 
 export interface Mutation {
   id: MutationId;
@@ -58,6 +58,8 @@ export const MUTATIONS: Record<MutationId, Mutation> = {
   frozen: { id: "frozen", label: "Frozen", emoji: "❄️", priceMultiplier: 1.8, color: "#5fc9e0" },
   wet: { id: "wet", label: "Wet", emoji: "💧", priceMultiplier: 1.3, color: "#3f8fe0" },
   charged: { id: "charged", label: "Charged", emoji: "⚡", priceMultiplier: 2.2, color: "#f2d43a" },
+  // Not weather-rolled — granted only while a crop sits next to a Moon Blossom.
+  lunar: { id: "lunar", label: "Lunar", emoji: "🌙", priceMultiplier: 1.2, color: "#b18cf0" },
 };
 
 export interface WeatherCondition {

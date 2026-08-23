@@ -244,13 +244,37 @@ function sellMultiplier(player: PlayerState): number {
   return 1 + bonus;
 }
 
-function canPlaceAt(player: PlayerState, x: number, y: number, w: number, h: number): boolean {
+function canPlaceAt(player: PlayerState, x: number, y: number, w: number, h: number, ignoreId?: string): boolean {
   if (x < 0 || y < 0 || x + w > player.gridWidth || y + h > player.gridHeight) return false;
   for (const p of player.plantings) {
+    if (p.id === ignoreId) continue;
     if (x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + h > p.y) return false;
   }
   return true;
 }
+
+/** True if two footprints share an edge (not just a corner) — "the squares next to it". */
+function isOrthogonallyAdjacent(a: Planting, b: Planting): boolean {
+  const rowOverlap = a.y < b.y + b.h && b.y < a.y + a.h;
+  const colOverlap = a.x < b.x + b.w && b.x < a.x + a.w;
+  const touchesHorizontally = rowOverlap && (a.x + a.w === b.x || b.x + b.w === a.x);
+  const touchesVertically = colOverlap && (a.y + a.h === b.y || b.y + b.h === a.y);
+  return touchesHorizontally || touchesVertically;
+}
+
+/** Moon Blossom blesses every crop orthogonally next to it with +20% value ("lunar"), computed live
+ *  off current board layout rather than stored, so moving/reclaiming the Blossom updates it instantly. */
+function withLunarAura(player: PlayerState, planting: Planting, mutations: MutationId[]): MutationId[] {
+  const blessed = player.plantings.some(
+    (p) => p.id !== planting.id && p.cropId === "moon_blossom" && isOrthogonallyAdjacent(planting, p),
+  );
+  if (!blessed || mutations.includes("lunar")) return mutations;
+  return [...mutations, "lunar"];
+}
+
+/** Persistent crops regrow 10x slower than their first grow — they're a one-time seed cost that
+ *  would otherwise print money forever, so the ongoing regrow needs a real time cost. */
+const PERSISTENT_REGROW_MULTIPLIER = 10;
 
 export function buySeed(player: PlayerState, cropId: string, quantity: number): { error?: string } {
   const crop = CROPS_BY_ID[cropId];
@@ -306,7 +330,7 @@ export function harvest(room: RoomState, player: PlayerState, plantingId: string
     cropId: planting.cropId,
     sizeLabel: planting.sizeLabel,
     sizePriceMultiplier: planting.sizePriceMultiplier,
-    mutations: planting.mutations,
+    mutations: withLunarAura(player, planting, planting.mutations),
   };
   player.cropInventory.push(harvested);
   advanceQuests(player, "harvest", 1);
@@ -314,10 +338,11 @@ export function harvest(room: RoomState, player: PlayerState, plantingId: string
   const crop = getCropDef(planting.cropId);
   if (crop?.persistent) {
     // Persistent crops are trees/vines: they stay planted and immediately start regrowing
-    // a fresh fruit (new size/mutation roll) instead of being consumed.
+    // a fresh fruit (new size/mutation roll) instead of being consumed — at 10x the normal
+    // grow time, since otherwise a one-time seed cost prints money forever.
     const now = Date.now();
     const tier = rollSizeTier();
-    const requiredMs = crop.growSeconds * 1000 * growSpeedMultiplier(player);
+    const requiredMs = crop.growSeconds * 1000 * growSpeedMultiplier(player) * PERSISTENT_REGROW_MULTIPLIER;
     planting.plantedAt = now;
     planting.readyAt = computeReadyAt(room.createdAt, now, requiredMs);
     planting.sizeLabel = tier.label;
@@ -338,6 +363,17 @@ export function reclaim(player: PlayerState, plantingId: string): { error?: stri
   const planting = player.plantings[idx];
   player.seedInventory[planting.cropId] = (player.seedInventory[planting.cropId] ?? 0) + 1;
   player.plantings.splice(idx, 1);
+  return {};
+}
+
+export function movePlanting(player: PlayerState, plantingId: string, x: number, y: number): { error?: string } {
+  const owned = player.gearOwned["trowel"] ?? 0;
+  if (owned <= 0) return { error: "You need the Trowel from the Gear Shop first." };
+  const planting = player.plantings.find((p) => p.id === plantingId);
+  if (!planting) return { error: "Nothing planted there." };
+  if (!canPlaceAt(player, x, y, planting.w, planting.h, planting.id)) return { error: "Won't fit there." };
+  planting.x = x;
+  planting.y = y;
   return {};
 }
 

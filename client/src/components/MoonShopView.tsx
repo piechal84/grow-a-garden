@@ -118,7 +118,11 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
       <div className="shop-list">
         {MOON_CROPS.map((crop) => (
           <div key={crop.id} className="shop-row">
-            <div className="shop-row-icon">
+            <div
+              className={`shop-row-icon ${crop.tier === "mythic" ? "plant-aura-divine" : ""} ${
+                crop.tier === "legendary" ? "plant-aura-celestial" : ""
+              }`}
+            >
               <CropIcon crop={crop} size={30} />
             </div>
             <div className="shop-row-info">

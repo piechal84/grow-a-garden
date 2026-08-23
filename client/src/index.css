@@ -690,10 +690,18 @@ button {
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
 }
 
-.reclaim-btn {
+.stud-tool-stack {
   position: absolute;
   top: 2px;
   left: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  z-index: 3;
+}
+
+.reclaim-btn,
+.move-btn {
   width: 18px;
   height: 18px;
   padding: 0;
@@ -706,9 +714,67 @@ button {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-.reclaim-btn:hover {
+.reclaim-btn:hover,
+.move-btn:hover {
   background: #fff;
   transform: scale(1.1);
+}
+
+.move-btn-active {
+  background: var(--sun);
+  box-shadow: 0 0 0 2px #fff, 0 0 8px rgba(247, 183, 51, 0.8);
+}
+
+.stud-moving {
+  outline: 2px dashed var(--sun-dark);
+  outline-offset: -2px;
+  opacity: 0.85;
+}
+
+.stud-empty-target {
+  background: rgba(63, 174, 90, 0.35) !important;
+  outline: 2px dashed rgba(63, 174, 90, 0.7);
+  outline-offset: -2px;
+}
+
+.plot-move-banner {
+  position: absolute;
+  top: -34px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--sun);
+  color: #4a3300;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  z-index: 6;
+  white-space: nowrap;
+}
+
+.plot-move-cancel {
+  padding: 2px 10px;
+  font-size: 11px;
+}
+
+.plot-move-error {
+  position: absolute;
+  top: -34px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  background: #ffe3e0;
+  color: #a5321c;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 10px;
+  z-index: 6;
 }
 
 .avatar {
@@ -1058,6 +1124,96 @@ button {
 
 .plant-mutation-glow {
   filter: drop-shadow(0 0 6px var(--mutation-glow));
+}
+
+/* Divine (Nebula Cherry) and Celestial (Moon Blossom) get a persistent sparkle aura at every
+   growth stage — celestial runs faster/brighter as the top of the rarity ladder. */
+.plant-aura-divine,
+.plant-aura-celestial {
+  position: relative;
+  z-index: 1;
+}
+
+.plant-aura-divine::before,
+.plant-aura-celestial::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  pointer-events: none;
+  z-index: -1;
+  background-image:
+    radial-gradient(circle, currentColor 0 2px, transparent 3px),
+    radial-gradient(circle, currentColor 0 1.4px, transparent 2.4px),
+    radial-gradient(circle, currentColor 0 1.4px, transparent 2.4px),
+    radial-gradient(circle, currentColor 0 1.8px, transparent 2.8px),
+    radial-gradient(circle, currentColor 0 1.4px, transparent 2.4px);
+  background-position: 10% 18%, 88% 12%, 14% 86%, 84% 80%, 50% 2%;
+  background-repeat: no-repeat;
+  animation: aura-twinkle 1.7s ease-in-out infinite;
+}
+
+.plant-aura-divine::after,
+.plant-aura-celestial::after {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: radial-gradient(circle, currentColor 0%, transparent 72%);
+  opacity: 0.3;
+  z-index: -2;
+  animation: aura-pulse 2s ease-in-out infinite;
+}
+
+.plant-aura-divine {
+  color: #ffd54a;
+}
+
+.plant-aura-celestial {
+  color: #4fd8e0;
+}
+
+.plant-aura-celestial::before {
+  animation-duration: 1.3s;
+}
+
+.plant-aura-celestial::after {
+  animation-duration: 1.5s;
+  opacity: 0.4;
+}
+
+/* Compact contexts (shop rows) need the aura contained within their fixed icon slot. */
+.shop-row-icon.plant-aura-divine::before,
+.shop-row-icon.plant-aura-celestial::before {
+  inset: -10%;
+}
+
+.shop-row-icon.plant-aura-divine::after,
+.shop-row-icon.plant-aura-celestial::after {
+  inset: 22%;
+}
+
+@keyframes aura-twinkle {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.9) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15) rotate(10deg);
+  }
+}
+
+@keyframes aura-pulse {
+  0%,
+  100% {
+    opacity: 0.2;
+    scale: 0.88;
+  }
+  50% {
+    opacity: 0.5;
+    scale: 1.18;
+  }
 }
 
 /* ---------- Growth animation ---------- */
