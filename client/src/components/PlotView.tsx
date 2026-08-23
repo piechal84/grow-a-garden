@@ -95,6 +95,7 @@ export default function PlotView({
         const pct = totalWork > 0 ? Math.min(100, Math.max(0, (doneWork / totalWork) * 100)) : 100;
         const secondsLeft = Math.max(0, Math.ceil((planting.readyAt - now) / 1000));
         const glowColor = planting.mutations.length > 0 ? MUTATIONS[planting.mutations[0]].color : undefined;
+        const timerFontSize = Math.round(Math.min(planting.w, planting.h) * CELL_SIZE * 0.4);
 
         return (
           <div
@@ -147,7 +148,11 @@ export default function PlotView({
                 {planting.sizeLabel}
               </span>
             )}
-            {!ready && <span className="stud-timer">{secondsLeft}s</span>}
+            {!ready && (
+              <span className="stud-timer" style={{ fontSize: timerFontSize }}>
+                {secondsLeft}s
+              </span>
+            )}
           </div>
         );
       })}

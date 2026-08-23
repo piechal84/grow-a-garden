@@ -667,10 +667,19 @@ button {
 
 .stud-timer {
   position: absolute;
-  bottom: 1px;
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--ink-soft);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.55),
+    0 0 6px rgba(0, 0, 0, 0.5),
+    0 2px 4px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 2;
 }
 
 .tree-badge {
