@@ -29,25 +29,31 @@ export const MOON_CROPS_BY_ID: Record<string, MoonCrop> = Object.fromEntries(MOO
 
 export const MOON_TIER_ORDER: MoonTier[] = ["common", "uncommon", "rare", "epic", "mythic", "legendary"];
 
-export const MOON_TIER_COLORS: Record<MoonTier, string> = {
-  common: "#8fa3c7",
-  uncommon: "#5fb87a",
-  rare: "#3f8fe0",
-  epic: "#a35fe0",
-  mythic: "#e05fb0",
-  legendary: "#f2b23a",
+/**
+ * Moon Shop crops sit at the TOP of the same 8-rung rarity ladder the regular Seed Shop
+ * uses (CROP_TIER_LABELS/CROP_TIER_COLORS in gameData.ts) rather than restarting their own
+ * scale — so Moon Blossom (moon "legendary") displays as "Celestial", the very top tier,
+ * and even the "common" moon crop reads as rarer than most regular-shop crops.
+ */
+export const MOON_TIER_TO_CROP_TIER: Record<MoonTier, number> = {
+  common: 2,
+  uncommon: 3,
+  rare: 4,
+  epic: 5,
+  mythic: 6,
+  legendary: 7,
 };
 
 export const MOON_PACK_COST = 500;
 
 /** Mirrors the server's weighting, for display odds only — the real roll happens server-side. Every pack guarantees a seed. */
-export const MOON_PACK_ODDS: { label: string; pct: number; tier: MoonTier }[] = [
-  { label: "Common", pct: 46.2, tier: "common" },
-  { label: "Uncommon", pct: 27.7, tier: "uncommon" },
-  { label: "Rare", pct: 15.4, tier: "rare" },
-  { label: "Epic", pct: 7.7, tier: "epic" },
-  { label: "Mythic", pct: 2.3, tier: "mythic" },
-  { label: "Legendary", pct: 0.8, tier: "legendary" },
+export const MOON_PACK_ODDS: { pct: number; tier: MoonTier }[] = [
+  { pct: 46.2, tier: "common" },
+  { pct: 27.7, tier: "uncommon" },
+  { pct: 15.4, tier: "rare" },
+  { pct: 7.7, tier: "epic" },
+  { pct: 2.3, tier: "mythic" },
+  { pct: 0.8, tier: "legendary" },
 ];
 
 export function getCropDef(cropId: string): Crop | MoonCrop | undefined {

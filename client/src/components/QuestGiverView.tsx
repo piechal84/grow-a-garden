@@ -1,0 +1,100 @@
+import { useState } from "react";
+import {
+  DAILY_REROLL_BASE_COST,
+  DAILY_REROLL_STEP,
+  questEmoji,
+  rerollCost,
+  WEEKLY_REROLL_BASE_COST,
+  WEEKLY_REROLL_STEP,
+  type Quest,
+} from "../quests";
+import type { PlayerState } from "../types";
+import { socket } from "../socket";
+
+function QuestRow({
+  quest,
+  rerollTargetCost,
+  affordable,
+  onReroll,
+}: {
+  quest: Quest;
+  rerollTargetCost: number;
+  affordable: boolean;
+  onReroll: () => void;
+}) {
+  const pct = Math.min(100, (quest.progress / quest.target) * 100);
+  return (
+    <div className={`quest-row ${quest.completed ? "quest-row-done" : ""}`}>
+      <div className="quest-row-top">
+        <span className="quest-label">
+          {questEmoji(quest.type)} {quest.label}
+        </span>
+        {!quest.completed && (
+          <button className="btn btn-secondary quest-reroll-btn" disabled={!affordable} onClick={onReroll}>
+            🔄 {rerollTargetCost}
+          </button>
+        )}
+      </div>
+      <div className="progress-track">
+        <div className="progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="quest-row-bottom">
+        <span>
+          {quest.progress}/{quest.target}
+        </span>
+        <span className="quest-reward">
+          {quest.completed ? "✓ Claimed" : `🪙 ${quest.coinReward}${quest.moonPacks > 0 ? ` + 🎁x${quest.moonPacks}` : ""}`}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export default function QuestGiverView({ player }: { player: PlayerState }) {
+  const [error, setError] = useState<string | null>(null);
+
+  function handleReroll(questSet: "daily" | "weekly", questId: string) {
+    setError(null);
+    socket.emit("reroll_quest", { questSet, questId }, (res) => {
+      if (!res.ok) setError(res.error ?? "Could not reroll quest.");
+    });
+  }
+
+  return (
+    <div className="shop-view">
+      <h2>📜 Quest Giver</h2>
+      <p className="shop-sub">
+        Complete quests for automatic rewards. Don't like one? Reroll it with coins.
+      </p>
+      {error && <p className="lobby-error">{error}</p>}
+
+      <h3 className="moon-section-title">Daily Quests</h3>
+      <div className="shop-list">
+        {player.dailyQuests.map((q) => (
+          <QuestRow
+            key={q.id}
+            quest={q}
+            rerollTargetCost={rerollCost(DAILY_REROLL_BASE_COST, DAILY_REROLL_STEP, player.dailyRerollCount)}
+            affordable={player.coins >= rerollCost(DAILY_REROLL_BASE_COST, DAILY_REROLL_STEP, player.dailyRerollCount)}
+            onReroll={() => handleReroll("daily", q.id)}
+          />
+        ))}
+      </div>
+
+      <h3 className="moon-section-title">Weekly Quests</h3>
+      <div className="shop-list">
+        {player.weeklyQuests.map((q) => (
+          <QuestRow
+            key={q.id}
+            quest={q}
+            rerollTargetCost={rerollCost(WEEKLY_REROLL_BASE_COST, WEEKLY_REROLL_STEP, player.weeklyRerollCount)}
+            affordable={
+              player.coins >= rerollCost(WEEKLY_REROLL_BASE_COST, WEEKLY_REROLL_STEP, player.weeklyRerollCount)
+            }
+            onReroll={() => handleReroll("weekly", q.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

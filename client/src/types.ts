@@ -1,4 +1,5 @@
 import type { MoonTier } from "./moonData";
+import type { Quest } from "./quests";
 import type { MutationId } from "./weather";
 import type { Position } from "./world";
 
@@ -40,6 +41,12 @@ export interface PlayerState {
   gearOwned: Record<string, number>;
   /** Set when this player is a logged-in account (vs an anonymous guest) — their progress persists. */
   accountUsername?: string;
+  dailyQuests: Quest[];
+  weeklyQuests: Quest[];
+  dailyQuestBucket: number;
+  weeklyQuestBucket: number;
+  dailyRerollCount: number;
+  weeklyRerollCount: number;
 }
 
 export interface RoomState {
@@ -96,6 +103,10 @@ export interface ClientToServerEvents {
   move: (payload: { x: number; y: number }) => void;
   register: (payload: { username: string; password: string }, ack: (res: AuthAck) => void) => void;
   login: (payload: { username: string; password: string }, ack: (res: AuthAck) => void) => void;
+  reroll_quest: (
+    payload: { questSet: "daily" | "weekly"; questId: string },
+    ack?: (res: ActionAck) => void,
+  ) => void;
 }
 
 export interface ServerToClientEvents {

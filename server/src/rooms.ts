@@ -1,6 +1,22 @@
 import { customAlphabet, nanoid } from "nanoid";
 import { CROPS_BY_ID, GEAR_BY_ID, MAX_PLAYERS_PER_ROOM, rollSizeTier, STARTING_COINS } from "./gameData.js";
 import { getCropDef, MOON_PACK_COST, resolveFootprint, rollMoonPack, type PackResult } from "./moonData.js";
+import {
+  dayBucket,
+  DAILY_QUEST_POOL,
+  DAILY_REROLL_BASE_COST,
+  DAILY_REROLL_STEP,
+  rerollCost,
+  rollDailyQuests,
+  rollWeeklyQuests,
+  templateToQuest,
+  weekBucket,
+  WEEKLY_QUEST_POOL,
+  WEEKLY_REROLL_BASE_COST,
+  WEEKLY_REROLL_STEP,
+  type Quest,
+  type QuestType,
+} from "./quests.js";
 import type { HarvestedCrop, PlayerState, Planting, RoomState } from "./types.js";
 import { findUserById, type SavedProgress } from "./userStore.js";
 import { computeReadyAt, MUTATIONS, mutationKey, rollMutations, type MutationId } from "./weather.js";
@@ -30,7 +46,7 @@ function nextFreeSlot(room: RoomState): number {
 function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
   const account = findUserById(id);
   const saved = account?.progress;
-  return {
+  const player: PlayerState = {
     id,
     name,
     connected: true,
@@ -44,7 +60,76 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     cropInventory: saved?.cropInventory ?? [],
     gearOwned: saved?.gearOwned ?? {},
     accountUsername: account?.username,
+    dailyQuests: saved?.dailyQuests ?? [],
+    weeklyQuests: saved?.weeklyQuests ?? [],
+    dailyQuestBucket: saved?.dailyQuestBucket ?? -1,
+    weeklyQuestBucket: saved?.weeklyQuestBucket ?? -1,
+    dailyRerollCount: saved?.dailyRerollCount ?? 0,
+    weeklyRerollCount: saved?.weeklyRerollCount ?? 0,
   };
+  ensureQuestsFresh(player, Date.now());
+  return player;
+}
+
+/** Regenerates a player's daily/weekly quest sets the moment their real-world bucket has rolled over. */
+export function ensureQuestsFresh(player: PlayerState, now: number) {
+  const dBucket = dayBucket(now);
+  if (player.dailyQuestBucket !== dBucket) {
+    player.dailyQuests = rollDailyQuests();
+    player.dailyQuestBucket = dBucket;
+    player.dailyRerollCount = 0;
+  }
+  const wBucket = weekBucket(now);
+  if (player.weeklyQuestBucket !== wBucket) {
+    player.weeklyQuests = rollWeeklyQuests();
+    player.weeklyQuestBucket = wBucket;
+    player.weeklyRerollCount = 0;
+  }
+}
+
+function grantQuestReward(player: PlayerState, quest: Quest) {
+  player.coins += quest.coinReward;
+  player.lifetimeCoins += quest.coinReward;
+  for (let i = 0; i < quest.moonPacks; i++) {
+    const result = rollMoonPack();
+    player.seedInventory[result.cropId] = (player.seedInventory[result.cropId] ?? 0) + 1;
+  }
+}
+
+function advanceQuests(player: PlayerState, type: QuestType, amount: number) {
+  for (const quest of [...player.dailyQuests, ...player.weeklyQuests]) {
+    if (quest.completed || quest.type !== type) continue;
+    quest.progress = Math.min(quest.target, quest.progress + amount);
+    if (quest.progress >= quest.target) {
+      quest.completed = true;
+      grantQuestReward(player, quest);
+    }
+  }
+}
+
+export function rerollQuest(
+  player: PlayerState,
+  questSet: "daily" | "weekly",
+  questId: string,
+): { error?: string } {
+  const quests = questSet === "daily" ? player.dailyQuests : player.weeklyQuests;
+  const idx = quests.findIndex((q) => q.id === questId);
+  if (idx === -1) return { error: "Quest not found." };
+  const usedCount = questSet === "daily" ? player.dailyRerollCount : player.weeklyRerollCount;
+  const cost =
+    questSet === "daily"
+      ? rerollCost(DAILY_REROLL_BASE_COST, DAILY_REROLL_STEP, usedCount)
+      : rerollCost(WEEKLY_REROLL_BASE_COST, WEEKLY_REROLL_STEP, usedCount);
+  if (player.coins < cost) return { error: "Not enough coins." };
+  player.coins -= cost;
+  const pool = questSet === "daily" ? DAILY_QUEST_POOL : WEEKLY_QUEST_POOL;
+  const otherKeys = new Set(quests.filter((_, i) => i !== idx).map((q) => `${q.type}:${q.target}`));
+  const candidates = pool.filter((t) => !otherKeys.has(`${t.type}:${t.target}`));
+  const usable = candidates.length > 0 ? candidates : pool;
+  quests[idx] = templateToQuest(usable[Math.floor(Math.random() * usable.length)]);
+  if (questSet === "daily") player.dailyRerollCount += 1;
+  else player.weeklyRerollCount += 1;
+  return {};
 }
 
 export function createRoom(hostId: string, hostName: string): RoomState {
@@ -207,6 +292,7 @@ export function plant(room: RoomState, player: PlayerState, x: number, y: number
     mutations: rollMutations(room.createdAt, now),
   };
   player.plantings.push(planting);
+  advanceQuests(player, "plant", 1);
   return {};
 }
 
@@ -223,6 +309,7 @@ export function harvest(room: RoomState, player: PlayerState, plantingId: string
     mutations: planting.mutations,
   };
   player.cropInventory.push(harvested);
+  advanceQuests(player, "harvest", 1);
 
   const crop = getCropDef(planting.cropId);
   if (crop?.persistent) {
@@ -282,6 +369,8 @@ export function sell(
   player.cropInventory = player.cropInventory.filter((c) => !soldIds.has(c.itemId));
   player.coins += earned;
   player.lifetimeCoins += earned;
+  advanceQuests(player, "sell", qty);
+  advanceQuests(player, "earn_coins", earned);
   return {};
 }
 
@@ -316,6 +405,12 @@ export function extractProgress(player: PlayerState): SavedProgress {
     seedInventory: player.seedInventory,
     cropInventory: player.cropInventory,
     gearOwned: player.gearOwned,
+    dailyQuests: player.dailyQuests,
+    weeklyQuests: player.weeklyQuests,
+    dailyQuestBucket: player.dailyQuestBucket,
+    weeklyQuestBucket: player.weeklyQuestBucket,
+    dailyRerollCount: player.dailyRerollCount,
+    weeklyRerollCount: player.weeklyRerollCount,
   };
 }
 

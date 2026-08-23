@@ -3,6 +3,7 @@ import { NPC_POSITIONS } from "../world";
 const NPC_INFO = {
   seed: { emoji: "🧑‍🌾", label: "Seed Shop", accent: "#3fae5a" },
   gear: { emoji: "🧑‍🔧", label: "Gear Shop", accent: "#2f7dc4" },
+  quests: { emoji: "📜", label: "Quest Giver", accent: "#c4472f" },
   merchant: { emoji: "🧺", label: "Merchant", accent: "#e0982a" },
   moon: { emoji: "🌙", label: "Moon Shop", accent: "#8a6fd8" },
 } as const;

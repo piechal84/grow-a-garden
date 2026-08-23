@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isMuted, setMuted } from "../sound";
 import type { RoomState } from "../types";
 import type { Position } from "../world";
@@ -19,11 +19,33 @@ export default function GameShell({
   const [now, setNow] = useState(Date.now());
   const [copied, setCopied] = useState(false);
   const [muted, setMutedState] = useState(isMuted());
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const shellRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      setIsFullscreen(document.fullscreenElement != null);
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (shellRef.current) {
+        await shellRef.current.requestFullscreen();
+      }
+    } catch {
+      // fullscreen unsupported or denied, ignore
+    }
+  }
 
   const me = room.players.find((p) => p.id === meId)!;
 
@@ -38,7 +60,7 @@ export default function GameShell({
   }
 
   return (
-    <div className="game-shell">
+    <div className="game-shell" ref={shellRef}>
       <header className="game-header">
         <div className="game-header-left">
           <span className="game-title">🌱 Grow a Garden</span>
@@ -47,6 +69,13 @@ export default function GameShell({
           </button>
         </div>
         <div className="game-header-right">
+          <button
+            className="mute-toggle"
+            title={isFullscreen ? "Exit full screen" : "Enter full screen"}
+            onClick={toggleFullscreen}
+          >
+            {isFullscreen ? "🗗" : "⛶"}
+          </button>
           <button
             className="mute-toggle"
             title={muted ? "Unmute sound" : "Mute sound"}

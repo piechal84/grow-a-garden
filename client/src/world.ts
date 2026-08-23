@@ -18,10 +18,11 @@ export const PLOT_ROW_SPACING_Y = MAX_GRID_HEIGHT * CELL_SIZE + 80;
 
 export const MARKET_Y = 90;
 export const NPC_POSITIONS = {
-  seed: { x: 200, y: MARKET_Y },
-  gear: { x: 380, y: MARKET_Y },
-  merchant: { x: 560, y: MARKET_Y },
-  moon: { x: 740, y: MARKET_Y },
+  seed: { x: 180, y: MARKET_Y },
+  gear: { x: 340, y: MARKET_Y },
+  quests: { x: 500, y: MARKET_Y },
+  merchant: { x: 660, y: MARKET_Y },
+  moon: { x: 820, y: MARKET_Y },
 };
 
 export const WORLD_WIDTH = PLOT_ORIGIN_X_START + PLOTS_PER_ROW * PLOT_SPACING_X + 80;

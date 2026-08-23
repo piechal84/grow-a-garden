@@ -1,8 +1,17 @@
 import { useState } from "react";
-import { MOON_CROPS, MOON_PACK_COST, MOON_PACK_ODDS, MOON_TIER_COLORS } from "../moonData";
+import { CROP_TIER_COLORS, CROP_TIER_LABELS } from "../gameData";
+import { MOON_CROPS, MOON_PACK_COST, MOON_PACK_ODDS, MOON_TIER_TO_CROP_TIER, type MoonTier } from "../moonData";
 import type { MoonPackResult, PlayerState } from "../types";
 import { socket } from "../socket";
 import CropIcon from "./CropIcon";
+
+function tierLabel(tier: MoonTier): string {
+  return CROP_TIER_LABELS[MOON_TIER_TO_CROP_TIER[tier]];
+}
+
+function tierColor(tier: MoonTier): string {
+  return CROP_TIER_COLORS[MOON_TIER_TO_CROP_TIER[tier]];
+}
 
 export default function MoonShopView({ player }: { player: PlayerState }) {
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +54,8 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
             <div className={`moon-reveal moon-reveal-${lastResult.kind}`}>
               <CropIcon crop={crop} size={44} />
               <span className="moon-reveal-title">{crop.name}</span>
-              <span className="moon-reveal-tier" style={{ color: MOON_TIER_COLORS[crop.tier] }}>
-                {crop.tier.toUpperCase()}
+              <span className="moon-reveal-tier" style={{ color: tierColor(crop.tier) }}>
+                {tierLabel(crop.tier).toUpperCase()}
               </span>
             </div>
           );
@@ -62,8 +71,8 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
             <div className="shop-row-info">
               <div className="shop-row-name">
                 {crop.name}
-                <span className="size-badge" style={{ background: MOON_TIER_COLORS[crop.tier] }}>
-                  {crop.tier}
+                <span className="size-badge" style={{ background: tierColor(crop.tier) }}>
+                  {tierLabel(crop.tier)}
                 </span>
                 {crop.persistent && (
                   <span className="tree-tag" title="Regrows after harvest — never consumed">
@@ -84,8 +93,8 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
       <h3 className="moon-section-title">Pack Odds</h3>
       <div className="moon-odds-list">
         {MOON_PACK_ODDS.map((o) => (
-          <div key={o.label} className="moon-odds-row">
-            <span style={{ color: o.tier ? MOON_TIER_COLORS[o.tier] : "var(--ink-soft)" }}>{o.label}</span>
+          <div key={o.tier} className="moon-odds-row">
+            <span style={{ color: tierColor(o.tier) }}>{tierLabel(o.tier)}</span>
             <span>{o.pct}%</span>
           </div>
         ))}

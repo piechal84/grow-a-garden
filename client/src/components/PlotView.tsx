@@ -129,7 +129,12 @@ export default function PlotView({
               </button>
             )}
             {pct >= 70 && planting.mutations.length > 0 && (
-              <span className="mutation-badges">
+              <span
+                className="mutation-badges"
+                title={planting.mutations
+                  .map((m) => `${MUTATIONS[m].label} (+${Math.round((MUTATIONS[m].priceMultiplier - 1) * 100)}% sell price)`)
+                  .join(" · ")}
+              >
                 {planting.mutations.map((m) => (
                   <span key={m} className="mutation-badge" style={{ background: MUTATIONS[m].color }}>
                     {MUTATIONS[m].emoji}

@@ -1,6 +1,9 @@
 import cors from "cors";
 import express from "express";
+import { existsSync } from "node:fs";
 import { createServer } from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 import {
   allPositions,
@@ -9,6 +12,7 @@ import {
   buySeed,
   createRoom,
   ensurePosition,
+  ensureQuestsFresh,
   extractProgress,
   findRoomByPlayer,
   harvest,
@@ -17,6 +21,7 @@ import {
   movePlayer,
   plant,
   reclaim,
+  rerollQuest,
   sell,
 } from "./rooms.js";
 import type { ClientToServerEvents, RoomState, ServerToClientEvents } from "./types.js";
@@ -27,6 +32,15 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 const app = express();
 app.use(cors());
 app.get("/health", (_req, res) => res.json({ ok: true }));
+
+// In a single-deploy setup the built client sits at client/dist alongside this server;
+// serve it (with an SPA fallback) so the whole game is reachable from one URL.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const clientDist = path.join(__dirname, "../../client/dist");
+if (existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get("*", (_req, res) => res.sendFile(path.join(clientDist, "index.html")));
+}
 
 const httpServer = createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
@@ -81,6 +95,7 @@ io.on("connection", (socket) => {
     if (!clientId) return { room: undefined, player: undefined };
     const room = findRoomByPlayer(clientId);
     const player = room?.players.find((p) => p.id === clientId);
+    if (player) ensureQuestsFresh(player, Date.now());
     return { room, player };
   }
 
@@ -138,6 +153,14 @@ io.on("connection", (socket) => {
     const outcome = buyMoonPack(player);
     ack?.({ ok: !outcome.error, error: outcome.error, result: outcome.result });
     if (!outcome.error) broadcast(room);
+  });
+
+  socket.on("reroll_quest", ({ questSet, questId }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = rerollQuest(player, questSet, questId);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
   });
 
   socket.on("move", ({ x, y }) => {

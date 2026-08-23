@@ -2,6 +2,7 @@ import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypt
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { STARTING_COINS } from "./gameData.js";
+import type { Quest } from "./quests.js";
 import type { HarvestedCrop, Planting } from "./types.js";
 import { BASE_GRID_HEIGHT, PLOT_GRID_WIDTH } from "./world.js";
 
@@ -17,6 +18,12 @@ export interface SavedProgress {
   seedInventory: Record<string, number>;
   cropInventory: HarvestedCrop[];
   gearOwned: Record<string, number>;
+  dailyQuests: Quest[];
+  weeklyQuests: Quest[];
+  dailyQuestBucket: number;
+  weeklyQuestBucket: number;
+  dailyRerollCount: number;
+  weeklyRerollCount: number;
 }
 
 export interface UserRecord {
@@ -38,6 +45,12 @@ function defaultProgress(): SavedProgress {
     seedInventory: {},
     cropInventory: [],
     gearOwned: {},
+    dailyQuests: [],
+    weeklyQuests: [],
+    dailyQuestBucket: -1,
+    weeklyQuestBucket: -1,
+    dailyRerollCount: 0,
+    weeklyRerollCount: 0,
   };
 }
 

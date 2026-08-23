@@ -80,7 +80,12 @@ export default function MerchantView({ player }: { player: PlayerState }) {
                       {g.sizeLabel}
                     </span>
                     {g.mutations.map((m) => (
-                      <span key={m} className="size-badge" style={{ background: MUTATIONS[m].color }}>
+                      <span
+                        key={m}
+                        className="size-badge"
+                        style={{ background: MUTATIONS[m].color }}
+                        title={`+${Math.round((MUTATIONS[m].priceMultiplier - 1) * 100)}% sell price`}
+                      >
                         {MUTATIONS[m].emoji} {MUTATIONS[m].label}
                       </span>
                     ))}
