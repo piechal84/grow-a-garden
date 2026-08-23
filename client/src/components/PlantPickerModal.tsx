@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { canPlaceAt } from "../derived";
 import { getCropDef, MOON_CROPS_BY_ID, possibleFootprints } from "../moonData";
 import type { PlayerState } from "../types";
@@ -21,7 +22,7 @@ export default function PlantPickerModal({
     socket.emit("plant", { x, y, cropId }, () => onClose());
   }
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>Plant a seed</h2>
@@ -61,6 +62,7 @@ export default function PlantPickerModal({
           Cancel
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
