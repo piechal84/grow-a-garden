@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CROP_TIER_COLORS, CROP_TIER_LABELS } from "../gameData";
 import { MOON_CROPS, MOON_PACK_COST, MOON_PACK_ODDS, MOON_TIER_TO_CROP_TIER, type MoonTier } from "../moonData";
-import type { MoonPackResult, PlayerState } from "../types";
+import type { MoonPackAck, MoonPackResult, PlayerState } from "../types";
 import { socket } from "../socket";
 import CropIcon from "./CropIcon";
+import MoonPackCelebration from "./MoonPackCelebration";
 
 function tierLabel(tier: MoonTier): string {
   return CROP_TIER_LABELS[MOON_TIER_TO_CROP_TIER[tier]];
@@ -13,25 +14,64 @@ function tierColor(tier: MoonTier): string {
   return CROP_TIER_COLORS[MOON_TIER_TO_CROP_TIER[tier]];
 }
 
+const SPIN_ORDER = MOON_CROPS.map((c) => c.id);
+const SPIN_MIN_STEPS = 18;
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+type Phase = "idle" | "spinning" | "revealed";
+
 export default function MoonShopView({ player }: { player: PlayerState }) {
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<MoonPackResult | null>(null);
-  const [opening, setOpening] = useState(false);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [spinCropId, setSpinCropId] = useState(SPIN_ORDER[0]);
+  const spinRunId = useRef(0);
 
   const affordable = player.coins >= MOON_PACK_COST;
 
-  function handleBuyPack() {
+  async function handleBuyPack() {
     setError(null);
-    setOpening(true);
+    setLastResult(null);
+    setPhase("spinning");
+    const runId = ++spinRunId.current;
+
+    const box: { ack: MoonPackAck | null } = { ack: null };
     socket.emit("buy_moon_pack", (res) => {
-      setOpening(false);
-      if (!res.ok) {
-        setError(res.error ?? "Could not buy pack.");
-        return;
-      }
-      setLastResult(res.result ?? null);
+      box.ack = res;
     });
+
+    // Cycle through the crop icons with a slot-machine deceleration curve. Keeps spinning
+    // past the minimum if the server hasn't answered yet, so it never looks stuck or reveals
+    // before the real (server-authoritative) result is known.
+    let step = 0;
+    while (true) {
+      if (runId !== spinRunId.current) return; // superseded by a newer open
+      setSpinCropId(SPIN_ORDER[step % SPIN_ORDER.length]);
+      const t = Math.min(1, step / SPIN_MIN_STEPS);
+      await delay(55 + t * t * 210);
+      step++;
+      if (step >= SPIN_MIN_STEPS && box.ack) break;
+    }
+    if (runId !== spinRunId.current) return;
+
+    const res = box.ack;
+    if (!res || !res.ok || !res.result) {
+      setPhase("idle");
+      setError(res?.error ?? "Could not buy pack.");
+      return;
+    }
+
+    setSpinCropId(res.result.cropId);
+    await delay(450);
+    if (runId !== spinRunId.current) return;
+    setLastResult(res.result);
+    setPhase("revealed");
   }
+
+  const spinningCrop = MOON_CROPS.find((c) => c.id === spinCropId);
 
   return (
     <div className="shop-view">
@@ -42,22 +82,35 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
       </p>
       {error && <p className="lobby-error">{error}</p>}
 
-      <button className="btn btn-moon" disabled={!affordable || opening} onClick={handleBuyPack}>
-        {opening ? "Opening…" : `🎁 Open Moon Seed Pack (${MOON_PACK_COST})`}
+      <button className="btn btn-moon" disabled={!affordable || phase === "spinning"} onClick={handleBuyPack}>
+        {phase === "spinning" ? "Opening…" : `🎁 Open Moon Seed Pack (${MOON_PACK_COST})`}
       </button>
 
-      {lastResult &&
+      {phase === "spinning" && spinningCrop && (
+        <div className="moon-spin">
+          <div className="moon-spin-window">
+            <CropIcon crop={spinningCrop} size={44} />
+          </div>
+          <span className="moon-spin-label">Rolling…</span>
+        </div>
+      )}
+
+      {phase === "revealed" &&
+        lastResult &&
         (() => {
           const crop = MOON_CROPS.find((c) => c.id === lastResult.cropId);
           if (!crop) return null;
           return (
-            <div className={`moon-reveal moon-reveal-${lastResult.kind}`}>
-              <CropIcon crop={crop} size={44} />
-              <span className="moon-reveal-title">{crop.name}</span>
-              <span className="moon-reveal-tier" style={{ color: tierColor(crop.tier) }}>
-                {tierLabel(crop.tier).toUpperCase()}
-              </span>
-            </div>
+            <>
+              <MoonPackCelebration tier={lastResult.kind} />
+              <div className={`moon-reveal moon-reveal-${lastResult.kind}`}>
+                <CropIcon crop={crop} size={44} />
+                <span className="moon-reveal-title">{crop.name}</span>
+                <span className="moon-reveal-tier" style={{ color: tierColor(crop.tier) }}>
+                  {tierLabel(crop.tier).toUpperCase()}
+                </span>
+              </div>
+            </>
           );
         })()}
 
