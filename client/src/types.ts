@@ -51,6 +51,7 @@ export interface PlayerState {
   seedStock: Record<string, number>;
   seedStockBucket: number;
   diamonds: number;
+  persistentUnlocked: Record<string, boolean>;
 }
 
 export interface RoomState {

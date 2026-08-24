@@ -76,6 +76,7 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     seedStock: saved?.seedStock ?? {},
     seedStockBucket: saved?.seedStockBucket ?? -1,
     diamonds: saved?.diamonds ?? 0,
+    persistentUnlocked: saved?.persistentUnlocked ?? {},
   };
   ensureQuestsFresh(player, Date.now());
   ensureStockFresh(player, Date.now());
@@ -352,7 +353,11 @@ export function plant(room: RoomState, player: PlayerState, x: number, y: number
   player.seedInventory[cropId] -= 1;
   const now = Date.now();
   const tier = rollSizeTier();
-  const requiredMs = crop.growSeconds * 1000 * growSpeedMultiplier(player);
+  // Once a player has harvested this crop's persistent form before, every future planting of it
+  // grows at the slow persistent-regrow rate from the start — otherwise reclaiming a regrowing
+  // tree and replanting the recovered seed would re-roll the fast first grow indefinitely.
+  const alreadyUnlocked = !!crop.persistent && !!player.persistentUnlocked[cropId];
+  const requiredMs = crop.growSeconds * 1000 * growSpeedMultiplier(player) * (alreadyUnlocked ? PERSISTENT_REGROW_MULTIPLIER : 1);
   const planting: Planting = {
     id: nanoid(8),
     cropId,
@@ -392,6 +397,7 @@ export function harvest(room: RoomState, player: PlayerState, plantingId: string
     // Persistent crops are trees/vines: they stay planted and immediately start regrowing
     // a fresh fruit (new size/mutation roll) instead of being consumed — at 10x the normal
     // grow time, since otherwise a one-time seed cost prints money forever.
+    player.persistentUnlocked[planting.cropId] = true;
     const now = Date.now();
     const tier = rollSizeTier();
     const requiredMs = crop.growSeconds * 1000 * growSpeedMultiplier(player) * PERSISTENT_REGROW_MULTIPLIER;
@@ -536,6 +542,7 @@ export function extractProgress(player: PlayerState): SavedProgress {
     seedStock: player.seedStock,
     seedStockBucket: player.seedStockBucket,
     diamonds: player.diamonds,
+    persistentUnlocked: player.persistentUnlocked,
   };
 }
 

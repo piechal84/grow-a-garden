@@ -53,6 +53,10 @@ export interface PlayerState {
   seedStockBucket: number;
   /** Premium currency — bought with coins or earned from events, spent on Solar Seed Packs. */
   diamonds: number;
+  /** Crop IDs whose persistent (regrowing) form this player has produced at least once — once
+   *  set, every future planting of that crop grows at the slow persistent-regrow rate from the
+   *  start, so reclaiming and replanting can't be used to keep re-rolling the fast first grow. */
+  persistentUnlocked: Record<string, boolean>;
 }
 
 export interface RoomState {

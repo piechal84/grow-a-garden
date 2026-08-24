@@ -28,6 +28,7 @@ export interface SavedProgress {
   seedStock: Record<string, number>;
   seedStockBucket: number;
   diamonds: number;
+  persistentUnlocked: Record<string, boolean>;
 }
 
 export interface UserRecord {
@@ -58,6 +59,7 @@ function defaultProgress(): SavedProgress {
     seedStock: {},
     seedStockBucket: -1,
     diamonds: 0,
+    persistentUnlocked: {},
   };
 }
 
