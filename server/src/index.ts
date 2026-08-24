@@ -11,6 +11,7 @@ import {
   buyGear,
   buyMoonPack,
   buyMoonPackBulk,
+  buyPet,
   buySeed,
   buySolarPack,
   buySolarPackBulk,
@@ -170,6 +171,14 @@ io.on("connection", (socket) => {
     const { room, player } = currentPlayer();
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
     const result = buyGear(player, gearId);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("buy_pet", ({ petId }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = buyPet(player, petId);
     ack?.({ ok: !result.error, error: result.error });
     if (!result.error) broadcast(room);
   });

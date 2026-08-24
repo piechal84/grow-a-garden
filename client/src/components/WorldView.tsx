@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MAX_PLAYERS_PER_ROOM } from "../gameData";
+import { PETS_BY_ID } from "../petData";
 import { socket } from "../socket";
 import type { RoomState } from "../types";
 import { getActiveWeather, getFeaturedShop, phaseInfo } from "../weather";
@@ -28,6 +29,7 @@ import InventoryView from "./InventoryView";
 import MerchantView from "./MerchantView";
 import MoonShopView from "./MoonShopView";
 import NPCStall, { NPC_INFO, SOLAR_INFO, type NPCKind } from "./NPCStall";
+import PetShopView from "./PetShopView";
 import PlotView from "./PlotView";
 import PremiumShopView from "./PremiumShopView";
 import QuestGiverView from "./QuestGiverView";
@@ -40,6 +42,17 @@ import { LightningBolts, NightStars, RainParticles, SnowParticles } from "./Weat
 const AVATAR_OFFSET_X = 13;
 const AVATAR_OFFSET_Y = 26;
 const MOVE_KEYS = new Set(["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"]);
+
+/** Shows the player's highest-tier owned pet as a small companion badge next to their avatar —
+ *  visible to every player in the room, not just its owner. */
+function topPetEmoji(petsOwned: string[]): string | undefined {
+  let best: { tier: number; emoji: string } | undefined;
+  for (const petId of petsOwned) {
+    const pet = PETS_BY_ID[petId];
+    if (pet && (!best || pet.tier > best.tier)) best = { tier: pet.tier, emoji: pet.emoji };
+  }
+  return best?.emoji;
+}
 
 interface MoveState {
   from: Position;
@@ -369,6 +382,7 @@ export default function WorldView({
         <NPCStall kind="merchant" onClick={() => handleNpcClick("merchant")} />
         <NPCStall kind="moon" featuredShop={featuredShop} onClick={() => handleNpcClick("moon")} />
         <NPCStall kind="premium" onClick={() => handleNpcClick("premium")} />
+        <NPCStall kind="pets" onClick={() => handleNpcClick("pets")} />
 
         {Array.from({ length: MAX_PLAYERS_PER_ROOM }, (_, slot) => {
           const player = room.players.find((p) => p.slotIndex === slot);
@@ -401,25 +415,33 @@ export default function WorldView({
           );
         })}
 
-        {room.players.map((p) => (
-          <div
-            key={p.id}
-            className={`avatar ${p.connected ? "" : "avatar-offline"} ${p.id === meId ? "avatar-me" : ""}`}
-            ref={(node) => {
-              if (node) avatarRefs.current.set(p.id, node);
-              else avatarRefs.current.delete(p.id);
-            }}
-            style={{
-              transform: `translate(${currentRestPosition(p.id).x - AVATAR_OFFSET_X}px, ${
-                currentRestPosition(p.id).y - AVATAR_OFFSET_Y
-              }px)`,
-            }}
-          >
-            <span className="avatar-shadow" />
-            <span className="avatar-emoji">🧑‍🌾</span>
-            <span className="avatar-name">{p.name}</span>
-          </div>
-        ))}
+        {room.players.map((p) => {
+          const petEmoji = topPetEmoji(p.petsOwned);
+          return (
+            <div
+              key={p.id}
+              className={`avatar ${p.connected ? "" : "avatar-offline"} ${p.id === meId ? "avatar-me" : ""}`}
+              ref={(node) => {
+                if (node) avatarRefs.current.set(p.id, node);
+                else avatarRefs.current.delete(p.id);
+              }}
+              style={{
+                transform: `translate(${currentRestPosition(p.id).x - AVATAR_OFFSET_X}px, ${
+                  currentRestPosition(p.id).y - AVATAR_OFFSET_Y
+                }px)`,
+              }}
+            >
+              <span className="avatar-shadow" />
+              <span className="avatar-emoji">🧑‍🌾</span>
+              {petEmoji && (
+                <span className="avatar-pet" title="Companion pet">
+                  {petEmoji}
+                </span>
+              )}
+              <span className="avatar-name">{p.name}</span>
+            </div>
+          );
+        })}
       </div>
       </div>
       </div>
@@ -433,6 +455,7 @@ export default function WorldView({
           {openShop === "moon" && featuredShop === "moon" && <MoonShopView player={me} />}
           {openShop === "moon" && featuredShop === "solar" && <SolarShopView player={me} />}
           {openShop === "premium" && <PremiumShopView player={me} />}
+          {openShop === "pets" && <PetShopView player={me} />}
         </ShopModal>
       )}
 

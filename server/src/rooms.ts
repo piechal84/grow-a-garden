@@ -1,6 +1,7 @@
 import { customAlphabet, nanoid } from "nanoid";
 import { CROPS, CROPS_BY_ID, GEAR_BY_ID, MAX_PLAYERS_PER_ROOM, rollSizeTier, STARTING_COINS, type GearItem, type GearPrice } from "./gameData.js";
 import { MOON_PACK_COST, resolveFootprint, rollMoonPack, type PackResult } from "./moonData.js";
+import { PETS_BY_ID } from "./petData.js";
 import {
   getAnyCropDef as getCropDef,
   resolveSolarFootprint,
@@ -77,6 +78,7 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     seedStockBucket: saved?.seedStockBucket ?? -1,
     diamonds: saved?.diamonds ?? 0,
     persistentUnlocked: saved?.persistentUnlocked ?? {},
+    petsOwned: saved?.petsOwned ?? [],
   };
   ensureQuestsFresh(player, Date.now());
   ensureStockFresh(player, Date.now());
@@ -279,6 +281,10 @@ function growSpeedMultiplier(player: PlayerState): number {
     const gear = GEAR_BY_ID[gearId];
     if (gear && gear.effect.type === "growSpeed") reduction += currentLevelValue(gear.effect.levels, owned);
   }
+  for (const petId of player.petsOwned) {
+    const pet = PETS_BY_ID[petId];
+    if (pet && pet.effect.type === "growSpeed") reduction += pet.effect.value;
+  }
   return Math.max(0.25, 1 - reduction);
 }
 
@@ -288,7 +294,23 @@ function sellMultiplier(player: PlayerState): number {
     const gear = GEAR_BY_ID[gearId];
     if (gear && gear.effect.type === "sellBonus") bonus += currentLevelValue(gear.effect.levels, owned);
   }
+  for (const petId of player.petsOwned) {
+    const pet = PETS_BY_ID[petId];
+    if (pet && pet.effect.type === "sellBonus") bonus += pet.effect.value;
+  }
   return 1 + bonus;
+}
+
+export function buyPet(player: PlayerState, petId: string): { error?: string } {
+  const pet = PETS_BY_ID[petId];
+  if (!pet) return { error: "Unknown pet." };
+  if (player.petsOwned.includes(petId)) return { error: "You already own that pet." };
+  if (player.coins < pet.cost.coins) return { error: "Not enough coins." };
+  if (player.diamonds < pet.cost.diamonds) return { error: "Not enough diamonds." };
+  player.coins -= pet.cost.coins;
+  player.diamonds -= pet.cost.diamonds;
+  player.petsOwned.push(petId);
+  return {};
 }
 
 function canPlaceAt(player: PlayerState, x: number, y: number, w: number, h: number, ignoreId?: string): boolean {
@@ -553,6 +575,7 @@ export function extractProgress(player: PlayerState): SavedProgress {
     seedStockBucket: player.seedStockBucket,
     diamonds: player.diamonds,
     persistentUnlocked: player.persistentUnlocked,
+    petsOwned: player.petsOwned,
   };
 }
 

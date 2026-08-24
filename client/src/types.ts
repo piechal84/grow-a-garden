@@ -52,6 +52,8 @@ export interface PlayerState {
   seedStockBucket: number;
   diamonds: number;
   persistentUnlocked: Record<string, boolean>;
+  /** Pet IDs owned from the Pet Shop — each one passively contributes its own bonus. */
+  petsOwned: string[];
 }
 
 export interface RoomState {
@@ -131,6 +133,7 @@ export interface ClientToServerEvents {
   ) => void;
   sell_all: (ack?: (res: SellAllAck) => void) => void;
   buy_gear: (payload: { gearId: string }, ack?: (res: ActionAck) => void) => void;
+  buy_pet: (payload: { petId: string }, ack?: (res: ActionAck) => void) => void;
   buy_moon_pack: (ack?: (res: MoonPackAck) => void) => void;
   buy_moon_pack_bulk: (ack?: (res: MoonPackBulkAck) => void) => void;
   buy_solar_pack: (ack?: (res: SolarPackAck) => void) => void;

@@ -7,6 +7,7 @@ export const NPC_INFO = {
   merchant: { emoji: "🧺", label: "Sell Crops", accent: "#e0982a" },
   moon: { emoji: "🌙", label: "Moon Shop", accent: "#8a6fd8" },
   premium: { emoji: "💎", label: "Premium Shop", accent: "#2fb8d6" },
+  pets: { emoji: "🐾", label: "Pet Shop", accent: "#e0699a" },
 } as const;
 
 export const SOLAR_INFO = { emoji: "☀️", label: "Solar Shop", accent: "#f2b23a" };

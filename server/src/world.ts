@@ -24,9 +24,10 @@ export const NPC_POSITIONS = {
   merchant: { x: 590, y: MARKET_Y },
   moon: { x: 740, y: MARKET_Y },
   premium: { x: 890, y: MARKET_Y },
+  pets: { x: 1040, y: MARKET_Y },
 };
 
-export const WORLD_WIDTH = PLOT_ORIGIN_X_START + PLOTS_PER_ROW * PLOT_SPACING_X + 80;
+export const WORLD_WIDTH = PLOT_ORIGIN_X_START + PLOTS_PER_ROW * PLOT_SPACING_X + 230;
 /** 3 rows of PLOTS_PER_ROW covers all 6 player seats. */
 export const WORLD_HEIGHT = PLOT_ORIGIN_Y + 3 * PLOT_ROW_SPACING_Y;
 export const MOVE_SPEED = 180; // px/sec

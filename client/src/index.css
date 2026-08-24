@@ -928,6 +928,25 @@ button {
   opacity: 0.4;
 }
 
+.avatar-pet {
+  position: absolute;
+  left: 18px;
+  top: 12px;
+  font-size: 14px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+  animation: avatar-pet-bob 1.6s ease-in-out infinite;
+}
+
+@keyframes avatar-pet-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
 /* ---------- Weather bar ---------- */
 
 .weather-bar {
