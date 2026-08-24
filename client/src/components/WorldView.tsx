@@ -32,6 +32,7 @@ import GearShopView from "./GearShopView";
 import InventoryView from "./InventoryView";
 import MerchantView from "./MerchantView";
 import MoonShopView from "./MoonShopView";
+import MutationToasts from "./MutationToasts";
 import NPCStall, { NPC_INFO, SOLAR_INFO, type NPCKind } from "./NPCStall";
 import PetShopView from "./PetShopView";
 import PlotView from "./PlotView";
@@ -344,6 +345,7 @@ export default function WorldView({
   return (
     <div className="world-scroll">
       <WeatherBar roomCreatedAt={room.createdAt} now={now} />
+      <MutationToasts player={me} />
       <div className="zoom-controls">
         <button className="zoom-btn" onClick={handleFitAll} title="See all gardens">
           🗺️ Overview

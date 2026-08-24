@@ -113,6 +113,12 @@ export function getActiveWeather(roomCreatedAt: number, now: number): ActiveWeat
   return { temperature, sky };
 }
 
+/** Temperature and sky are rolled from the same WEATHER_CHANGE_MS bucket, so they always change
+ *  together — one countdown to the next roll covers both. */
+export function msUntilWeatherChange(roomCreatedAt: number, now: number): number {
+  return WEATHER_CHANGE_MS - mod(now - roomCreatedAt, WEATHER_CHANGE_MS);
+}
+
 export type FeaturedShop = "moon" | "solar";
 
 const SHOP_WEIGHTS: { kind: FeaturedShop; weight: number }[] = [
