@@ -3,13 +3,19 @@ import { CROPS, CROPS_BY_ID, GEAR_BY_ID, MAX_PLAYERS_PER_ROOM, rollSizeTier, STA
 import { MOON_PACK_COST, resolveFootprint, rollMoonPack, type PackResult } from "./moonData.js";
 import {
   BASE_PET_SLOTS,
-  equippedPetIds,
+  defaultEquippedSlots,
+  evolutionInfo,
+  MAX_EVOLUTION_STAGE,
   MAX_PET_SLOTS,
+  MERGE_COUNT,
+  nextEvolutionId,
   nextPetSlotCost,
+  parseSlotKey,
   PET_EGGS_BY_ID,
   PET_SIZE_MULTIPLIER,
   PETS_BY_ID,
   rollPetEgg,
+  slotKey,
   type PetSize,
 } from "./petData.js";
 import {
@@ -35,7 +41,7 @@ import {
   type Quest,
   type QuestType,
 } from "./quests.js";
-import type { HarvestedCrop, PlayerState, Planting, RoomState } from "./types.js";
+import type { HarvestedCrop, IncubatorState, PlayerState, Planting, RoomState } from "./types.js";
 import { findUserById, type SavedProgress } from "./userStore.js";
 import { computeReadyAt, getFeaturedShop, MUTATIONS, mutationKey, rollMutations, type MutationId } from "./weather.js";
 import {
@@ -90,6 +96,10 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     persistentUnlocked: saved?.persistentUnlocked ?? {},
     petsOwned: saved?.petsOwned ?? {},
     petSlots: saved?.petSlots ?? BASE_PET_SLOTS,
+    // Saves from before manual equipping existed have no petsEquipped — fill in the pets that
+    // used to auto-contribute (best by tier) so nobody's bonuses silently disappear on upgrade.
+    petsEquipped: saved?.petsEquipped ?? defaultEquippedSlots(saved?.petsOwned ?? {}, saved?.petSlots ?? BASE_PET_SLOTS),
+    incubators: saved?.incubators ?? [],
   };
   ensureQuestsFresh(player, Date.now());
   ensureStockFresh(player, Date.now());
@@ -286,16 +296,17 @@ function currentLevelValue(levels: number[], owned: number): number {
   return levels[Math.min(owned, levels.length) - 1];
 }
 
-/** Only pets within the player's slot count (their best pets, by tier) actively contribute. */
+/** Only manually-equipped pets (equip_pet/unequip_pet) actively contribute. */
 function activePets(player: PlayerState) {
-  return equippedPetIds(player.petsOwned, player.petSlots).map((id) => ({
-    pet: PETS_BY_ID[id],
-    size: player.petsOwned[id],
-  }));
+  return player.petsEquipped.map((key) => {
+    const { petId, size } = parseSlotKey(key);
+    return { pet: PETS_BY_ID[petId], size };
+  });
 }
 
+/** An Empowered/Tenacious Unicorn still counts as a Unicorn for the Rainbow mutation. */
 export function hasUnicornEquipped(player: PlayerState): boolean {
-  return equippedPetIds(player.petsOwned, player.petSlots).includes("unicorn");
+  return player.petsEquipped.some((key) => evolutionInfo(parseSlotKey(key).petId).baseId === "unicorn");
 }
 
 function growSpeedMultiplier(player: PlayerState): number {
@@ -325,18 +336,63 @@ function sellMultiplier(player: PlayerState): number {
 interface PetHatchOutcome {
   petId: string;
   size: PetSize;
-  isNew: boolean;
-  upgraded: boolean;
+  count: number;
 }
 
-/** Applies one hatch to the player's collection — a bigger re-roll of a pet you already own
- *  upgrades it in place, otherwise the roll is recorded but doesn't overwrite a bigger one. */
+/** Adds `count` copies of (petId, size) to the player's stacked collection. */
+function addOwnedPet(player: PlayerState, petId: string, size: PetSize, count: number) {
+  const bucket = (player.petsOwned[petId] ??= {});
+  bucket[size] = (bucket[size] ?? 0) + count;
+}
+
+/** Removes `count` copies of (petId, size) if the player has enough; returns false otherwise. */
+/** Removes `count` copies of (petId, size). If that empties the stack entirely, also unequips
+ *  it — otherwise a merged-away pet would keep contributing its bonus from a "ghost" slot with
+ *  zero copies left backing it. */
+function removeOwnedPet(player: PlayerState, petId: string, size: PetSize, count: number): boolean {
+  const bucket = player.petsOwned[petId];
+  const have = bucket?.[size] ?? 0;
+  if (have < count) return false;
+  const remaining = have - count;
+  if (remaining > 0) {
+    bucket![size] = remaining;
+  } else {
+    delete bucket![size];
+    const idx = player.petsEquipped.indexOf(slotKey(petId, size));
+    if (idx !== -1) player.petsEquipped.splice(idx, 1);
+  }
+  if (bucket && Object.keys(bucket).length === 0) delete player.petsOwned[petId];
+  return true;
+}
+
+/** Applies one hatch to the player's stacked collection. Only the very first copy of a pet
+ *  auto-equips (and only if a slot happens to be free), so newcomers don't have to learn the
+ *  equip UI immediately — every hatch after that is purely stacked for future merging. */
 function applyHatch(player: PlayerState, hatch: { petId: string; size: PetSize }): PetHatchOutcome {
-  const existingSize = player.petsOwned[hatch.petId];
-  const isNew = !existingSize;
-  const upgraded = !isNew && PET_SIZE_MULTIPLIER[hatch.size] > PET_SIZE_MULTIPLIER[existingSize];
-  if (isNew || upgraded) player.petsOwned[hatch.petId] = hatch.size;
-  return { petId: hatch.petId, size: player.petsOwned[hatch.petId], isNew, upgraded };
+  const before = player.petsOwned[hatch.petId]?.[hatch.size] ?? 0;
+  addOwnedPet(player, hatch.petId, hatch.size, 1);
+  const key = slotKey(hatch.petId, hatch.size);
+  if (before === 0 && player.petsEquipped.length < player.petSlots && !player.petsEquipped.includes(key)) {
+    player.petsEquipped.push(key);
+  }
+  return { petId: hatch.petId, size: hatch.size, count: before + 1 };
+}
+
+export function equipPet(player: PlayerState, petId: string, size: PetSize): { error?: string } {
+  if ((player.petsOwned[petId]?.[size] ?? 0) <= 0) return { error: "You don't own that pet." };
+  const key = slotKey(petId, size);
+  if (player.petsEquipped.includes(key)) return { error: "Already equipped." };
+  if (player.petsEquipped.length >= player.petSlots) return { error: "No free pet slots — unequip one first." };
+  player.petsEquipped.push(key);
+  return {};
+}
+
+export function unequipPet(player: PlayerState, petId: string, size: PetSize): { error?: string } {
+  const key = slotKey(petId, size);
+  const idx = player.petsEquipped.indexOf(key);
+  if (idx === -1) return { error: "That pet isn't equipped." };
+  player.petsEquipped.splice(idx, 1);
+  return {};
 }
 
 export function buyPetEgg(player: PlayerState, eggId: string): { error?: string } & Partial<PetHatchOutcome> {
@@ -388,13 +444,61 @@ export function buyPetSlot(player: PlayerState): { error?: string } {
   return {};
 }
 
+const INCUBATOR_SIZE = 3;
+const EMPOWER_DURATION_MS = 10 * 60 * 1000;
+const TENACIOUS_DURATION_MS = 60 * 60 * 1000;
+
 function canPlaceAt(player: PlayerState, x: number, y: number, w: number, h: number, ignoreId?: string): boolean {
   if (x < 0 || y < 0 || x + w > player.gridWidth || y + h > player.gridHeight) return false;
   for (const p of player.plantings) {
     if (p.id === ignoreId) continue;
     if (x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + h > p.y) return false;
   }
+  for (const inc of player.incubators) {
+    if (inc.id === ignoreId) continue;
+    if (x < inc.x + INCUBATOR_SIZE && x + w > inc.x && y < inc.y + INCUBATOR_SIZE && y + h > inc.y) return false;
+  }
   return true;
+}
+
+export function placeIncubator(player: PlayerState, x: number, y: number): { error?: string } {
+  const owned = player.gearOwned["kelka_incubator"] ?? 0;
+  if (owned <= 0) return { error: "You need the Kelka Egg Incubator from the Gear Shop first." };
+  if (player.incubators.length >= owned) return { error: "You've placed all your incubators — buy another from the Gear Shop." };
+  if (!canPlaceAt(player, x, y, INCUBATOR_SIZE, INCUBATOR_SIZE)) return { error: "Won't fit there." };
+  player.incubators.push({ id: nanoid(8), x, y, merge: null });
+  return {};
+}
+
+export function startPetMerge(
+  player: PlayerState,
+  incubatorId: string,
+  petId: string,
+  size: PetSize,
+): { error?: string } {
+  const incubator = player.incubators.find((i) => i.id === incubatorId);
+  if (!incubator) return { error: "Incubator not found." };
+  if (incubator.merge) return { error: "This incubator is already merging." };
+  const targetId = nextEvolutionId(petId);
+  if (!targetId) return { error: "Already at max evolution." };
+  if (!removeOwnedPet(player, petId, size, MERGE_COUNT)) return { error: `Need ${MERGE_COUNT} identical pets (same pet, same size) to merge.` };
+  const targetStage = evolutionInfo(targetId).stage;
+  const durationMs = targetStage >= MAX_EVOLUTION_STAGE ? TENACIOUS_DURATION_MS : EMPOWER_DURATION_MS;
+  const now = Date.now();
+  incubator.merge = { petId, size, startedAt: now, readyAt: now + durationMs };
+  return {};
+}
+
+export function collectPetMerge(player: PlayerState, incubatorId: string): { error?: string; petId?: string; size?: PetSize } {
+  const incubator = player.incubators.find((i) => i.id === incubatorId);
+  if (!incubator) return { error: "Incubator not found." };
+  if (!incubator.merge) return { error: "Nothing merging in this incubator." };
+  if (Date.now() < incubator.merge.readyAt) return { error: "Not ready yet." };
+  const resultId = nextEvolutionId(incubator.merge.petId)!;
+  const size = incubator.merge.size;
+  addOwnedPet(player, resultId, size, 1);
+  incubator.merge = null;
+  return { petId: resultId, size };
 }
 
 /** True if two footprints share an edge (not just a corner) — "the squares next to it". */
@@ -652,6 +756,8 @@ export function extractProgress(player: PlayerState): SavedProgress {
     persistentUnlocked: player.persistentUnlocked,
     petsOwned: player.petsOwned,
     petSlots: player.petSlots,
+    petsEquipped: player.petsEquipped,
+    incubators: player.incubators,
   };
 }
 

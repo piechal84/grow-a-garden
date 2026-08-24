@@ -7,7 +7,11 @@ import { socket } from "../socket";
 import { effectiveWorkBetween, MUTATIONS, type MutationId } from "../weather";
 import { CELL_SIZE, plotOrigin } from "../world";
 import GrowthPlant from "./GrowthPlant";
+import IncubatorStructure from "./IncubatorStructure";
 import PlantPickerModal from "./PlantPickerModal";
+import RoamingPets from "./RoamingPets";
+
+const INCUBATOR_SIZE = 3;
 
 /** True if two footprints share an edge (not just a corner) — mirrors the server's aura check. */
 function isOrthogonallyAdjacent(a: Planting, b: Planting): boolean {
@@ -56,7 +60,7 @@ export default function PlotView({
   roomCreatedAt: number;
 }) {
   const [pickerCell, setPickerCell] = useState<{ x: number; y: number } | null>(null);
-  const [activeTool, setActiveTool] = useState<"reclaim" | "move" | null>(null);
+  const [activeTool, setActiveTool] = useState<"reclaim" | "move" | "place_incubator" | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
   const origin = plotOrigin(player.slotIndex);
@@ -65,6 +69,11 @@ export default function PlotView({
   for (const p of player.plantings) {
     for (let cx = p.x; cx < p.x + p.w; cx++) {
       for (let cy = p.y; cy < p.y + p.h; cy++) occupied.add(`${cx},${cy}`);
+    }
+  }
+  for (const inc of player.incubators) {
+    for (let cx = inc.x; cx < inc.x + INCUBATOR_SIZE; cx++) {
+      for (let cy = inc.y; cy < inc.y + INCUBATOR_SIZE; cy++) occupied.add(`${cx},${cy}`);
     }
   }
 
@@ -76,6 +85,17 @@ export default function PlotView({
       socket.emit("move_planting", { plantingId: id, x, y }, (res) => {
         if (res.ok) {
           setMovingId(null);
+          setMoveError(null);
+        } else {
+          setMoveError(res.error ?? "Won't fit there.");
+        }
+      });
+      return;
+    }
+    if (activeTool === "place_incubator") {
+      socket.emit("place_incubator", { x, y }, (res) => {
+        if (res.ok) {
+          setActiveTool(null);
           setMoveError(null);
         } else {
           setMoveError(res.error ?? "Won't fit there.");
@@ -114,7 +134,7 @@ export default function PlotView({
     if (ready) handleHarvest(planting.id);
   }
 
-  function toggleTool(tool: "reclaim" | "move") {
+  function toggleTool(tool: "reclaim" | "move" | "place_incubator") {
     setMoveError(null);
     setMovingId(null);
     setActiveTool((cur) => (cur === tool ? null : tool));
@@ -122,6 +142,8 @@ export default function PlotView({
 
   const hasReclaimer = (player.gearOwned["reclaimer"] ?? 0) > 0;
   const hasTrowel = (player.gearOwned["trowel"] ?? 0) > 0;
+  const incubatorsOwned = player.gearOwned["kelka_incubator"] ?? 0;
+  const canPlaceIncubator = incubatorsOwned > player.incubators.length;
 
   const emptyCells: { x: number; y: number }[] = [];
   for (let y = 0; y < player.gridHeight; y++) {
@@ -141,7 +163,7 @@ export default function PlotView({
       }}
     >
       <span className="world-plot-name">{player.name}</span>
-      {isOwner && (hasReclaimer || hasTrowel) && (
+      {isOwner && (hasReclaimer || hasTrowel || canPlaceIncubator) && (
         <div className="plot-toolbar" onClick={(e) => e.stopPropagation()}>
           {hasReclaimer && (
             <button
@@ -159,6 +181,14 @@ export default function PlotView({
               🛠️ Move
             </button>
           )}
+          {canPlaceIncubator && (
+            <button
+              className={`plot-tool-btn ${activeTool === "place_incubator" ? "plot-tool-btn-active" : ""}`}
+              onClick={() => toggleTool("place_incubator")}
+            >
+              🥚 Place Incubator
+            </button>
+          )}
         </div>
       )}
       {isOwner && activeTool === "reclaim" && (
@@ -166,6 +196,14 @@ export default function PlotView({
           🧲 Tap a crop to reclaim its seed
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
             Done
+          </button>
+        </div>
+      )}
+      {isOwner && activeTool === "place_incubator" && (
+        <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
+          🥚 Tap an empty 3x3 clearing to plant the incubator
+          <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
+            Cancel
           </button>
         </div>
       )}
@@ -272,6 +310,12 @@ export default function PlotView({
           </div>
         );
       })}
+
+      {player.incubators.map((incubator) => (
+        <IncubatorStructure key={incubator.id} incubator={incubator} player={player} isOwner={isOwner} now={now} />
+      ))}
+
+      <RoamingPets player={player} />
 
       {pickerCell && (
         <PlantPickerModal

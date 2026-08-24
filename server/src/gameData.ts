@@ -32,7 +32,8 @@ export type GearEffect =
   | { type: "sellBonus"; levels: number[] }
   | { type: "expandGarden"; value: number }
   | { type: "unlockReclaim" }
-  | { type: "unlockMove" };
+  | { type: "unlockMove" }
+  | { type: "unlockMerge" };
 
 export interface GearPrice {
   coins: number;
@@ -120,6 +121,16 @@ export const GEAR: GearItem[] = [
     cost: 450,
     repeatable: false,
     effect: { type: "unlockMove" },
+  },
+  {
+    id: "kelka_incubator",
+    name: "Kelka Egg Incubator",
+    emoji: "🥚",
+    description: "Plant on a 3x3 clearing to merge 4 identical pets (same pet, same size) into a stronger evolved form. Own up to 2.",
+    cost: 5000,
+    repeatable: true,
+    maxOwned: 2,
+    effect: { type: "unlockMerge" },
   },
 ];
 

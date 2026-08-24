@@ -5,7 +5,7 @@ import path from "node:path";
 import { STARTING_COINS } from "./gameData.js";
 import { BASE_PET_SLOTS, type PetSize } from "./petData.js";
 import type { Quest } from "./quests.js";
-import type { HarvestedCrop, Planting } from "./types.js";
+import type { HarvestedCrop, IncubatorState, Planting } from "./types.js";
 import { BASE_GRID_HEIGHT, PLOT_GRID_WIDTH } from "./world.js";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -30,8 +30,11 @@ export interface SavedProgress {
   seedStockBucket: number;
   diamonds: number;
   persistentUnlocked: Record<string, boolean>;
-  petsOwned: Record<string, PetSize>;
+  petsOwned: Record<string, Partial<Record<PetSize, number>>>;
   petSlots: number;
+  /** Absent on saves from before manual equipping existed — makePlayer fills in a default. */
+  petsEquipped?: string[];
+  incubators: IncubatorState[];
 }
 
 export interface UserRecord {
@@ -65,6 +68,8 @@ function defaultProgress(): SavedProgress {
     persistentUnlocked: {},
     petsOwned: {},
     petSlots: BASE_PET_SLOTS,
+    petsEquipped: [],
+    incubators: [],
   };
 }
 

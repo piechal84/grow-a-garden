@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CROP_TIER_COLORS, CROP_TIER_LABELS } from "../gameData";
-import { equippedPetIds, MAX_PET_SLOTS, nextPetSlotCost, PET_EGGS, PET_SIZE_LABELS, PETS_BY_ID, type Pet, type PetSize } from "../petData";
+import { MAX_PET_SLOTS, nextPetSlotCost, PET_EGGS, PET_SIZE_LABELS, PET_SIZES, PETS_BY_ID, type Pet, type PetSize } from "../petData";
 import type { PetEggAck, PetEggBulkAck, PetHatchOutcome, PlayerState } from "../types";
 import { socket } from "../socket";
 
@@ -30,30 +30,49 @@ function bestOf(results: PetHatchOutcome[]): Pet {
 interface HatchMessage {
   petId: string;
   size: PetSize;
-  isNew: boolean;
-  upgraded: boolean;
+  count: number;
+}
+
+interface OwnedGroup {
+  petId: string;
+  size: PetSize;
+  count: number;
+  pet: Pet;
 }
 
 export default function PetShopView({ player }: { player: PlayerState }) {
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
   const [lastHatch, setLastHatch] = useState<HatchMessage | null>(null);
   const [bulkResults, setBulkResults] = useState<PetHatchOutcome[] | null>(null);
 
-  const equipped = new Set(equippedPetIds(player.petsOwned, player.petSlots));
+  const equipped = new Set(player.petsEquipped);
   const slotCost = nextPetSlotCost(player.petSlots);
+  const incubatorsOwned = player.gearOwned["kelka_incubator"] ?? 0;
+
+  const groups: OwnedGroup[] = [];
+  for (const [petId, sizes] of Object.entries(player.petsOwned)) {
+    const pet = PETS_BY_ID[petId];
+    if (!pet) continue;
+    for (const size of PET_SIZES) {
+      const count = sizes[size] ?? 0;
+      if (count > 0) groups.push({ petId, size, count, pet });
+    }
+  }
+  groups.sort((a, b) => b.pet.tier - a.pet.tier || b.count - a.count);
 
   function handleOpenEgg(eggId: string) {
     setError(null);
     setOpening(eggId);
     socket.emit("buy_pet_egg", { eggId }, (res: PetEggAck) => {
       setOpening(null);
-      if (!res.ok || !res.petId || !res.size) {
+      if (!res.ok || !res.petId || !res.size || res.count === undefined) {
         setError(res.error ?? "Could not open egg.");
         return;
       }
       setBulkResults(null);
-      setLastHatch({ petId: res.petId, size: res.size, isNew: !!res.isNew, upgraded: !!res.upgraded });
+      setLastHatch({ petId: res.petId, size: res.size, count: res.count });
     });
   }
 
@@ -78,6 +97,16 @@ export default function PetShopView({ player }: { player: PlayerState }) {
     });
   }
 
+  function handleToggleEquip(petId: string, size: PetSize, isEquipped: boolean) {
+    setError(null);
+    setBusyKey(`${petId}#${size}`);
+    const event = isEquipped ? "unequip_pet" : "equip_pet";
+    socket.emit(event, { petId, size }, (res) => {
+      setBusyKey(null);
+      if (!res.ok) setError(res.error ?? "Could not update pet.");
+    });
+  }
+
   const hatchPet = lastHatch ? PETS_BY_ID[lastHatch.petId] : undefined;
   const bulkBest = bulkResults && bulkResults.length > 0 ? bestOf(bulkResults) : undefined;
 
@@ -85,14 +114,15 @@ export default function PetShopView({ player }: { player: PlayerState }) {
     <div className="shop-view">
       <h2>🐾 Pet Shop</h2>
       <p className="shop-sub">
-        Hatch pets from eggs — better eggs favor rarer pets. Each pet also hatches Normal, Big, or Giant, and bigger
-        is always better. Your best pets (by rarity) auto-equip into your slots — no manual equipping needed.
+        Hatch pets from eggs — better eggs favor rarer pets. Each pet also hatches Normal, Big, or Giant. Duplicates
+        stack: gather 4 identical pets (same pet, same size) and feed them to a planted Kelka Egg Incubator (Gear
+        Shop) to merge them into a stronger evolved form.
       </p>
       {error && <p className="lobby-error">{error}</p>}
 
       <div className="restock-banner">
         <span>
-          🎪 Pet Slots: <strong>{player.petSlots}</strong>/{MAX_PET_SLOTS}
+          🎪 Pet Slots: <strong>{player.petSlots}</strong>/{MAX_PET_SLOTS} equipped
         </span>
         {slotCost ? (
           <button className="btn btn-secondary" onClick={handleBuySlot}>
@@ -103,17 +133,26 @@ export default function PetShopView({ player }: { player: PlayerState }) {
         )}
       </div>
 
+      <div className="restock-banner">
+        <span>
+          🥚 Kelka Egg Incubators: <strong>{player.incubators.length}</strong>/{incubatorsOwned || 0} placed
+        </span>
+        <span style={{ color: "var(--ink-soft)", fontSize: 12 }}>
+          {incubatorsOwned === 0
+            ? "Buy one from the Gear Shop, then plant it on a 3x3 clearing in your garden."
+            : "Plant it on a 3x3 clearing in your garden to start merging."}
+        </span>
+      </div>
+
       {hatchPet && lastHatch && (
         <div className="pet-hatch-reveal" style={{ borderColor: CROP_TIER_COLORS[hatchPet.tier] }}>
           <span className="pet-hatch-emoji">{hatchPet.emoji}</span>
           <div>
             <div className="pet-hatch-title">
-              {lastHatch.isNew ? "New pet!" : lastHatch.upgraded ? "Upgraded!" : "Already owned"} {hatchPet.name} —{" "}
-              {PET_SIZE_LABELS[lastHatch.size]}
+              {hatchPet.name} — {PET_SIZE_LABELS[lastHatch.size]}
             </div>
             <div className="pet-hatch-sub" style={{ color: CROP_TIER_COLORS[hatchPet.tier] }}>
-              {CROP_TIER_LABELS[hatchPet.tier]}
-              {!lastHatch.isNew && !lastHatch.upgraded && " — no upgrade this time"}
+              {CROP_TIER_LABELS[hatchPet.tier]} — you now have {lastHatch.count}
             </div>
           </div>
         </div>
@@ -129,7 +168,7 @@ export default function PetShopView({ player }: { player: PlayerState }) {
                 const pet = PETS_BY_ID[r.petId];
                 return (
                   <div key={i} className="inventory-tile" title={`${pet.name} (${PET_SIZE_LABELS[r.size]})`}>
-                    <span className="inventory-count">{r.isNew ? "New" : r.upgraded ? "Up" : "—"}</span>
+                    <span className="inventory-count">x{r.count}</span>
                     <span style={{ fontSize: 26 }}>{pet.emoji}</span>
                     <div className="inventory-tile-badges">
                       <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
@@ -188,17 +227,22 @@ export default function PetShopView({ player }: { player: PlayerState }) {
         })}
       </div>
 
-      <h3 className="inventory-section-title">Your Pets ({Object.keys(player.petsOwned).length})</h3>
-      {Object.keys(player.petsOwned).length === 0 ? (
+      <h3 className="inventory-section-title">Your Pets ({groups.reduce((sum, g) => sum + g.count, 0)})</h3>
+      {groups.length === 0 ? (
         <p className="modal-empty">No pets yet — open an egg above!</p>
       ) : (
         <div className="inventory-grid">
-          {Object.entries(player.petsOwned)
-            .map(([id, size]) => ({ pet: PETS_BY_ID[id], size }))
-            .sort((a, b) => b.pet.tier - a.pet.tier)
-            .map(({ pet, size }) => (
-              <div key={pet.id} className="inventory-tile" title={`${pet.name} (${PET_SIZE_LABELS[size]})`}>
-                <span className="inventory-count">{equipped.has(pet.id) ? "✓" : "—"}</span>
+          {groups.map(({ petId, size, count, pet }) => {
+            const key = `${petId}#${size}`;
+            const isEquipped = equipped.has(key);
+            const stage = pet.id.includes("_tenacious") ? "tenacious" : pet.id.includes("_empowered") ? "empowered" : undefined;
+            return (
+              <div
+                key={key}
+                className={`inventory-tile ${stage ? `pet-aura-${stage}` : ""}`}
+                title={`${pet.name} (${PET_SIZE_LABELS[size]})`}
+              >
+                <span className="inventory-count">x{count}</span>
                 <span style={{ fontSize: 32 }}>{pet.emoji}</span>
                 <span className="inventory-tile-name">{pet.name}</span>
                 <div className="inventory-tile-badges">
@@ -209,8 +253,16 @@ export default function PetShopView({ player }: { player: PlayerState }) {
                     {PET_SIZE_LABELS[size]}
                   </span>
                 </div>
+                <button
+                  className={`btn ${isEquipped ? "btn-secondary" : "btn-primary"} pet-equip-btn`}
+                  disabled={busyKey === key || (!isEquipped && equipped.size >= player.petSlots)}
+                  onClick={() => handleToggleEquip(petId, size, isEquipped)}
+                >
+                  {isEquipped ? "Unequip" : "Equip"}
+                </button>
               </div>
-            ))}
+            );
+          })}
         </div>
       )}
     </div>

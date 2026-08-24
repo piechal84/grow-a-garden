@@ -17,10 +17,12 @@ import {
   buySeed,
   buySolarPack,
   buySolarPackBulk,
+  collectPetMerge,
   createRoom,
   ensurePosition,
   ensureQuestsFresh,
   ensureStockFresh,
+  equipPet,
   extractProgress,
   findRoomByPlayer,
   harvest,
@@ -28,12 +30,15 @@ import {
   markDisconnected,
   movePlanting,
   movePlayer,
+  placeIncubator,
   plant,
   reclaim,
   rerollQuest,
   sell,
   sellAll,
   sellDiamonds,
+  startPetMerge,
+  unequipPet,
 } from "./rooms.js";
 import type { ClientToServerEvents, RoomState, ServerToClientEvents } from "./types.js";
 import { initUserStore, login, register, saveProgress } from "./userStore.js";
@@ -186,8 +191,7 @@ io.on("connection", (socket) => {
       error: result.error,
       petId: result.petId,
       size: result.size,
-      isNew: result.isNew,
-      upgraded: result.upgraded,
+      count: result.count,
     });
     if (!result.error) broadcast(room);
   });
@@ -197,6 +201,46 @@ io.on("connection", (socket) => {
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
     const result = buyPetEggBulk(player, eggId);
     ack?.({ ok: !result.error, error: result.error, results: result.results, cost: result.cost });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("equip_pet", ({ petId, size }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = equipPet(player, petId, size);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("unequip_pet", ({ petId, size }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = unequipPet(player, petId, size);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("place_incubator", ({ x, y }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = placeIncubator(player, x, y);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("start_pet_merge", ({ incubatorId, petId, size }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = startPetMerge(player, incubatorId, petId, size);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("collect_pet_merge", ({ incubatorId }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = collectPetMerge(player, incubatorId);
+    ack?.({ ok: !result.error, error: result.error, petId: result.petId, size: result.size });
     if (!result.error) broadcast(room);
   });
 

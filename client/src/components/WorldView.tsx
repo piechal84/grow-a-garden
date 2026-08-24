@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MAX_PLAYERS_PER_ROOM } from "../gameData";
-import { equippedPetIds, PETS_BY_ID, type PetSize } from "../petData";
+import { equippedPetsInfo, type PetSize } from "../petData";
 import { socket } from "../socket";
 import type { RoomState } from "../types";
 import { getActiveWeather, getFeaturedShop, phaseInfo } from "../weather";
@@ -47,12 +47,10 @@ const PET_BADGE_SCALE: Record<PetSize, number> = { normal: 1, big: 1.2, giant: 1
 
 /** Shows the player's best equipped pet as a small companion badge next to their avatar, scaled
  *  up a bit for Big/Giant hatches — visible to every player in the room, not just its owner. */
-function topPetCompanion(petsOwned: Record<string, PetSize>, petSlots: number): { emoji: string; scale: number } | undefined {
-  const [topId] = equippedPetIds(petsOwned, petSlots);
-  if (!topId) return undefined;
-  const pet = PETS_BY_ID[topId];
-  if (!pet) return undefined;
-  return { emoji: pet.emoji, scale: PET_BADGE_SCALE[petsOwned[topId]] };
+function topPetCompanion(petsEquipped: string[]): { emoji: string; scale: number } | undefined {
+  const [best] = equippedPetsInfo(petsEquipped);
+  if (!best) return undefined;
+  return { emoji: best.pet.emoji, scale: PET_BADGE_SCALE[best.size] };
 }
 
 interface MoveState {
@@ -417,7 +415,7 @@ export default function WorldView({
         })}
 
         {room.players.map((p) => {
-          const petCompanion = topPetCompanion(p.petsOwned, p.petSlots);
+          const petCompanion = topPetCompanion(p.petsEquipped);
           return (
             <div
               key={p.id}

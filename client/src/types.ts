@@ -28,6 +28,20 @@ export interface HarvestedCrop {
   mutations: MutationId[];
 }
 
+export interface IncubatorMerge {
+  petId: string;
+  size: PetSize;
+  startedAt: number;
+  readyAt: number;
+}
+
+export interface IncubatorState {
+  id: string;
+  x: number;
+  y: number;
+  merge: IncubatorMerge | null;
+}
+
 export interface PlayerState {
   id: string;
   name: string;
@@ -53,10 +67,15 @@ export interface PlayerState {
   seedStockBucket: number;
   diamonds: number;
   persistentUnlocked: Record<string, boolean>;
-  /** Pets hatched from Pet Shop eggs, keyed by pet ID -> the biggest size hatched so far. Only
-   *  the top `petSlots` (by tier) actively contribute their bonus — see equippedPetIds. */
-  petsOwned: Record<string, PetSize>;
+  /** Pets hatched/merged, keyed by pet ID -> size -> how many copies owned. Duplicates stack —
+   *  4 identical (pet, size) copies can be merged into the next evolution via an Incubator. */
+  petsOwned: Record<string, Partial<Record<PetSize, number>>>;
   petSlots: number;
+  /** "{petId}#{size}" slot keys actively contributing their bonus, manually chosen
+   *  (equip_pet/unequip_pet), capped at petSlots. New hatches auto-equip only if a slot is free. */
+  petsEquipped: string[];
+  /** Kelka Egg Incubators planted on this player's plot (up to gearOwned.kelka_incubator, max 2). */
+  incubators: IncubatorState[];
 }
 
 export interface RoomState {
@@ -110,15 +129,13 @@ export interface SolarPackBulkAck extends ActionAck {
 export interface PetEggAck extends ActionAck {
   petId?: string;
   size?: PetSize;
-  isNew?: boolean;
-  upgraded?: boolean;
+  count?: number;
 }
 
 export interface PetHatchOutcome {
   petId: string;
   size: PetSize;
-  isNew: boolean;
-  upgraded: boolean;
+  count: number;
 }
 
 export interface PetEggBulkAck extends ActionAck {
@@ -158,6 +175,11 @@ export interface ClientToServerEvents {
   buy_pet_egg: (payload: { eggId: string }, ack?: (res: PetEggAck) => void) => void;
   buy_pet_egg_bulk: (payload: { eggId: string }, ack?: (res: PetEggBulkAck) => void) => void;
   buy_pet_slot: (ack?: (res: ActionAck) => void) => void;
+  equip_pet: (payload: { petId: string; size: PetSize }, ack?: (res: ActionAck) => void) => void;
+  unequip_pet: (payload: { petId: string; size: PetSize }, ack?: (res: ActionAck) => void) => void;
+  place_incubator: (payload: { x: number; y: number }, ack?: (res: ActionAck) => void) => void;
+  start_pet_merge: (payload: { incubatorId: string; petId: string; size: PetSize }, ack?: (res: ActionAck) => void) => void;
+  collect_pet_merge: (payload: { incubatorId: string }, ack?: (res: PetEggAck) => void) => void;
   buy_moon_pack: (ack?: (res: MoonPackAck) => void) => void;
   buy_moon_pack_bulk: (ack?: (res: MoonPackBulkAck) => void) => void;
   buy_solar_pack: (ack?: (res: SolarPackAck) => void) => void;

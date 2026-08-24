@@ -1,5 +1,5 @@
 import { GEAR_BY_ID } from "./gameData";
-import { equippedPetIds, PET_SIZE_MULTIPLIER, PETS_BY_ID } from "./petData";
+import { parseSlotKey, PET_SIZE_MULTIPLIER, PETS_BY_ID } from "./petData";
 import type { PlayerState } from "./types";
 
 /** Each level's value replaces the previous one (it's an upgrade, not a stacking bonus) — so this
@@ -9,12 +9,12 @@ function currentLevelValue(levels: number[], owned: number): number {
   return levels[Math.min(owned, levels.length) - 1];
 }
 
-/** Only pets within the player's slot count (their best pets, by tier) actively contribute. */
+/** Only manually-equipped pets (equip_pet/unequip_pet) actively contribute. */
 function activePets(player: PlayerState) {
-  return equippedPetIds(player.petsOwned, player.petSlots).map((id) => ({
-    pet: PETS_BY_ID[id],
-    size: player.petsOwned[id],
-  }));
+  return player.petsEquipped.map((key) => {
+    const { petId, size } = parseSlotKey(key);
+    return { pet: PETS_BY_ID[petId], size };
+  });
 }
 
 export function growSpeedMultiplier(player: PlayerState): number {
@@ -45,10 +45,15 @@ export function isUnlocked(player: PlayerState, unlockAt: number): boolean {
   return player.coins >= unlockAt || player.lifetimeCoins >= unlockAt;
 }
 
+const INCUBATOR_SIZE = 3;
+
 export function canPlaceAt(player: PlayerState, x: number, y: number, w: number, h: number): boolean {
   if (x < 0 || y < 0 || x + w > player.gridWidth || y + h > player.gridHeight) return false;
   for (const p of player.plantings) {
     if (x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + h > p.y) return false;
+  }
+  for (const inc of player.incubators) {
+    if (x < inc.x + INCUBATOR_SIZE && x + w > inc.x && y < inc.y + INCUBATOR_SIZE && y + h > inc.y) return false;
   }
   return true;
 }

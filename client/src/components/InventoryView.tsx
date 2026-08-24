@@ -1,5 +1,6 @@
-import { CROPS_BY_ID, SIZE_COLORS } from "../gameData";
+import { CROPS_BY_ID, CROP_TIER_COLORS, CROP_TIER_LABELS, SIZE_COLORS } from "../gameData";
 import { MOON_CROPS_BY_ID, MOON_TIER_TO_CROP_TIER } from "../moonData";
+import { PET_SIZES, PET_SIZE_LABELS, PETS_BY_ID, type Pet, type PetSize } from "../petData";
 import { getAnyCropDef as getCropDef, SOLAR_CROPS_BY_ID, SOLAR_TIER_TO_CROP_TIER } from "../solarData";
 import type { PlayerState } from "../types";
 import { MUTATIONS, mutationKey, type MutationId } from "../weather";
@@ -36,10 +37,22 @@ export default function InventoryView({ player }: { player: PlayerState }) {
   }
   const sortedHarvest = Array.from(harvestGroups.values()).sort((a, b) => sortRank(a.cropId) - sortRank(b.cropId));
 
+  const petGroups: { petId: string; size: PetSize; count: number; pet: Pet }[] = [];
+  for (const [petId, sizes] of Object.entries(player.petsOwned)) {
+    const pet = PETS_BY_ID[petId];
+    if (!pet) continue;
+    for (const size of PET_SIZES) {
+      const count = sizes[size] ?? 0;
+      if (count > 0) petGroups.push({ petId, size, count, pet });
+    }
+  }
+  petGroups.sort((a, b) => b.pet.tier - a.pet.tier || b.count - a.count);
+  const equipped = new Set(player.petsEquipped);
+
   return (
     <div className="shop-view">
       <h2>🎒 Inventory</h2>
-      <p className="shop-sub">Every seed and harvested crop you're currently holding.</p>
+      <p className="shop-sub">Every seed, harvested crop, and pet you're currently holding.</p>
 
       <h3 className="inventory-section-title">🌱 Seeds ({seedEntries.reduce((sum, [, c]) => sum + c, 0)})</h3>
       {seedEntries.length === 0 ? (
@@ -85,6 +98,42 @@ export default function InventoryView({ player }: { player: PlayerState }) {
                       {MUTATIONS[m].emoji}
                     </span>
                   ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <h3 className="inventory-section-title">🐾 Pets ({petGroups.reduce((sum, g) => sum + g.count, 0)})</h3>
+      {petGroups.length === 0 ? (
+        <p className="modal-empty">No pets yet — visit the Pet Shop.</p>
+      ) : (
+        <div className="inventory-grid">
+          {petGroups.map(({ petId, size, count, pet }) => {
+            const key = `${petId}#${size}`;
+            const stage = pet.id.includes("_tenacious") ? "tenacious" : pet.id.includes("_empowered") ? "empowered" : undefined;
+            return (
+              <div
+                key={key}
+                className={`inventory-tile ${stage ? `pet-aura-${stage}` : ""}`}
+                title={`${pet.name} (${PET_SIZE_LABELS[size]})${equipped.has(key) ? " — equipped" : ""}`}
+              >
+                <span className="inventory-count">x{count}</span>
+                <span style={{ fontSize: 32 }}>{pet.emoji}</span>
+                <span className="inventory-tile-name">{pet.name}</span>
+                <div className="inventory-tile-badges">
+                  <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
+                    {CROP_TIER_LABELS[pet.tier]}
+                  </span>
+                  <span className="size-badge" style={{ background: "#5c6b56" }}>
+                    {PET_SIZE_LABELS[size]}
+                  </span>
+                  {equipped.has(key) && (
+                    <span className="size-badge" style={{ background: "var(--leaf-dark)" }}>
+                      Equipped
+                    </span>
+                  )}
                 </div>
               </div>
             );
