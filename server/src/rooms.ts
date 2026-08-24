@@ -4,6 +4,7 @@ import {
   CROPS_BY_ID,
   GEAR_BY_ID,
   GROW_SPEED_FLOOR,
+  INCUBATOR_SPEED_FLOOR,
   MAX_PLAYERS_PER_ROOM,
   PERSISTENT_REGROW_MULTIPLIER,
   rollSizeTier,
@@ -405,6 +406,29 @@ function sellMultiplier(player: PlayerState): number {
   return 1 + bonus;
 }
 
+/** Only Bunny/Owl (and their evolutions) carry this effect — no gear source, pets only. */
+function incubatorSpeedMultiplier(player: PlayerState): number {
+  let reduction = 0;
+  for (const { pet, size } of activePets(player)) {
+    if (pet && pet.effect.type === "incubatorSpeed") reduction += pet.effect.value * PET_SIZE_MULTIPLIER[size];
+  }
+  return Math.max(INCUBATOR_SPEED_FLOOR, 1 - reduction);
+}
+
+/** Same idea as rebaseGrowTimers but simpler — incubator merges run on a plain wall-clock
+ *  duration (no day/night work curve), so rescaling the remaining time is a straight linear
+ *  scale rather than needing effectiveWorkBetween/computeReadyAt. */
+function rebaseIncubatorTimers(player: PlayerState, oldMultiplier: number, newMultiplier: number) {
+  if (oldMultiplier === newMultiplier || oldMultiplier <= 0) return;
+  const now = Date.now();
+  const scale = newMultiplier / oldMultiplier;
+  for (const incubator of player.incubators) {
+    if (!incubator.merge || now >= incubator.merge.readyAt) continue;
+    const remaining = incubator.merge.readyAt - now;
+    incubator.merge.readyAt = now + remaining * scale;
+  }
+}
+
 interface PetHatchOutcome {
   petId: string;
   size: PetSize;
@@ -456,8 +480,10 @@ export function equipPet(room: RoomState, player: PlayerState, petId: string, si
   if (player.petsEquipped.includes(key)) return { error: "Already equipped." };
   if (player.petsEquipped.length >= player.petSlots) return { error: "No free pet slots — unequip one first." };
   const oldGrowMult = growSpeedMultiplier(player);
+  const oldIncubatorMult = incubatorSpeedMultiplier(player);
   player.petsEquipped.push(key);
   rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
+  rebaseIncubatorTimers(player, oldIncubatorMult, incubatorSpeedMultiplier(player));
   return {};
 }
 
@@ -466,8 +492,10 @@ export function unequipPet(room: RoomState, player: PlayerState, petId: string, 
   const idx = player.petsEquipped.indexOf(key);
   if (idx === -1) return { error: "That pet isn't equipped." };
   const oldGrowMult = growSpeedMultiplier(player);
+  const oldIncubatorMult = incubatorSpeedMultiplier(player);
   player.petsEquipped.splice(idx, 1);
   rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
+  rebaseIncubatorTimers(player, oldIncubatorMult, incubatorSpeedMultiplier(player));
   return {};
 }
 
@@ -485,8 +513,10 @@ export function buyPetEgg(
   player.coins -= egg.cost.coins;
   player.diamonds -= egg.cost.diamonds;
   const oldGrowMult = growSpeedMultiplier(player);
+  const oldIncubatorMult = incubatorSpeedMultiplier(player);
   const outcome = applyHatch(player, hatch);
   rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
+  rebaseIncubatorTimers(player, oldIncubatorMult, incubatorSpeedMultiplier(player));
   return outcome;
 }
 
@@ -513,8 +543,10 @@ export function buyPetEggBulk(
   player.coins -= cost.coins;
   player.diamonds -= cost.diamonds;
   const oldGrowMult = growSpeedMultiplier(player);
+  const oldIncubatorMult = incubatorSpeedMultiplier(player);
   const results = Array.from({ length: BULK_EGG_COUNT }, () => applyHatch(player, rollPetEgg(eggId)!));
   rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
+  rebaseIncubatorTimers(player, oldIncubatorMult, incubatorSpeedMultiplier(player));
   return { results, cost };
 }
 
@@ -569,7 +601,8 @@ export function startPetMerge(
   if (!targetId) return { error: "Already at max evolution." };
   if (!removeOwnedPet(player, petId, size, MERGE_COUNT)) return { error: `Need ${MERGE_COUNT} identical pets (same pet, same size) to merge.` };
   const targetStage = evolutionInfo(targetId).stage;
-  const durationMs = targetStage >= MAX_EVOLUTION_STAGE ? TENACIOUS_DURATION_MS : EMPOWER_DURATION_MS;
+  const baseDurationMs = targetStage >= MAX_EVOLUTION_STAGE ? TENACIOUS_DURATION_MS : EMPOWER_DURATION_MS;
+  const durationMs = baseDurationMs * incubatorSpeedMultiplier(player);
   const now = Date.now();
   incubator.merge = { petId, size, startedAt: now, readyAt: now + durationMs };
   return {};

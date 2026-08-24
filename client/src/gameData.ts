@@ -148,6 +148,10 @@ export const PERSISTENT_REGROW_MULTIPLIER = 10;
  *  (0.1 = crops can grow at most 10x faster than normal, never more). */
 export const GROW_SPEED_FLOOR = 0.1;
 
+/** Mirrors server/src/gameData.ts — floor on the incubator-merge-speed multiplier from equipped
+ *  Bunny/Owl (0.1 = merges can finish at most 10x faster than normal, never more). */
+export const INCUBATOR_SPEED_FLOOR = 0.1;
+
 export function nextGearPrice(gear: GearItem, owned: number): GearPrice {
   if (gear.levelCosts) return gear.levelCosts[Math.min(owned, gear.levelCosts.length - 1)];
   return { coins: Math.round(gear.cost * (1 + owned * 0.5)), diamonds: 0 };

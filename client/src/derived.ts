@@ -1,4 +1,4 @@
-import { GEAR_BY_ID, GROW_SPEED_FLOOR } from "./gameData";
+import { GEAR_BY_ID, GROW_SPEED_FLOOR, INCUBATOR_SPEED_FLOOR } from "./gameData";
 import { parseSlotKey, PET_SIZE_MULTIPLIER, PETS_BY_ID } from "./petData";
 import type { PlayerState } from "./types";
 
@@ -45,6 +45,18 @@ export function growSpeedInfo(player: PlayerState): GrowSpeedInfo {
 
 export function growSpeedMultiplier(player: PlayerState): number {
   return growSpeedInfo(player).multiplier;
+}
+
+/** Same shape as GrowSpeedInfo — Bunny/Owl (and evolutions) are the only incubatorSpeed pets,
+ *  no gear source. */
+export function incubatorSpeedInfo(player: PlayerState): GrowSpeedInfo {
+  let reduction = 0;
+  for (const { pet, size } of activePets(player)) {
+    if (pet && pet.effect.type === "incubatorSpeed") reduction += pet.effect.value * PET_SIZE_MULTIPLIER[size];
+  }
+  const uncapped = 1 - reduction;
+  const multiplier = Math.max(INCUBATOR_SPEED_FLOOR, uncapped);
+  return { multiplier, speedFactor: 1 / multiplier, capped: uncapped < INCUBATOR_SPEED_FLOOR };
 }
 
 export function sellMultiplier(player: PlayerState): number {

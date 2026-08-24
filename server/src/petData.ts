@@ -5,7 +5,10 @@
  *  (gameData.ts) so Divine/Celestial pets read as consistently "the rare ones", same language as
  *  Solar crops.
  */
-export type PetEffect = { type: "growSpeed"; value: number } | { type: "sellBonus"; value: number };
+export type PetEffect =
+  | { type: "growSpeed"; value: number }
+  | { type: "sellBonus"; value: number }
+  | { type: "incubatorSpeed"; value: number };
 
 export interface Pet {
   id: string;
@@ -27,9 +30,9 @@ interface BasePet {
 
 const BASE_PETS: BasePet[] = [
   { id: "chick", name: "Chick", emoji: "🐥", tier: 0, effect: { type: "sellBonus", value: 0.03 } },
-  { id: "bunny", name: "Bunny", emoji: "🐰", tier: 1, effect: { type: "growSpeed", value: 0.03 } },
+  { id: "bunny", name: "Bunny", emoji: "🐰", tier: 1, effect: { type: "incubatorSpeed", value: 0.03 } },
   { id: "fox", name: "Fox", emoji: "🦊", tier: 2, effect: { type: "sellBonus", value: 0.06 } },
-  { id: "owl", name: "Owl", emoji: "🦉", tier: 3, effect: { type: "growSpeed", value: 0.06 } },
+  { id: "owl", name: "Owl", emoji: "🦉", tier: 3, effect: { type: "incubatorSpeed", value: 0.06 } },
   { id: "panda", name: "Panda", emoji: "🐼", tier: 4, effect: { type: "sellBonus", value: 0.1 } },
   { id: "phoenix_chick", name: "Phoenix Chick", emoji: "🐣", tier: 5, effect: { type: "growSpeed", value: 0.1 } },
   { id: "unicorn", name: "Unicorn", emoji: "🦄", tier: 6, effect: { type: "sellBonus", value: 0.18 } },

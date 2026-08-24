@@ -176,13 +176,14 @@ export default function PetShopView({ player }: { player: PlayerState }) {
         Shop) to merge them into a stronger evolved form.
       </p>
       <p className="shop-sub">
-        Every equipped pet passively boosts either ⏩ Grow Speed (crops finish faster) or 💰 Sell Price (crops sell for
-        more) — bonuses stack across all equipped pets. Big and Giant sizes multiply the bonus (1.5x / 2.5x), and
-        merging into Empowered / Tenacious forms multiplies it further (2.5x / 5x).
+        Every equipped pet passively boosts ⏩ Grow Speed (crops finish faster), 💰 Sell Price (crops sell for more),
+        or 🥚 Incubator Speed (merges finish faster — Bunny and Owl only) — bonuses stack across all equipped pets.
+        Big and Giant sizes multiply the bonus (1.5x / 2.5x), and merging into Empowered / Tenacious forms multiplies
+        it further (2.5x / 5x).
       </p>
       {error && <p className="lobby-error">{error}</p>}
 
-      <GrowSpeedBanner player={player} />
+      <GrowSpeedBanner player={player} showIncubatorSpeed />
 
       <div className="restock-banner">
         <span>

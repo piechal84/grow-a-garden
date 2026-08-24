@@ -149,6 +149,12 @@ export const PERSISTENT_REGROW_MULTIPLIER = 10;
  *  timer and by the Pet/Gear shops (client) to show when a player has maxed it out. */
 export const GROW_SPEED_FLOOR = 0.1;
 
+/** Floor on the incubator-merge-speed multiplier from equipped Bunny/Owl (the only
+ *  incubatorSpeed pets) — merges can never finish faster than 1/INCUBATOR_SPEED_FLOOR the
+ *  normal duration. Used by rooms.ts for the real timer and by the Pet Shop (client) to show
+ *  when a player has maxed it out. */
+export const INCUBATOR_SPEED_FLOOR = 0.1;
+
 /**
  * Each planted seed secretly rolls one of these tiers, then visibly grows toward
  * its visualScale as the plot's grow timer progresses. Weighted so most crops land
