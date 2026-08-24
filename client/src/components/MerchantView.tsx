@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { CROPS_BY_ID, SIZE_COLORS, SIZE_ORDER } from "../gameData";
 import { sellMultiplier } from "../derived";
-import { getCropDef, MOON_CROPS_BY_ID, MOON_TIER_ORDER } from "../moonData";
+import { MOON_CROPS_BY_ID, MOON_TIER_TO_CROP_TIER } from "../moonData";
+import { getAnyCropDef as getCropDef, SOLAR_CROPS_BY_ID, SOLAR_TIER_TO_CROP_TIER } from "../solarData";
 import type { PlayerState } from "../types";
 import { socket } from "../socket";
 import { MUTATIONS, mutationKey, type MutationId } from "../weather";
@@ -11,7 +12,9 @@ function sortRank(cropId: string): number {
   const normal = CROPS_BY_ID[cropId];
   if (normal) return normal.tier;
   const moon = MOON_CROPS_BY_ID[cropId];
-  if (moon) return 100 + MOON_TIER_ORDER.indexOf(moon.tier);
+  if (moon) return MOON_TIER_TO_CROP_TIER[moon.tier];
+  const solar = SOLAR_CROPS_BY_ID[cropId];
+  if (solar) return SOLAR_TIER_TO_CROP_TIER[solar.tier];
   return 999;
 }
 

@@ -57,6 +57,7 @@ export default function PlotView({
   onWalkTo: (pos: Position) => void;
 }) {
   const [pickerCell, setPickerCell] = useState<{ x: number; y: number } | null>(null);
+  const [activeTool, setActiveTool] = useState<"reclaim" | "move" | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
   const origin = plotOrigin(player.slotIndex);
@@ -78,7 +79,7 @@ export default function PlotView({
   function handleEmptyCellClick(e: React.MouseEvent, x: number, y: number) {
     e.stopPropagation();
     if (!isOwner) return;
-    if (movingId) {
+    if (activeTool === "move" && movingId) {
       onWalkTo(cellWorldPos(x, y));
       const id = movingId;
       socket.emit("move_planting", { plantingId: id, x, y }, (res) => {
@@ -91,31 +92,45 @@ export default function PlotView({
       });
       return;
     }
+    if (activeTool) return; // reclaim mode (or move mode with nothing selected yet) has no empty-cell action
     onWalkTo(cellWorldPos(x, y));
     setPickerCell({ x, y });
   }
 
-  function handleHarvest(e: React.MouseEvent, plantingId: string, x: number, y: number, w: number, h: number) {
-    e.stopPropagation();
+  function handleHarvest(plantingId: string, x: number, y: number, w: number, h: number) {
     onWalkTo(cellWorldPos(x, y, w, h));
     socket.emit("harvest", { plantingId });
   }
 
-  function handleReclaim(e: React.MouseEvent, plantingId: string, x: number, y: number, w: number, h: number) {
-    e.stopPropagation();
+  function handleReclaim(plantingId: string, x: number, y: number, w: number, h: number) {
     onWalkTo(cellWorldPos(x, y, w, h));
     socket.emit("reclaim_planting", { plantingId });
+    setMoveError(null);
   }
 
-  function handleMoveToggle(e: React.MouseEvent, plantingId: string, x: number, y: number, w: number, h: number) {
-    e.stopPropagation();
+  function handleSelectForMove(plantingId: string, x: number, y: number, w: number, h: number) {
+    onWalkTo(cellWorldPos(x, y, w, h));
     setMoveError(null);
-    if (movingId === plantingId) {
-      setMovingId(null);
+    setMovingId(plantingId);
+  }
+
+  function handlePlantingClick(planting: Planting, ready: boolean) {
+    if (!isOwner) return;
+    if (activeTool === "reclaim") {
+      handleReclaim(planting.id, planting.x, planting.y, planting.w, planting.h);
       return;
     }
-    onWalkTo(cellWorldPos(x, y, w, h));
-    setMovingId(plantingId);
+    if (activeTool === "move") {
+      handleSelectForMove(planting.id, planting.x, planting.y, planting.w, planting.h);
+      return;
+    }
+    if (ready) handleHarvest(planting.id, planting.x, planting.y, planting.w, planting.h);
+  }
+
+  function toggleTool(tool: "reclaim" | "move") {
+    setMoveError(null);
+    setMovingId(null);
+    setActiveTool((cur) => (cur === tool ? null : tool));
   }
 
   const hasReclaimer = (player.gearOwned["reclaimer"] ?? 0) > 0;
@@ -139,7 +154,43 @@ export default function PlotView({
       }}
     >
       <span className="world-plot-name">{player.name}</span>
-      {isOwner && movingId && (
+      {isOwner && (hasReclaimer || hasTrowel) && (
+        <div className="plot-toolbar" onClick={(e) => e.stopPropagation()}>
+          {hasReclaimer && (
+            <button
+              className={`plot-tool-btn ${activeTool === "reclaim" ? "plot-tool-btn-active" : ""}`}
+              onClick={() => toggleTool("reclaim")}
+            >
+              🧲 Reclaim
+            </button>
+          )}
+          {hasTrowel && (
+            <button
+              className={`plot-tool-btn ${activeTool === "move" ? "plot-tool-btn-active" : ""}`}
+              onClick={() => toggleTool("move")}
+            >
+              🛠️ Move
+            </button>
+          )}
+        </div>
+      )}
+      {isOwner && activeTool === "reclaim" && (
+        <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
+          🧲 Tap a crop to reclaim its seed
+          <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
+            Done
+          </button>
+        </div>
+      )}
+      {isOwner && activeTool === "move" && !movingId && (
+        <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
+          🛠️ Tap a crop to move it
+          <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
+            Done
+          </button>
+        </div>
+      )}
+      {isOwner && activeTool === "move" && movingId && (
         <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
           🛠️ Choose a new spot for your crop
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setMovingId(null)}>
@@ -155,7 +206,7 @@ export default function PlotView({
       {emptyCells.map(({ x, y }) => (
         <button
           key={`e-${x}-${y}`}
-          className={`stud stud-empty ${movingId ? "stud-empty-target" : ""}`}
+          className={`stud stud-empty ${activeTool === "move" && movingId ? "stud-empty-target" : ""}`}
           disabled={!isOwner}
           style={{ left: x * CELL_SIZE, top: y * CELL_SIZE, width: CELL_SIZE, height: CELL_SIZE }}
           onClick={(e) => handleEmptyCellClick(e, x, y)}
@@ -175,19 +226,25 @@ export default function PlotView({
         const auraTier = auraTierFor(planting.cropId);
         const isMoving = movingId === planting.id;
 
+        const toolHint =
+          activeTool === "reclaim" ? "Tap to reclaim" : activeTool === "move" ? (isMoving ? "Selected — pick a new spot" : "Tap to move") : undefined;
+
         return (
           <div
             key={planting.id}
-            className={`stud stud-planted ${ready ? "stud-ready" : ""} ${ready && isOwner && !movingId ? "stud-harvestable" : ""} ${isMoving ? "stud-moving" : ""}`}
+            className={`stud stud-planted ${ready ? "stud-ready" : ""} ${
+              ready && isOwner && !activeTool ? "stud-harvestable" : ""
+            } ${isMoving ? "stud-moving" : ""} ${isOwner && activeTool ? "stud-tool-target" : ""}`}
             style={{
               left: planting.x * CELL_SIZE,
               top: planting.y * CELL_SIZE,
               width: planting.w * CELL_SIZE,
               height: planting.h * CELL_SIZE,
             }}
+            title={toolHint}
             onClick={(e) => {
               e.stopPropagation();
-              if (ready && isOwner && !movingId) handleHarvest(e, planting.id, planting.x, planting.y, planting.w, planting.h);
+              handlePlantingClick(planting, ready);
             }}
           >
             <GrowthPlant
@@ -199,26 +256,6 @@ export default function PlotView({
               auraTier={auraTier}
             />
             {crop.persistent && <span className="tree-badge" title="Regrows after harvest — never consumed">🌳</span>}
-            <div className="stud-tool-stack">
-              {isOwner && hasReclaimer && !movingId && (
-                <button
-                  className="reclaim-btn"
-                  title="Reclaim seed"
-                  onClick={(e) => handleReclaim(e, planting.id, planting.x, planting.y, planting.w, planting.h)}
-                >
-                  🧲
-                </button>
-              )}
-              {isOwner && hasTrowel && (
-                <button
-                  className={`move-btn ${isMoving ? "move-btn-active" : ""}`}
-                  title={isMoving ? "Cancel move" : "Move this crop"}
-                  onClick={(e) => handleMoveToggle(e, planting.id, planting.x, planting.y, planting.w, planting.h)}
-                >
-                  🛠️
-                </button>
-              )}
-            </div>
             {pct >= 70 && displayMutations.length > 0 && (
               <span
                 className="mutation-badges"

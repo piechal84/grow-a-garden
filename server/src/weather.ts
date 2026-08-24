@@ -137,6 +137,20 @@ export function getActiveWeather(roomCreatedAt: number, now: number): ActiveWeat
   return { temperature, sky };
 }
 
+export type FeaturedShop = "moon" | "solar";
+
+const SHOP_WEIGHTS: { kind: FeaturedShop; weight: number }[] = [
+  { kind: "moon", weight: 80 },
+  { kind: "solar", weight: 20 },
+];
+
+/** Moon and Solar shops never both feature — each full day/night cycle rolls (deterministically,
+ *  from roomCreatedAt+now like everything else here) which one is open next, Moon 80% of cycles. */
+export function getFeaturedShop(roomCreatedAt: number, now: number): FeaturedShop {
+  const bucket = Math.floor((now - roomCreatedAt) / CYCLE_MS);
+  return pickWeighted(SHOP_WEIGHTS, seededRandom(bucket * 50021 + 7)).kind;
+}
+
 /** Order-independent key for grouping/matching items by their mutation set. */
 export function mutationKey(mutations: MutationId[]): string {
   return [...mutations].sort().join(",");

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { MAX_PLAYERS_PER_ROOM } from "../gameData";
 import { socket } from "../socket";
 import type { RoomState } from "../types";
-import { getActiveWeather, phaseInfo } from "../weather";
+import { getActiveWeather, getFeaturedShop, phaseInfo } from "../weather";
 import {
   BASE_GRID_HEIGHT,
   CELL_SIZE,
@@ -23,9 +23,11 @@ import MerchantView from "./MerchantView";
 import MoonShopView from "./MoonShopView";
 import NPCStall, { type NPCKind } from "./NPCStall";
 import PlotView from "./PlotView";
+import PremiumShopView from "./PremiumShopView";
 import QuestGiverView from "./QuestGiverView";
 import SeedShopView from "./SeedShopView";
 import ShopModal from "./ShopModal";
+import SolarShopView from "./SolarShopView";
 import WeatherBar from "./WeatherBar";
 import { LightningBolts, RainParticles, SnowParticles } from "./WeatherParticles";
 
@@ -236,6 +238,7 @@ export default function WorldView({
 
   const { isDay } = phaseInfo(room.createdAt, now);
   const { temperature, sky } = getActiveWeather(room.createdAt, now);
+  const featuredShop = getFeaturedShop(room.createdAt, now);
 
   const plantWorldPositions: Position[] = room.players.flatMap((p) => {
     const origin = plotOrigin(p.slotIndex);
@@ -334,7 +337,8 @@ export default function WorldView({
         <NPCStall kind="gear" onClick={() => handleNpcClick("gear")} />
         <NPCStall kind="quests" onClick={() => handleNpcClick("quests")} />
         <NPCStall kind="merchant" onClick={() => handleNpcClick("merchant")} />
-        <NPCStall kind="moon" onClick={() => handleNpcClick("moon")} />
+        <NPCStall kind="moon" featuredShop={featuredShop} onClick={() => handleNpcClick("moon")} />
+        <NPCStall kind="premium" onClick={() => handleNpcClick("premium")} />
 
         {Array.from({ length: MAX_PLAYERS_PER_ROOM }, (_, slot) => {
           const player = room.players.find((p) => p.slotIndex === slot);
@@ -397,7 +401,9 @@ export default function WorldView({
           {openShop === "gear" && <GearShopView player={me} />}
           {openShop === "quests" && <QuestGiverView player={me} />}
           {openShop === "merchant" && <MerchantView player={me} />}
-          {openShop === "moon" && <MoonShopView player={me} />}
+          {openShop === "moon" && featuredShop === "moon" && <MoonShopView player={me} />}
+          {openShop === "moon" && featuredShop === "solar" && <SolarShopView player={me} />}
+          {openShop === "premium" && <PremiumShopView player={me} />}
         </ShopModal>
       )}
     </div>

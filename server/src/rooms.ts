@@ -1,6 +1,13 @@
 import { customAlphabet, nanoid } from "nanoid";
 import { CROPS, CROPS_BY_ID, GEAR_BY_ID, MAX_PLAYERS_PER_ROOM, rollSizeTier, STARTING_COINS } from "./gameData.js";
-import { getCropDef, MOON_PACK_COST, resolveFootprint, rollMoonPack, type PackResult } from "./moonData.js";
+import { MOON_PACK_COST, resolveFootprint, rollMoonPack, type PackResult } from "./moonData.js";
+import {
+  getAnyCropDef as getCropDef,
+  resolveSolarFootprint,
+  rollSolarPack,
+  SOLAR_PACK_COST,
+  type SolarPackResult,
+} from "./solarData.js";
 import {
   dayBucket,
   DAILY_QUEST_POOL,
@@ -19,7 +26,7 @@ import {
 } from "./quests.js";
 import type { HarvestedCrop, PlayerState, Planting, RoomState } from "./types.js";
 import { findUserById, type SavedProgress } from "./userStore.js";
-import { computeReadyAt, MUTATIONS, mutationKey, rollMutations, type MutationId } from "./weather.js";
+import { computeReadyAt, getFeaturedShop, MUTATIONS, mutationKey, rollMutations, type MutationId } from "./weather.js";
 import {
   BASE_GRID_HEIGHT,
   clampToWorld,
@@ -68,6 +75,7 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     weeklyRerollCount: saved?.weeklyRerollCount ?? 0,
     seedStock: saved?.seedStock ?? {},
     seedStockBucket: saved?.seedStockBucket ?? -1,
+    diamonds: saved?.diamonds ?? 0,
   };
   ensureQuestsFresh(player, Date.now());
   ensureStockFresh(player, Date.now());
@@ -338,7 +346,7 @@ export function plant(room: RoomState, player: PlayerState, x: number, y: number
   const crop = getCropDef(cropId);
   if (!crop) return { error: "Unknown crop." };
   if ((player.seedInventory[cropId] ?? 0) <= 0) return { error: "You don't have that seed." };
-  const { w, h } = resolveFootprint(cropId, crop.footprint);
+  const { w, h } = resolveSolarFootprint(cropId, resolveFootprint(cropId, crop.footprint));
   if (!canPlaceAt(player, x, y, w, h)) return { error: "Won't fit there." };
 
   player.seedInventory[cropId] -= 1;
@@ -513,13 +521,82 @@ export function extractProgress(player: PlayerState): SavedProgress {
     weeklyRerollCount: player.weeklyRerollCount,
     seedStock: player.seedStock,
     seedStockBucket: player.seedStockBucket,
+    diamonds: player.diamonds,
   };
 }
 
-export function buyMoonPack(player: PlayerState): { error?: string; result?: PackResult } {
+const BULK_PACK_COUNT = 10;
+const BULK_PACK_DISCOUNT = 0.1;
+
+export function buyMoonPack(room: RoomState, player: PlayerState): { error?: string; result?: PackResult } {
+  if (getFeaturedShop(room.createdAt, Date.now()) !== "moon") {
+    return { error: "The Moon Shop isn't featured right now — check back later." };
+  }
   if (player.coins < MOON_PACK_COST) return { error: "Not enough coins." };
   player.coins -= MOON_PACK_COST;
   const result = rollMoonPack();
   player.seedInventory[result.cropId] = (player.seedInventory[result.cropId] ?? 0) + 1;
   return { result };
+}
+
+export function buyMoonPackBulk(room: RoomState, player: PlayerState): { error?: string; results?: PackResult[]; cost?: number } {
+  if (getFeaturedShop(room.createdAt, Date.now()) !== "moon") {
+    return { error: "The Moon Shop isn't featured right now — check back later." };
+  }
+  const cost = Math.round(MOON_PACK_COST * BULK_PACK_COUNT * (1 - BULK_PACK_DISCOUNT));
+  if (player.coins < cost) return { error: "Not enough coins." };
+  player.coins -= cost;
+  const results = Array.from({ length: BULK_PACK_COUNT }, () => rollMoonPack());
+  for (const result of results) {
+    player.seedInventory[result.cropId] = (player.seedInventory[result.cropId] ?? 0) + 1;
+  }
+  return { results, cost };
+}
+
+export function buySolarPack(room: RoomState, player: PlayerState): { error?: string; result?: SolarPackResult } {
+  if (getFeaturedShop(room.createdAt, Date.now()) !== "solar") {
+    return { error: "The Solar Shop isn't featured right now — check back later." };
+  }
+  if (player.diamonds < SOLAR_PACK_COST) return { error: "Not enough diamonds." };
+  player.diamonds -= SOLAR_PACK_COST;
+  const result = rollSolarPack();
+  player.seedInventory[result.cropId] = (player.seedInventory[result.cropId] ?? 0) + 1;
+  return { result };
+}
+
+export function buySolarPackBulk(
+  room: RoomState,
+  player: PlayerState,
+): { error?: string; results?: SolarPackResult[]; cost?: number } {
+  if (getFeaturedShop(room.createdAt, Date.now()) !== "solar") {
+    return { error: "The Solar Shop isn't featured right now — check back later." };
+  }
+  const cost = Math.round(SOLAR_PACK_COST * BULK_PACK_COUNT * (1 - BULK_PACK_DISCOUNT));
+  if (player.diamonds < cost) return { error: "Not enough diamonds." };
+  player.diamonds -= cost;
+  const results = Array.from({ length: BULK_PACK_COUNT }, () => rollSolarPack());
+  for (const result of results) {
+    player.seedInventory[result.cropId] = (player.seedInventory[result.cropId] ?? 0) + 1;
+  }
+  return { results, cost };
+}
+
+const DIAMOND_BUY_RATE = 1_000_000; // coins per diamond when buying
+const DIAMOND_SELL_RATE = 800_000; // coins per diamond when selling back (a deliberate loss vs. buying)
+
+export function buyDiamonds(player: PlayerState, quantity: number): { error?: string } {
+  if (!Number.isInteger(quantity) || quantity <= 0) return { error: "Invalid quantity." };
+  const cost = quantity * DIAMOND_BUY_RATE;
+  if (player.coins < cost) return { error: "Not enough coins." };
+  player.coins -= cost;
+  player.diamonds += quantity;
+  return {};
+}
+
+export function sellDiamonds(player: PlayerState, quantity: number): { error?: string } {
+  if (!Number.isInteger(quantity) || quantity <= 0) return { error: "Invalid quantity." };
+  if (player.diamonds < quantity) return { error: "You don't have that many diamonds." };
+  player.diamonds -= quantity;
+  player.coins += quantity * DIAMOND_SELL_RATE;
+  return {};
 }

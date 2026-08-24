@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
 import { canPlaceAt } from "../derived";
-import { getCropDef, MOON_CROPS_BY_ID, possibleFootprints } from "../moonData";
+import { MOON_CROPS_BY_ID } from "../moonData";
+import { getAnyCropDef as getCropDef, possibleFootprintsAny as possibleFootprints, SOLAR_CROPS_BY_ID } from "../solarData";
 import type { PlayerState } from "../types";
 import { socket } from "../socket";
 import CropIcon from "./CropIcon";
@@ -33,7 +34,7 @@ export default function PlantPickerModal({
             {owned.map(([cropId, count]) => {
               const crop = getCropDef(cropId);
               if (!crop) return null;
-              const variable = MOON_CROPS_BY_ID[cropId]?.variableFootprint;
+              const variable = MOON_CROPS_BY_ID[cropId]?.variableFootprint || SOLAR_CROPS_BY_ID[cropId]?.variableFootprint;
               const fits = possibleFootprints(cropId, crop.footprint).some((fp) =>
                 canPlaceAt(player, x, y, fp.w, fp.h),
               );

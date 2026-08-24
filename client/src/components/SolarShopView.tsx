@@ -1,28 +1,28 @@
 import { useRef, useState } from "react";
 import { CROP_TIER_COLORS, CROP_TIER_LABELS } from "../gameData";
-import { MOON_CROPS, MOON_PACK_COST, MOON_PACK_ODDS, MOON_TIER_TO_CROP_TIER, type MoonTier } from "../moonData";
-import type { MoonPackAck, MoonPackBulkAck, MoonPackResult, PlayerState } from "../types";
+import { SOLAR_CROPS, SOLAR_PACK_COST, SOLAR_PACK_ODDS, SOLAR_TIER_TO_CROP_TIER, type SolarTier } from "../solarData";
+import type { PlayerState, SolarPackAck, SolarPackBulkAck, SolarPackResult } from "../types";
 import { socket } from "../socket";
 import CropIcon from "./CropIcon";
 import MoonPackCelebration from "./MoonPackCelebration";
 
-function tierLabel(tier: MoonTier): string {
-  return CROP_TIER_LABELS[MOON_TIER_TO_CROP_TIER[tier]];
+function tierLabel(tier: SolarTier): string {
+  return CROP_TIER_LABELS[SOLAR_TIER_TO_CROP_TIER[tier]];
 }
 
-function tierColor(tier: MoonTier): string {
-  return CROP_TIER_COLORS[MOON_TIER_TO_CROP_TIER[tier]];
+function tierColor(tier: SolarTier): string {
+  return CROP_TIER_COLORS[SOLAR_TIER_TO_CROP_TIER[tier]];
 }
 
-function bestOf(results: MoonPackResult[]): MoonPackResult {
-  return results.reduce((best, r) => (MOON_TIER_TO_CROP_TIER[r.kind] > MOON_TIER_TO_CROP_TIER[best.kind] ? r : best));
+function bestOf(results: SolarPackResult[]): SolarPackResult {
+  return results.reduce((best, r) => (SOLAR_TIER_TO_CROP_TIER[r.kind] > SOLAR_TIER_TO_CROP_TIER[best.kind] ? r : best));
 }
 
-const SPIN_ORDER = MOON_CROPS.map((c) => c.id);
+const SPIN_ORDER = SOLAR_CROPS.map((c) => c.id);
 const SPIN_MIN_STEPS = 18;
 const BULK_COUNT = 10;
 const BULK_DISCOUNT = 0.1;
-const BULK_COST = Math.round(MOON_PACK_COST * BULK_COUNT * (1 - BULK_DISCOUNT));
+const BULK_COST = Math.round(SOLAR_PACK_COST * BULK_COUNT * (1 - BULK_DISCOUNT));
 
 function delay(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -30,16 +30,16 @@ function delay(ms: number) {
 
 type Phase = "idle" | "spinning" | "revealed";
 
-export default function MoonShopView({ player }: { player: PlayerState }) {
+export default function SolarShopView({ player }: { player: PlayerState }) {
   const [error, setError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<MoonPackResult | null>(null);
-  const [bulkResults, setBulkResults] = useState<MoonPackResult[] | null>(null);
+  const [lastResult, setLastResult] = useState<SolarPackResult | null>(null);
+  const [bulkResults, setBulkResults] = useState<SolarPackResult[] | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [spinCropId, setSpinCropId] = useState(SPIN_ORDER[0]);
   const spinRunId = useRef(0);
 
-  const affordable = player.coins >= MOON_PACK_COST;
-  const bulkAffordable = player.coins >= BULK_COST;
+  const affordable = player.diamonds >= SOLAR_PACK_COST;
+  const bulkAffordable = player.diamonds >= BULK_COST;
 
   async function runSpin(runId: number, hasAck: () => boolean) {
     let step = 0;
@@ -60,14 +60,11 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
     setPhase("spinning");
     const runId = ++spinRunId.current;
 
-    const box: { ack: MoonPackAck | null } = { ack: null };
-    socket.emit("buy_moon_pack", (res) => {
+    const box: { ack: SolarPackAck | null } = { ack: null };
+    socket.emit("buy_solar_pack", (res) => {
       box.ack = res;
     });
 
-    // Cycle through the crop icons with a slot-machine deceleration curve. Keeps spinning
-    // past the minimum if the server hasn't answered yet, so it never looks stuck or reveals
-    // before the real (server-authoritative) result is known.
     if (!(await runSpin(runId, () => !!box.ack))) return;
     if (runId !== spinRunId.current) return;
 
@@ -92,8 +89,8 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
     setPhase("spinning");
     const runId = ++spinRunId.current;
 
-    const box: { ack: MoonPackBulkAck | null } = { ack: null };
-    socket.emit("buy_moon_pack_bulk", (res) => {
+    const box: { ack: SolarPackBulkAck | null } = { ack: null };
+    socket.emit("buy_solar_pack_bulk", (res) => {
       box.ack = res;
     });
 
@@ -114,29 +111,29 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
     setPhase("revealed");
   }
 
-  const spinningCrop = MOON_CROPS.find((c) => c.id === spinCropId);
+  const spinningCrop = SOLAR_CROPS.find((c) => c.id === spinCropId);
 
   return (
     <div className="shop-view">
-      <h2>🌙 Moon Shop</h2>
+      <h2>☀️ Solar Shop</h2>
       <p className="shop-sub">
-        Celestial seeds you won't find anywhere else. You can't buy them directly — crack open a pack and you're
-        always guaranteed a seed.
+        Diamond-only seeds as rare as the Moon Shop's — paid for in Diamonds, not coins. Crack open a pack and
+        you're always guaranteed a seed.
       </p>
       {error && <p className="lobby-error">{error}</p>}
 
       <div className="moon-buy-row">
-        <button className="btn btn-moon" disabled={!affordable || phase === "spinning"} onClick={handleBuyPack}>
-          {phase === "spinning" ? "Opening…" : `🎁 Open Moon Seed Pack (${MOON_PACK_COST})`}
+        <button className="btn btn-solar" disabled={!affordable || phase === "spinning"} onClick={handleBuyPack}>
+          {phase === "spinning" ? "Opening…" : `☀️ Open Solar Seed Pack (${SOLAR_PACK_COST} 💎)`}
         </button>
-        <button className="btn btn-moon btn-moon-bulk" disabled={!bulkAffordable || phase === "spinning"} onClick={handleBuyBulk}>
+        <button className="btn btn-solar btn-solar-bulk" disabled={!bulkAffordable || phase === "spinning"} onClick={handleBuyBulk}>
           <span className="moon-bulk-discount-tag">10% OFF</span>
-          {phase === "spinning" ? "Opening…" : `🎁 Open 10x Moon Seed Packs (${BULK_COST})`}
+          {phase === "spinning" ? "Opening…" : `☀️ Open 10x Solar Seed Packs (${BULK_COST} 💎)`}
         </button>
       </div>
 
       {phase === "spinning" && spinningCrop && (
-        <div className="moon-spin">
+        <div className="moon-spin solar-spin">
           <div className="moon-spin-window">
             <CropIcon crop={spinningCrop} size={44} />
           </div>
@@ -147,7 +144,7 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
       {phase === "revealed" &&
         lastResult &&
         (() => {
-          const crop = MOON_CROPS.find((c) => c.id === lastResult.cropId);
+          const crop = SOLAR_CROPS.find((c) => c.id === lastResult.cropId);
           if (!crop) return null;
           return (
             <>
@@ -168,7 +165,7 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
           <MoonPackCelebration tier={bestOf(bulkResults).kind} />
           <div className="moon-bulk-reveal">
             {bulkResults.map((r, i) => {
-              const crop = MOON_CROPS.find((c) => c.id === r.cropId);
+              const crop = SOLAR_CROPS.find((c) => c.id === r.cropId);
               if (!crop) return null;
               return (
                 <div key={i} className="moon-bulk-card" style={{ borderColor: tierColor(r.kind) }}>
@@ -183,9 +180,9 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
         </>
       )}
 
-      <h3 className="moon-section-title">The 6 Moon Seeds</h3>
+      <h3 className="moon-section-title">The 6 Solar Seeds</h3>
       <div className="shop-list">
-        {MOON_CROPS.map((crop) => (
+        {SOLAR_CROPS.map((crop) => (
           <div key={crop.id} className="shop-row">
             <div
               className={`shop-row-icon ${crop.tier === "mythic" ? "plant-aura-divine" : ""} ${
@@ -218,7 +215,7 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
 
       <h3 className="moon-section-title">Pack Odds</h3>
       <div className="moon-odds-list">
-        {MOON_PACK_ODDS.map((o) => (
+        {SOLAR_PACK_ODDS.map((o) => (
           <div key={o.tier} className="moon-odds-row">
             <span style={{ color: tierColor(o.tier) }}>{tierLabel(o.tier)}</span>
             <span>{o.pct}%</span>

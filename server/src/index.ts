@@ -7,9 +7,13 @@ import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 import {
   allPositions,
+  buyDiamonds,
   buyGear,
   buyMoonPack,
+  buyMoonPackBulk,
   buySeed,
+  buySolarPack,
+  buySolarPackBulk,
   createRoom,
   ensurePosition,
   ensureQuestsFresh,
@@ -26,6 +30,7 @@ import {
   rerollQuest,
   sell,
   sellAll,
+  sellDiamonds,
 } from "./rooms.js";
 import type { ClientToServerEvents, RoomState, ServerToClientEvents } from "./types.js";
 import { initUserStore, login, register, saveProgress } from "./userStore.js";
@@ -172,8 +177,48 @@ io.on("connection", (socket) => {
   socket.on("buy_moon_pack", (ack) => {
     const { room, player } = currentPlayer();
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const outcome = buyMoonPack(player);
+    const outcome = buyMoonPack(room, player);
     ack?.({ ok: !outcome.error, error: outcome.error, result: outcome.result });
+    if (!outcome.error) broadcast(room);
+  });
+
+  socket.on("buy_moon_pack_bulk", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const outcome = buyMoonPackBulk(room, player);
+    ack?.({ ok: !outcome.error, error: outcome.error, results: outcome.results, cost: outcome.cost });
+    if (!outcome.error) broadcast(room);
+  });
+
+  socket.on("buy_solar_pack", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const outcome = buySolarPack(room, player);
+    ack?.({ ok: !outcome.error, error: outcome.error, result: outcome.result });
+    if (!outcome.error) broadcast(room);
+  });
+
+  socket.on("buy_solar_pack_bulk", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const outcome = buySolarPackBulk(room, player);
+    ack?.({ ok: !outcome.error, error: outcome.error, results: outcome.results, cost: outcome.cost });
+    if (!outcome.error) broadcast(room);
+  });
+
+  socket.on("buy_diamonds", ({ quantity }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const outcome = buyDiamonds(player, quantity);
+    ack?.({ ok: !outcome.error, error: outcome.error });
+    if (!outcome.error) broadcast(room);
+  });
+
+  socket.on("sell_diamonds", ({ quantity }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const outcome = sellDiamonds(player, quantity);
+    ack?.({ ok: !outcome.error, error: outcome.error });
     if (!outcome.error) broadcast(room);
   });
 

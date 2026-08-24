@@ -1,5 +1,6 @@
 import type { MoonTier } from "./moonData";
 import type { Quest } from "./quests";
+import type { SolarTier } from "./solarData";
 import type { MutationId } from "./weather";
 import type { Position } from "./world";
 
@@ -49,6 +50,7 @@ export interface PlayerState {
   weeklyRerollCount: number;
   seedStock: Record<string, number>;
   seedStockBucket: number;
+  diamonds: number;
 }
 
 export interface RoomState {
@@ -80,6 +82,25 @@ export interface MoonPackAck extends ActionAck {
   result?: MoonPackResult;
 }
 
+export interface MoonPackBulkAck extends ActionAck {
+  results?: MoonPackResult[];
+  cost?: number;
+}
+
+export interface SolarPackResult {
+  kind: SolarTier;
+  cropId: string;
+}
+
+export interface SolarPackAck extends ActionAck {
+  result?: SolarPackResult;
+}
+
+export interface SolarPackBulkAck extends ActionAck {
+  results?: SolarPackResult[];
+  cost?: number;
+}
+
 export interface SellAllAck extends ActionAck {
   earned?: number;
   count?: number;
@@ -109,6 +130,11 @@ export interface ClientToServerEvents {
   sell_all: (ack?: (res: SellAllAck) => void) => void;
   buy_gear: (payload: { gearId: string }, ack?: (res: ActionAck) => void) => void;
   buy_moon_pack: (ack?: (res: MoonPackAck) => void) => void;
+  buy_moon_pack_bulk: (ack?: (res: MoonPackBulkAck) => void) => void;
+  buy_solar_pack: (ack?: (res: SolarPackAck) => void) => void;
+  buy_solar_pack_bulk: (ack?: (res: SolarPackBulkAck) => void) => void;
+  buy_diamonds: (payload: { quantity: number }, ack?: (res: ActionAck) => void) => void;
+  sell_diamonds: (payload: { quantity: number }, ack?: (res: ActionAck) => void) => void;
   move: (payload: { x: number; y: number }) => void;
   register: (payload: { username: string; password: string }, ack: (res: AuthAck) => void) => void;
   login: (payload: { username: string; password: string }, ack: (res: AuthAck) => void) => void;

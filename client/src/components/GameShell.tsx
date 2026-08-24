@@ -95,6 +95,7 @@ export default function GameShell({
             {connected ? "Online" : "Reconnecting…"}
           </span>
           <span className="coin-display">🪙 {me.coins}</span>
+          <span className="diamond-display">💎 {me.diamonds}</span>
         </div>
       </header>
 

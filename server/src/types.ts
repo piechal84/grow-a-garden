@@ -1,5 +1,6 @@
 import type { MoonTier } from "./moonData.js";
 import type { Quest } from "./quests.js";
+import type { SolarTier } from "./solarData.js";
 import type { MutationId } from "./weather.js";
 import type { Position } from "./world.js";
 
@@ -50,6 +51,8 @@ export interface PlayerState {
   /** Units currently purchasable per crop — refilled/rolled every 2-minute real-world bucket. */
   seedStock: Record<string, number>;
   seedStockBucket: number;
+  /** Premium currency — bought with coins or earned from events, spent on Solar Seed Packs. */
+  diamonds: number;
 }
 
 export interface RoomState {
@@ -76,6 +79,11 @@ export interface ClientToServerEvents {
   sell_all: (ack?: (res: SellAllAck) => void) => void;
   buy_gear: (payload: { gearId: string }, ack?: (res: ActionAck) => void) => void;
   buy_moon_pack: (ack?: (res: MoonPackAck) => void) => void;
+  buy_moon_pack_bulk: (ack?: (res: MoonPackBulkAck) => void) => void;
+  buy_solar_pack: (ack?: (res: SolarPackAck) => void) => void;
+  buy_solar_pack_bulk: (ack?: (res: SolarPackBulkAck) => void) => void;
+  buy_diamonds: (payload: { quantity: number }, ack?: (res: ActionAck) => void) => void;
+  sell_diamonds: (payload: { quantity: number }, ack?: (res: ActionAck) => void) => void;
   move: (payload: { x: number; y: number }) => void;
   register: (payload: { username: string; password: string }, ack: (res: AuthAck) => void) => void;
   login: (payload: { username: string; password: string }, ack: (res: AuthAck) => void) => void;
@@ -123,6 +131,25 @@ export interface MoonPackResult {
 
 export interface MoonPackAck extends ActionAck {
   result?: MoonPackResult;
+}
+
+export interface MoonPackBulkAck extends ActionAck {
+  results?: MoonPackResult[];
+  cost?: number;
+}
+
+export interface SolarPackResult {
+  kind: SolarTier;
+  cropId: string;
+}
+
+export interface SolarPackAck extends ActionAck {
+  result?: SolarPackResult;
+}
+
+export interface SolarPackBulkAck extends ActionAck {
+  results?: SolarPackResult[];
+  cost?: number;
 }
 
 export interface AuthAck {

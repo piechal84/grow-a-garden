@@ -27,6 +27,7 @@ export interface SavedProgress {
   weeklyRerollCount: number;
   seedStock: Record<string, number>;
   seedStockBucket: number;
+  diamonds: number;
 }
 
 export interface UserRecord {
@@ -56,6 +57,7 @@ function defaultProgress(): SavedProgress {
     weeklyRerollCount: 0,
     seedStock: {},
     seedStockBucket: -1,
+    diamonds: 0,
   };
 }
 
