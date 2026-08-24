@@ -94,9 +94,66 @@ function PhoenixChickGlyph({ size }: { size: number }) {
   );
 }
 
-export default function PetIcon({ pet, size = 28 }: { pet: IconPet; size?: number }) {
+/** The Phoenix Chick as seen from above while roaming the garden: wings spread flat left-right
+ *  in a cool pink→purple→blue palette (leading edge pink, trailing edge cyan), with a warm
+ *  flame tail — a deliberate contrast to the front-facing portrait's fire-orange coloring. */
+function PhoenixChickTopGlyph({ size }: { size: number }) {
+  const leftSpecs: { a: number; rx: number; ry: number; fill: string }[] = [
+    { a: -45, rx: 2.8, ry: 8, fill: "#ff9ad1" },
+    { a: -68, rx: 3.2, ry: 10.5, fill: "#e08fe0" },
+    { a: -92, rx: 3.4, ry: 12.5, fill: "#a07bf0" },
+    { a: -115, rx: 3.2, ry: 11.5, fill: "#6fa0f0" },
+    { a: -138, rx: 2.8, ry: 9, fill: "#5fe0e8" },
+  ];
+  const rightSpecs = leftSpecs.map((s) => ({ ...s, a: -s.a }));
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
+      <defs>
+        <radialGradient id="pcTopHalo" cx="50%" cy="45%" r="65%">
+          <stop offset="0%" stopColor="#c77dff" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#c77dff" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="pcTopBody" cx="42%" cy="30%" r="80%">
+          <stop offset="0%" stopColor="#ffd9f0" />
+          <stop offset="55%" stopColor="#c77dff" />
+          <stop offset="100%" stopColor="#6a4fd8" />
+        </radialGradient>
+      </defs>
+      <circle cx="24" cy="22" r="21" fill="url(#pcTopHalo)" />
+      {leftSpecs.map((s, i) => (
+        <Feather key={`l${i}`} px={19} py={21} rx={s.rx} ry={s.ry} angle={s.a} fill={s.fill} />
+      ))}
+      {rightSpecs.map((s, i) => (
+        <Feather key={`r${i}`} px={29} py={21} rx={s.rx} ry={s.ry} angle={s.a} fill={s.fill} />
+      ))}
+      <ellipse cx="24" cy="20" rx="4.4" ry="9" fill="url(#pcTopBody)" stroke="#6a4fd8" strokeWidth="0.6" />
+      <circle cx="24" cy="9" r="3.4" fill="url(#pcTopBody)" stroke="#6a4fd8" strokeWidth="0.6" />
+      <path d="M24 5.5 C23 7 23 8 24 9 C25 8 25 7 24 5.5 Z" fill="#5fe0e8" />
+      <path d="M22 6.5 C21.3 7.6 21.4 8.4 22.2 9.2 C22 8.2 22 7.3 22 6.5 Z" fill="#5fe0e8" />
+      <path d="M26 6.5 C26.7 7.6 26.6 8.4 25.8 9.2 C26 8.2 26 7.3 26 6.5 Z" fill="#5fe0e8" />
+      <path d="M24 34 C22 38 21 41 22 45 C22.5 42 23.5 39 24 34 Z" fill="#ffb23d" />
+      <path d="M24 35 C25.5 39 27 41.5 26.5 45 C26 42 25 39.5 24 35 Z" fill="#ff6a1e" />
+      <path d="M24 35 C23.6 39 23.8 42 24 45.5 C24.4 41.5 24.4 38.5 24 35 Z" fill="#ffe27a" />
+    </svg>
+  );
+}
+
+export default function PetIcon({
+  pet,
+  size = 28,
+  variant = "portrait",
+}: {
+  pet: IconPet;
+  size?: number;
+  /** "top" is used only for the roaming-garden sprite (viewed from above); every other UI spot
+   *  uses the default front-facing "portrait". Species without a top-down glyph fall back to
+   *  their portrait (or plain emoji) either way. */
+  variant?: "portrait" | "top";
+}) {
   const { baseId } = evolutionInfo(pet.id);
-  if (baseId === "phoenix_chick") return <PhoenixChickGlyph size={size} />;
+  if (baseId === "phoenix_chick") {
+    return variant === "top" ? <PhoenixChickTopGlyph size={size} /> : <PhoenixChickGlyph size={size} />;
+  }
   return (
     <span style={{ fontSize: size, lineHeight: 1 }} role="img" aria-label={pet.name}>
       {pet.emoji}

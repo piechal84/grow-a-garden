@@ -12,6 +12,29 @@ interface Ember {
   id: number;
   x: number;
   y: number;
+  rotation: number;
+}
+
+const FLARE_COLORS = ["#ffb23d", "#ff9ad1", "#c77dff", "#6fa0f0", "#ffb23d", "#ff9ad1", "#c77dff", "#6fa0f0"];
+
+function flareSliverPath(len: number): string {
+  return `M0,0 L-1.1,${-len * 0.55} Q0,${-len} 1.1,${-len * 0.55} Z`;
+}
+
+/** A tiny radiating flame-flare left behind by a roaming Phoenix Chick — orange at the tips
+ *  fading through pink/purple/blue toward the center, echoing the phoenix's own palette split
+ *  between its warm tail and cool wings. */
+function FireFlare() {
+  const n = FLARE_COLORS.length;
+  return (
+    <svg width="16" height="16" viewBox="-12 -12 24 24" aria-hidden="true">
+      {FLARE_COLORS.map((color, i) => (
+        <path key={i} d={flareSliverPath(9 + (i % 3))} fill={color} transform={`rotate(${i * (360 / n) + 8})`} />
+      ))}
+      <circle cx="0" cy="0" r="2.4" fill="#7a52d0" />
+      <circle cx="0" cy="0" r="1.1" fill="#ffd9f0" />
+    </svg>
+  );
 }
 
 /** Purely cosmetic — every equipped pet wanders to a new random spot within its owner's plot
@@ -51,6 +74,7 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
             id: emberIdRef.current,
             x: pos.x + (Math.random() - 0.5) * 10,
             y: pos.y + (Math.random() - 0.5) * 10,
+            rotation: Math.random() * 360,
           });
         }
       });
@@ -71,7 +95,13 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
   return (
     <>
       {embers.map((em) => (
-        <span key={em.id} className="pet-fire-ember" style={{ transform: `translate(${em.x}px, ${em.y}px)` }} />
+        <span
+          key={em.id}
+          className="pet-fire-ember"
+          style={{ transform: `translate(${em.x}px, ${em.y}px) rotate(${em.rotation}deg)` }}
+        >
+          <FireFlare />
+        </span>
       ))}
       {pets.map((p, i) => {
         const pos = positions[i] ?? { x: 0, y: 0 };
@@ -82,7 +112,7 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
             style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}
             title={p.pet.name}
           >
-            <PetIcon pet={p.pet} size={20} />
+            <PetIcon pet={p.pet} size={20} variant="top" />
           </span>
         );
       })}

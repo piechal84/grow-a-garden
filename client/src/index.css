@@ -787,14 +787,10 @@ button {
 
 .pet-fire-ember {
   position: absolute;
-  left: 0;
-  top: 0;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+  left: -8px;
+  top: -8px;
   z-index: 1;
   pointer-events: none;
-  background: radial-gradient(circle, #ffe27a 0%, #ff9a3d 45%, #e8571e 80%, transparent 100%);
   animation: pet-fire-ember-fade 1.1s ease-out forwards;
 }
 
