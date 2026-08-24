@@ -24,6 +24,7 @@ import {
 } from "../sound";
 import GardenDecor from "./GardenDecor";
 import GearShopView from "./GearShopView";
+import InventoryView from "./InventoryView";
 import MerchantView from "./MerchantView";
 import MoonShopView from "./MoonShopView";
 import NPCStall, { NPC_INFO, SOLAR_INFO, type NPCKind } from "./NPCStall";
@@ -62,6 +63,7 @@ export default function WorldView({
   const avatarRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const moveStates = useRef<Map<string, MoveState>>(new Map());
   const [openShop, setOpenShop] = useState<NPCKind | null>(null);
+  const [showInventory, setShowInventory] = useState(false);
   const [zoom, setZoom] = useState(1);
   const initialPositionsRef = useRef(initialPositions);
 
@@ -317,6 +319,9 @@ export default function WorldView({
         <button className="zoom-btn zoom-step" onClick={() => handleZoomStep(0.1)} title="Zoom in">
           +
         </button>
+        <button className="zoom-btn" onClick={() => setShowInventory(true)} title="See your seeds and harvested crops">
+          🎒 Inventory
+        </button>
       </div>
       <div className="shop-dock">
         {(Object.keys(NPC_INFO) as NPCKind[]).map((kind) => {
@@ -428,6 +433,12 @@ export default function WorldView({
           {openShop === "moon" && featuredShop === "moon" && <MoonShopView player={me} />}
           {openShop === "moon" && featuredShop === "solar" && <SolarShopView player={me} />}
           {openShop === "premium" && <PremiumShopView player={me} />}
+        </ShopModal>
+      )}
+
+      {showInventory && me && (
+        <ShopModal onClose={() => setShowInventory(false)}>
+          <InventoryView player={me} />
         </ShopModal>
       )}
     </div>
