@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { CROPS_BY_ID, CROP_TIER_COLORS, CROP_TIER_LABELS, SIZE_COLORS } from "../gameData";
 import { MOON_CROPS_BY_ID, MOON_TIER_TO_CROP_TIER } from "../moonData";
 import { PET_SIZES, PET_SIZE_LABELS, PETS_BY_ID, type Pet, type PetSize } from "../petData";
 import { getAnyCropDef as getCropDef, SOLAR_CROPS_BY_ID, SOLAR_TIER_TO_CROP_TIER } from "../solarData";
+import { socket } from "../socket";
 import type { PlayerState } from "../types";
 import { MUTATIONS, mutationKey, type MutationId } from "../weather";
 import CropIcon from "./CropIcon";
@@ -24,6 +26,19 @@ interface HarvestGroup {
 }
 
 export default function InventoryView({ player }: { player: PlayerState }) {
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [petError, setPetError] = useState<string | null>(null);
+
+  function handleToggleEquip(petId: string, size: PetSize, isEquipped: boolean) {
+    setPetError(null);
+    setBusyKey(`${petId}#${size}`);
+    const event = isEquipped ? "unequip_pet" : "equip_pet";
+    socket.emit(event, { petId, size }, (res) => {
+      setBusyKey(null);
+      if (!res.ok) setPetError(res.error ?? "Could not update pet.");
+    });
+  }
+
   const seedEntries = Object.entries(player.seedInventory)
     .filter(([, count]) => count > 0)
     .sort(([a], [b]) => sortRank(a) - sortRank(b));
@@ -105,19 +120,23 @@ export default function InventoryView({ player }: { player: PlayerState }) {
         </div>
       )}
 
-      <h3 className="inventory-section-title">🐾 Pets ({petGroups.reduce((sum, g) => sum + g.count, 0)})</h3>
+      <h3 className="inventory-section-title">
+        🐾 Pets ({petGroups.reduce((sum, g) => sum + g.count, 0)}) — {equipped.size}/{player.petSlots} slots used
+      </h3>
+      {petError && <p className="lobby-error">{petError}</p>}
       {petGroups.length === 0 ? (
         <p className="modal-empty">No pets yet — visit the Pet Shop.</p>
       ) : (
         <div className="inventory-grid">
           {petGroups.map(({ petId, size, count, pet }) => {
             const key = `${petId}#${size}`;
+            const isEquipped = equipped.has(key);
             const stage = pet.id.includes("_tenacious") ? "tenacious" : pet.id.includes("_empowered") ? "empowered" : undefined;
             return (
               <div
                 key={key}
                 className={`inventory-tile ${stage ? `pet-aura-${stage}` : ""}`}
-                title={`${pet.name} (${PET_SIZE_LABELS[size]})${equipped.has(key) ? " — equipped" : ""}`}
+                title={`${pet.name} (${PET_SIZE_LABELS[size]})`}
               >
                 <span className="inventory-count">x{count}</span>
                 <span style={{ fontSize: 32 }}>{pet.emoji}</span>
@@ -129,12 +148,14 @@ export default function InventoryView({ player }: { player: PlayerState }) {
                   <span className="size-badge" style={{ background: "#5c6b56" }}>
                     {PET_SIZE_LABELS[size]}
                   </span>
-                  {equipped.has(key) && (
-                    <span className="size-badge" style={{ background: "var(--leaf-dark)" }}>
-                      Equipped
-                    </span>
-                  )}
                 </div>
+                <button
+                  className={`btn ${isEquipped ? "btn-secondary" : "btn-primary"} pet-equip-btn`}
+                  disabled={busyKey === key || (!isEquipped && equipped.size >= player.petSlots)}
+                  onClick={() => handleToggleEquip(petId, size, isEquipped)}
+                >
+                  {isEquipped ? "Unequip" : "Equip"}
+                </button>
               </div>
             );
           })}

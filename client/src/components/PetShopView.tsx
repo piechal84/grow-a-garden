@@ -122,7 +122,7 @@ export default function PetShopView({ player }: { player: PlayerState }) {
 
       <div className="restock-banner">
         <span>
-          🎪 Pet Slots: <strong>{player.petSlots}</strong>/{MAX_PET_SLOTS} equipped
+          🎪 Pet Slots: <strong>{equipped.size}</strong>/{player.petSlots} used (max {MAX_PET_SLOTS})
         </span>
         {slotCost ? (
           <button className="btn btn-secondary" onClick={handleBuySlot}>
@@ -143,6 +143,48 @@ export default function PetShopView({ player }: { player: PlayerState }) {
             : "Plant it on a 3x3 clearing in your garden to start merging."}
         </span>
       </div>
+
+      <h3 className="inventory-section-title">
+        Your Pets ({groups.reduce((sum, g) => sum + g.count, 0)}) — tap Equip/Unequip below to fill your{" "}
+        {player.petSlots} slots
+      </h3>
+      {groups.length === 0 ? (
+        <p className="modal-empty">No pets yet — open an egg below!</p>
+      ) : (
+        <div className="inventory-grid">
+          {groups.map(({ petId, size, count, pet }) => {
+            const key = `${petId}#${size}`;
+            const isEquipped = equipped.has(key);
+            const stage = pet.id.includes("_tenacious") ? "tenacious" : pet.id.includes("_empowered") ? "empowered" : undefined;
+            return (
+              <div
+                key={key}
+                className={`inventory-tile ${stage ? `pet-aura-${stage}` : ""}`}
+                title={`${pet.name} (${PET_SIZE_LABELS[size]})`}
+              >
+                <span className="inventory-count">x{count}</span>
+                <span style={{ fontSize: 32 }}>{pet.emoji}</span>
+                <span className="inventory-tile-name">{pet.name}</span>
+                <div className="inventory-tile-badges">
+                  <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
+                    {CROP_TIER_LABELS[pet.tier]}
+                  </span>
+                  <span className="size-badge" style={{ background: "#5c6b56" }}>
+                    {PET_SIZE_LABELS[size]}
+                  </span>
+                </div>
+                <button
+                  className={`btn ${isEquipped ? "btn-secondary" : "btn-primary"} pet-equip-btn`}
+                  disabled={busyKey === key || (!isEquipped && equipped.size >= player.petSlots)}
+                  onClick={() => handleToggleEquip(petId, size, isEquipped)}
+                >
+                  {isEquipped ? "Unequip" : "Equip"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {hatchPet && lastHatch && (
         <div className="pet-hatch-reveal" style={{ borderColor: CROP_TIER_COLORS[hatchPet.tier] }}>
@@ -226,45 +268,6 @@ export default function PetShopView({ player }: { player: PlayerState }) {
           );
         })}
       </div>
-
-      <h3 className="inventory-section-title">Your Pets ({groups.reduce((sum, g) => sum + g.count, 0)})</h3>
-      {groups.length === 0 ? (
-        <p className="modal-empty">No pets yet — open an egg above!</p>
-      ) : (
-        <div className="inventory-grid">
-          {groups.map(({ petId, size, count, pet }) => {
-            const key = `${petId}#${size}`;
-            const isEquipped = equipped.has(key);
-            const stage = pet.id.includes("_tenacious") ? "tenacious" : pet.id.includes("_empowered") ? "empowered" : undefined;
-            return (
-              <div
-                key={key}
-                className={`inventory-tile ${stage ? `pet-aura-${stage}` : ""}`}
-                title={`${pet.name} (${PET_SIZE_LABELS[size]})`}
-              >
-                <span className="inventory-count">x{count}</span>
-                <span style={{ fontSize: 32 }}>{pet.emoji}</span>
-                <span className="inventory-tile-name">{pet.name}</span>
-                <div className="inventory-tile-badges">
-                  <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
-                    {CROP_TIER_LABELS[pet.tier]}
-                  </span>
-                  <span className="size-badge" style={{ background: "#5c6b56" }}>
-                    {PET_SIZE_LABELS[size]}
-                  </span>
-                </div>
-                <button
-                  className={`btn ${isEquipped ? "btn-secondary" : "btn-primary"} pet-equip-btn`}
-                  disabled={busyKey === key || (!isEquipped && equipped.size >= player.petSlots)}
-                  onClick={() => handleToggleEquip(petId, size, isEquipped)}
-                >
-                  {isEquipped ? "Unequip" : "Equip"}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

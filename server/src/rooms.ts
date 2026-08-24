@@ -43,7 +43,15 @@ import {
 } from "./quests.js";
 import type { HarvestedCrop, IncubatorState, PlayerState, Planting, RoomState } from "./types.js";
 import { findUserById, type SavedProgress } from "./userStore.js";
-import { computeReadyAt, getFeaturedShop, MUTATIONS, mutationKey, rollMutations, type MutationId } from "./weather.js";
+import {
+  computeReadyAt,
+  effectiveWorkBetween,
+  getFeaturedShop,
+  MUTATIONS,
+  mutationKey,
+  rollMutations,
+  type MutationId,
+} from "./weather.js";
 import {
   BASE_GRID_HEIGHT,
   clampToWorld,
@@ -321,6 +329,26 @@ function growSpeedMultiplier(player: PlayerState): number {
   return Math.max(0.25, 1 - reduction);
 }
 
+/** Rescales every still-growing planting's remaining time to a new grow-speed multiplier,
+ *  preserving whatever fraction of work was already done — so upgrading (or unequipping) a
+ *  growSpeed source retroactively speeds up (or slows down) crops already in the ground instead
+ *  of only affecting things planted afterward. Called after anything that can change
+ *  growSpeedMultiplier: gear purchases and pet equip/unequip/auto-equip-on-hatch. */
+function rebaseGrowTimers(room: RoomState, player: PlayerState, oldMultiplier: number, newMultiplier: number) {
+  if (oldMultiplier === newMultiplier || oldMultiplier <= 0) return;
+  const now = Date.now();
+  const scale = newMultiplier / oldMultiplier;
+  for (const planting of player.plantings) {
+    if (now >= planting.readyAt) continue;
+    const totalOldWork = effectiveWorkBetween(room.createdAt, planting.plantedAt, planting.readyAt);
+    if (totalOldWork <= 0) continue;
+    const doneWork = effectiveWorkBetween(room.createdAt, planting.plantedAt, now);
+    const progress = Math.min(1, doneWork / totalOldWork);
+    const remainingWork = totalOldWork * scale * (1 - progress);
+    planting.readyAt = computeReadyAt(room.createdAt, now, remainingWork);
+  }
+}
+
 function sellMultiplier(player: PlayerState): number {
   let bonus = 0;
   for (const [gearId, owned] of Object.entries(player.gearOwned)) {
@@ -378,24 +406,32 @@ function applyHatch(player: PlayerState, hatch: { petId: string; size: PetSize }
   return { petId: hatch.petId, size: hatch.size, count: before + 1 };
 }
 
-export function equipPet(player: PlayerState, petId: string, size: PetSize): { error?: string } {
+export function equipPet(room: RoomState, player: PlayerState, petId: string, size: PetSize): { error?: string } {
   if ((player.petsOwned[petId]?.[size] ?? 0) <= 0) return { error: "You don't own that pet." };
   const key = slotKey(petId, size);
   if (player.petsEquipped.includes(key)) return { error: "Already equipped." };
   if (player.petsEquipped.length >= player.petSlots) return { error: "No free pet slots — unequip one first." };
+  const oldGrowMult = growSpeedMultiplier(player);
   player.petsEquipped.push(key);
+  rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
   return {};
 }
 
-export function unequipPet(player: PlayerState, petId: string, size: PetSize): { error?: string } {
+export function unequipPet(room: RoomState, player: PlayerState, petId: string, size: PetSize): { error?: string } {
   const key = slotKey(petId, size);
   const idx = player.petsEquipped.indexOf(key);
   if (idx === -1) return { error: "That pet isn't equipped." };
+  const oldGrowMult = growSpeedMultiplier(player);
   player.petsEquipped.splice(idx, 1);
+  rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
   return {};
 }
 
-export function buyPetEgg(player: PlayerState, eggId: string): { error?: string } & Partial<PetHatchOutcome> {
+export function buyPetEgg(
+  room: RoomState,
+  player: PlayerState,
+  eggId: string,
+): { error?: string } & Partial<PetHatchOutcome> {
   const egg = PET_EGGS_BY_ID[eggId];
   if (!egg) return { error: "Unknown egg." };
   if (player.coins < egg.cost.coins) return { error: "Not enough coins." };
@@ -404,7 +440,10 @@ export function buyPetEgg(player: PlayerState, eggId: string): { error?: string 
   if (!hatch) return { error: "Unknown egg." };
   player.coins -= egg.cost.coins;
   player.diamonds -= egg.cost.diamonds;
-  return applyHatch(player, hatch);
+  const oldGrowMult = growSpeedMultiplier(player);
+  const outcome = applyHatch(player, hatch);
+  rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
+  return outcome;
 }
 
 const BULK_EGG_COUNT = 10;
@@ -418,6 +457,7 @@ export function nextPetEggBulkCost(egg: { cost: { coins: number; diamonds: numbe
 }
 
 export function buyPetEggBulk(
+  room: RoomState,
   player: PlayerState,
   eggId: string,
 ): { error?: string; results?: PetHatchOutcome[]; cost?: { coins: number; diamonds: number } } {
@@ -428,7 +468,9 @@ export function buyPetEggBulk(
   if (player.diamonds < cost.diamonds) return { error: "Not enough diamonds." };
   player.coins -= cost.coins;
   player.diamonds -= cost.diamonds;
+  const oldGrowMult = growSpeedMultiplier(player);
   const results = Array.from({ length: BULK_EGG_COUNT }, () => applyHatch(player, rollPetEgg(eggId)!));
+  rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
   return { results, cost };
 }
 
@@ -715,7 +757,7 @@ export function nextGearPrice(gear: GearItem, owned: number): GearPrice {
   return { coins: Math.round(gear.cost * (1 + owned * 0.5)), diamonds: 0 };
 }
 
-export function buyGear(player: PlayerState, gearId: string): { error?: string } {
+export function buyGear(room: RoomState, player: PlayerState, gearId: string): { error?: string } {
   const gear = GEAR_BY_ID[gearId];
   if (!gear) return { error: "Unknown gear." };
   const owned = player.gearOwned[gearId] ?? 0;
@@ -724,12 +766,14 @@ export function buyGear(player: PlayerState, gearId: string): { error?: string }
   const price = nextGearPrice(gear, owned);
   if (player.coins < price.coins) return { error: "Not enough coins." };
   if (player.diamonds < price.diamonds) return { error: "Not enough diamonds." };
+  const oldGrowMult = growSpeedMultiplier(player);
   player.coins -= price.coins;
   player.diamonds -= price.diamonds;
   player.gearOwned[gearId] = owned + 1;
   if (gear.effect.type === "expandGarden") {
     player.gridHeight = Math.min(BASE_GRID_HEIGHT + GRID_EXPANSION_MAX, player.gridHeight + gear.effect.value);
   }
+  if (gear.effect.type === "growSpeed") rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
   return {};
 }
 

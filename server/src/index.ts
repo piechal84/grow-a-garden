@@ -177,7 +177,7 @@ io.on("connection", (socket) => {
   socket.on("buy_gear", ({ gearId }, ack) => {
     const { room, player } = currentPlayer();
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = buyGear(player, gearId);
+    const result = buyGear(room, player, gearId);
     ack?.({ ok: !result.error, error: result.error });
     if (!result.error) broadcast(room);
   });
@@ -185,7 +185,7 @@ io.on("connection", (socket) => {
   socket.on("buy_pet_egg", ({ eggId }, ack) => {
     const { room, player } = currentPlayer();
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = buyPetEgg(player, eggId);
+    const result = buyPetEgg(room, player, eggId);
     ack?.({
       ok: !result.error,
       error: result.error,
@@ -199,7 +199,7 @@ io.on("connection", (socket) => {
   socket.on("buy_pet_egg_bulk", ({ eggId }, ack) => {
     const { room, player } = currentPlayer();
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = buyPetEggBulk(player, eggId);
+    const result = buyPetEggBulk(room, player, eggId);
     ack?.({ ok: !result.error, error: result.error, results: result.results, cost: result.cost });
     if (!result.error) broadcast(room);
   });
@@ -207,7 +207,7 @@ io.on("connection", (socket) => {
   socket.on("equip_pet", ({ petId, size }, ack) => {
     const { room, player } = currentPlayer();
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = equipPet(player, petId, size);
+    const result = equipPet(room, player, petId, size);
     ack?.({ ok: !result.error, error: result.error });
     if (!result.error) broadcast(room);
   });
@@ -215,7 +215,7 @@ io.on("connection", (socket) => {
   socket.on("unequip_pet", ({ petId, size }, ack) => {
     const { room, player } = currentPlayer();
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = unequipPet(player, petId, size);
+    const result = unequipPet(room, player, petId, size);
     ack?.({ ok: !result.error, error: result.error });
     if (!result.error) broadcast(room);
   });
