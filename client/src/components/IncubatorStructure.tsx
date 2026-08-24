@@ -27,11 +27,19 @@ export default function IncubatorStructure({
   player,
   isOwner,
   now,
+  moveMode,
+  isMoving,
+  onSelectForMove,
 }: {
   incubator: IncubatorState;
   player: PlayerState;
   isOwner: boolean;
   now: number;
+  /** True while the plot's Move tool is active — tapping the incubator selects it for moving
+   *  instead of opening the merge picker / collecting. */
+  moveMode?: boolean;
+  isMoving?: boolean;
+  onSelectForMove?: () => void;
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const [selected, setSelected] = useState<Selection | null>(null);
@@ -45,6 +53,10 @@ export default function IncubatorStructure({
   function handleClick(e: React.MouseEvent) {
     e.stopPropagation();
     if (!isOwner) return;
+    if (moveMode) {
+      onSelectForMove?.();
+      return;
+    }
     if (!merge) {
       setSelected(null);
       setShowPicker(true);
@@ -85,7 +97,9 @@ export default function IncubatorStructure({
 
   return (
     <div
-      className={`stud stud-incubator ${ready ? "incubator-ready" : ""}`}
+      className={`stud stud-incubator ${ready ? "incubator-ready" : ""} ${isMoving ? "stud-moving" : ""} ${
+        isOwner && moveMode ? "stud-tool-target" : ""
+      }`}
       style={{
         left: incubator.x * CELL_SIZE,
         top: incubator.y * CELL_SIZE,
@@ -93,7 +107,7 @@ export default function IncubatorStructure({
         height: 3 * CELL_SIZE,
       }}
       onClick={handleClick}
-      title={!merge ? "Tap to merge 4 identical pets" : ready ? "Tap to collect" : "Merging…"}
+      title={moveMode ? (isMoving ? "Selected — pick a new spot" : "Tap to move") : !merge ? "Tap to merge 4 identical pets" : ready ? "Tap to collect" : "Merging…"}
     >
       <span className="incubator-emoji">{ready && targetPet ? <PetIcon pet={targetPet} size={30} /> : "🥚"}</span>
       {merge && !ready && <span className="incubator-timer">{formatDuration(merge.readyAt - now)}</span>}

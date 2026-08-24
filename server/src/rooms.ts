@@ -760,6 +760,17 @@ export function movePlanting(player: PlayerState, plantingId: string, x: number,
   return {};
 }
 
+export function moveIncubator(player: PlayerState, incubatorId: string, x: number, y: number): { error?: string } {
+  const owned = player.gearOwned["trowel"] ?? 0;
+  if (owned <= 0) return { error: "You need the Trowel from the Gear Shop first." };
+  const incubator = player.incubators.find((i) => i.id === incubatorId);
+  if (!incubator) return { error: "Incubator not found." };
+  if (!canPlaceAt(player, x, y, INCUBATOR_SIZE, INCUBATOR_SIZE, incubator.id)) return { error: "Won't fit there." };
+  incubator.x = x;
+  incubator.y = y;
+  return {};
+}
+
 export function sell(
   player: PlayerState,
   cropId: string,

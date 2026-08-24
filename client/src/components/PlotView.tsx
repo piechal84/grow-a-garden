@@ -82,14 +82,19 @@ export default function PlotView({
     if (!isOwner) return;
     if (activeTool === "move" && movingId) {
       const id = movingId;
-      socket.emit("move_planting", { plantingId: id, x, y }, (res) => {
+      const onSettled = (res: { ok: boolean; error?: string }) => {
         if (res.ok) {
           setMovingId(null);
           setMoveError(null);
         } else {
           setMoveError(res.error ?? "Won't fit there.");
         }
-      });
+      };
+      if (player.incubators.some((inc) => inc.id === id)) {
+        socket.emit("move_incubator", { incubatorId: id, x, y }, onSettled);
+      } else {
+        socket.emit("move_planting", { plantingId: id, x, y }, onSettled);
+      }
       return;
     }
     if (activeTool === "place_incubator") {
@@ -209,7 +214,7 @@ export default function PlotView({
       )}
       {isOwner && activeTool === "move" && !movingId && (
         <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
-          🛠️ Tap a crop to move it
+          🛠️ Tap a crop or incubator to move it
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
             Done
           </button>
@@ -217,7 +222,7 @@ export default function PlotView({
       )}
       {isOwner && activeTool === "move" && movingId && (
         <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
-          🛠️ Choose a new spot for your crop
+          🛠️ Choose a new spot
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setMovingId(null)}>
             Cancel
           </button>
@@ -313,7 +318,16 @@ export default function PlotView({
       })}
 
       {player.incubators.map((incubator) => (
-        <IncubatorStructure key={incubator.id} incubator={incubator} player={player} isOwner={isOwner} now={now} />
+        <IncubatorStructure
+          key={incubator.id}
+          incubator={incubator}
+          player={player}
+          isOwner={isOwner}
+          now={now}
+          moveMode={activeTool === "move"}
+          isMoving={movingId === incubator.id}
+          onSelectForMove={() => handleSelectForMove(incubator.id)}
+        />
       ))}
 
       <RoamingPets player={player} />

@@ -28,6 +28,7 @@ import {
   harvest,
   joinRoom,
   markDisconnected,
+  moveIncubator,
   movePlanting,
   movePlayer,
   placeIncubator,
@@ -154,6 +155,14 @@ io.on("connection", (socket) => {
     const { room, player } = currentPlayer();
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
     const result = movePlanting(player, plantingId, x, y);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("move_incubator", ({ incubatorId, x, y }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = moveIncubator(player, incubatorId, x, y);
     ack?.({ ok: !result.error, error: result.error });
     if (!result.error) broadcast(room);
   });
