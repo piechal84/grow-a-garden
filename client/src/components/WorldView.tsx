@@ -17,11 +17,12 @@ import {
 import {
   playDragonFruitEmber,
   playMoonBlossomChime,
-  playThunderClap,
   startCicadaAmbience,
   startRainAmbience,
+  startThunderstormAmbience,
   stopCicadaAmbience,
   stopRainAmbience,
+  stopThunderstormAmbience,
 } from "../sound";
 import GardenDecor from "./GardenDecor";
 import GearShopView from "./GearShopView";
@@ -262,12 +263,20 @@ export default function WorldView({
   });
 
   useEffect(() => {
-    if (sky.id === "rain" || sky.id === "thunderstorm") {
+    if (sky.id === "rain") {
       startRainAmbience();
     } else {
       stopRainAmbience();
     }
-    return () => stopRainAmbience();
+    if (sky.id === "thunderstorm") {
+      startThunderstormAmbience();
+    } else {
+      stopThunderstormAmbience();
+    }
+    return () => {
+      stopRainAmbience();
+      stopThunderstormAmbience();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sky.id]);
 
@@ -280,16 +289,6 @@ export default function WorldView({
     return () => stopCicadaAmbience();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDay]);
-
-  useEffect(() => {
-    if (sky.id !== "thunderstorm") return;
-    const initial = window.setTimeout(() => playThunderClap(), 6500);
-    const interval = window.setInterval(() => playThunderClap(), 7000);
-    return () => {
-      window.clearTimeout(initial);
-      window.clearInterval(interval);
-    };
-  }, [sky.id]);
 
   const hasMoonBlossom = me?.plantings.some((p) => p.cropId === "moon_blossom") ?? false;
   const hasDragonFruit = me?.plantings.some((p) => p.cropId === "dragonfruit") ?? false;

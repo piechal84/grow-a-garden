@@ -121,6 +121,10 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
  *  silently keep granting its bonus forever while the pet lists show nothing owned. Called once
  *  on load to make sure equipped slots always match reality. */
 function sanitizePetState(player: PlayerState) {
+  if (!player.petsOwned || typeof player.petsOwned !== "object" || Array.isArray(player.petsOwned)) {
+    player.petsOwned = {};
+  }
+  if (!Array.isArray(player.petsEquipped)) player.petsEquipped = [];
   for (const [petId, sizes] of Object.entries(player.petsOwned)) {
     if (!sizes || typeof sizes !== "object") {
       delete player.petsOwned[petId];
@@ -250,6 +254,11 @@ export function joinRoom(code: string, clientId: string, playerName: string): { 
   const existing = room.players.find((p) => p.id === clientId);
   if (existing) {
     existing.connected = true;
+    // The room (and this player object) lives in memory for as long as the room is alive —
+    // reconnecting (refresh, relogin) reuses it rather than rebuilding via makePlayer, so a
+    // fixed-on-load check like this needs to also run here or it never takes effect until the
+    // server itself restarts.
+    sanitizePetState(existing);
     return { room };
   }
   if (room.players.length >= MAX_PLAYERS_PER_ROOM) return { error: "Room is full (max 6 players)." };

@@ -1,6 +1,7 @@
 /**
- * Small synthesized sound-effect engine (Web Audio API, no external audio files).
- * Lazily creates its AudioContext on first use since browsers require a user gesture.
+ * Sound-effect engine — mostly synthesized via the Web Audio API, plus a couple of recorded
+ * ambience loops (rain, rain+thunderstorm) played as plain <audio> elements from /public/sounds.
+ * The AudioContext is created lazily on first use since browsers require a user gesture.
  */
 
 let ctx: AudioContext | null = null;
@@ -24,8 +25,9 @@ export function isMuted(): boolean {
 export function setMuted(next: boolean) {
   muted = next;
   localStorage.setItem(MUTE_KEY, next ? "1" : "0");
-  if (rainNodes) rainNodes.gain.gain.value = muted ? 0 : RAIN_VOLUME;
   if (cicadaNodes) cicadaNodes.gain.gain.value = muted ? 0 : CICADA_VOLUME;
+  if (rainAudio) rainAudio.volume = muted ? 0 : RAIN_FILE_VOLUME;
+  if (stormAudio) stormAudio.volume = muted ? 0 : STORM_FILE_VOLUME;
 }
 
 function makeNoiseBuffer(context: AudioContext, seconds: number): AudioBuffer {
@@ -35,34 +37,41 @@ function makeNoiseBuffer(context: AudioContext, seconds: number): AudioBuffer {
   return buffer;
 }
 
-const RAIN_VOLUME = 0.045;
-let rainNodes: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
+const RAIN_FILE_VOLUME = 0.35;
+let rainAudio: HTMLAudioElement | null = null;
 
+/** Plain rain (no thunder) — a real recorded loop rather than synthesized noise. */
 export function startRainAmbience() {
-  if (rainNodes) return;
-  const context = getCtx();
-  const source = context.createBufferSource();
-  source.buffer = makeNoiseBuffer(context, 2);
-  source.loop = true;
-  const filter = context.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.value = 1600;
-  const gain = context.createGain();
-  gain.gain.value = muted ? 0 : RAIN_VOLUME;
-  source.connect(filter);
-  filter.connect(gain);
-  gain.connect(context.destination);
-  source.start();
-  rainNodes = { source, gain };
+  if (rainAudio) return;
+  rainAudio = new Audio("/sounds/rain-loop.wav");
+  rainAudio.loop = true;
+  rainAudio.volume = muted ? 0 : RAIN_FILE_VOLUME;
+  void rainAudio.play().catch(() => {});
 }
 
 export function stopRainAmbience() {
-  if (!rainNodes) return;
-  const context = getCtx();
-  const { source, gain } = rainNodes;
-  gain.gain.setTargetAtTime(0, context.currentTime, 0.3);
-  source.stop(context.currentTime + 1);
-  rainNodes = null;
+  if (!rainAudio) return;
+  rainAudio.pause();
+  rainAudio = null;
+}
+
+const STORM_FILE_VOLUME = 0.4;
+let stormAudio: HTMLAudioElement | null = null;
+
+/** Thunderstorm sky — a full recorded rain+thunder loop, replacing the plain rain track and the
+ *  old synthesized periodic thunder claps (this file already carries its own thunder). */
+export function startThunderstormAmbience() {
+  if (stormAudio) return;
+  stormAudio = new Audio("/sounds/rain-and-thunder-storm.wav");
+  stormAudio.loop = true;
+  stormAudio.volume = muted ? 0 : STORM_FILE_VOLUME;
+  void stormAudio.play().catch(() => {});
+}
+
+export function stopThunderstormAmbience() {
+  if (!stormAudio) return;
+  stormAudio.pause();
+  stormAudio = null;
 }
 
 const CICADA_VOLUME = 0.032;
@@ -112,87 +121,6 @@ export function stopCicadaAmbience() {
   source.stop(context.currentTime + 1);
   tremolo.stop(context.currentTime + 1);
   cicadaNodes = null;
-}
-
-export function playThunderClap() {
-  if (muted) return;
-  const context = getCtx();
-  const t0 = context.currentTime;
-
-  // Sharp bright transient — the initial "snap" of the strike, tightly bandpassed so it reads
-  // as a crack rather than raw static.
-  const crackSource = context.createBufferSource();
-  crackSource.buffer = makeNoiseBuffer(context, 0.15);
-  const crackFilter = context.createBiquadFilter();
-  crackFilter.type = "bandpass";
-  crackFilter.frequency.value = 2800;
-  crackFilter.Q.value = 0.7;
-  const crackGain = context.createGain();
-  crackGain.gain.setValueAtTime(0.32, t0);
-  crackGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.12);
-  crackSource.connect(crackFilter);
-  crackFilter.connect(crackGain);
-  crackGain.connect(context.destination);
-  crackSource.start(t0);
-
-  // Mid-body boom — fills the gap between the crack and the low rumble tail.
-  const boomSource = context.createBufferSource();
-  boomSource.buffer = makeNoiseBuffer(context, 0.6);
-  const boomFilter = context.createBiquadFilter();
-  boomFilter.type = "lowpass";
-  boomFilter.frequency.setValueAtTime(1400, t0);
-  boomFilter.frequency.exponentialRampToValueAtTime(220, t0 + 0.7);
-  const boomGain = context.createGain();
-  boomGain.gain.setValueAtTime(0.001, t0);
-  boomGain.gain.linearRampToValueAtTime(0.3, t0 + 0.06);
-  boomGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.8);
-  boomSource.connect(boomFilter);
-  boomFilter.connect(boomGain);
-  boomGain.connect(context.destination);
-  boomSource.start(t0);
-
-  // Low rolling rumble tail — two slightly detuned sines through a lowpass for a fuller,
-  // less synthetic low end than a single bare sine sweep.
-  const rumbleFilter = context.createBiquadFilter();
-  rumbleFilter.type = "lowpass";
-  rumbleFilter.frequency.value = 220;
-  const rumbleGain = context.createGain();
-  rumbleGain.gain.setValueAtTime(0.001, t0);
-  rumbleGain.gain.linearRampToValueAtTime(0.24, t0 + 0.15);
-  rumbleGain.gain.exponentialRampToValueAtTime(0.001, t0 + 2.2);
-  rumbleFilter.connect(rumbleGain);
-  rumbleGain.connect(context.destination);
-  for (const detune of [0, 6]) {
-    const rumble = context.createOscillator();
-    rumble.type = "sine";
-    rumble.detune.value = detune;
-    rumble.frequency.setValueAtTime(115, t0);
-    rumble.frequency.exponentialRampToValueAtTime(34, t0 + 1.8);
-    rumble.connect(rumbleFilter);
-    rumble.start(t0);
-    rumble.stop(t0 + 2.3);
-  }
-
-  // Randomized secondary crackle bursts — the rolling, uneven character of real thunder
-  // instead of one clean hit.
-  for (let i = 0; i < 3; i++) {
-    const delay = 0.15 + Math.random() * 0.5 + i * 0.25;
-    const start = t0 + delay;
-    const crackle = context.createBufferSource();
-    crackle.buffer = makeNoiseBuffer(context, 0.12);
-    const crackleFilter = context.createBiquadFilter();
-    crackleFilter.type = "bandpass";
-    crackleFilter.frequency.value = 1400 + Math.random() * 900;
-    crackleFilter.Q.value = 0.9;
-    const crackleGain = context.createGain();
-    crackleGain.gain.setValueAtTime(0.001, start);
-    crackleGain.gain.linearRampToValueAtTime(0.1 + Math.random() * 0.06, start + 0.02);
-    crackleGain.gain.exponentialRampToValueAtTime(0.001, start + 0.18);
-    crackle.connect(crackleFilter);
-    crackleFilter.connect(crackleGain);
-    crackleGain.connect(context.destination);
-    crackle.start(start);
-  }
 }
 
 const CHIME_VOLUME = 0.11;
