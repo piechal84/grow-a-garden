@@ -25,6 +25,16 @@ function flareSliverPath(len: number): string {
   return `M0,0 L-1.1,${-len * 0.55} Q0,${-len} 1.1,${-len * 0.55} Z`;
 }
 
+/** Adjusts `target` by whole turns so it lands within 180° of `reference` — without this, a CSS
+ *  `rotate()` transition from e.g. 170deg to -170deg would spin the long way around (340°)
+ *  instead of turning the short 20° it visually should. */
+function unwrapAngle(target: number, reference: number): number {
+  let a = target;
+  while (a - reference > 180) a -= 360;
+  while (a - reference < -180) a += 360;
+  return a;
+}
+
 /** A small directional flame streak trailing behind a roaming Phoenix Chick — fanned out around
  *  `heading` (the compass angle, 0=up/clockwise, the pet is opposite the flame should point:
  *  {@link RoamingPets} passes the reverse of its travel direction), orange/red at the core
@@ -56,14 +66,18 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
 
   const [positions, setPositions] = useState<{ x: number; y: number }[]>([]);
   const [moving, setMoving] = useState<boolean[]>([]);
+  const [facing, setFacing] = useState<number[]>([]);
   const [embers, setEmbers] = useState<Ember[]>([]);
   const positionsRef = useRef(positions);
   positionsRef.current = positions;
+  const facingRef = useRef(facing);
+  facingRef.current = facing;
   const emberIdRef = useRef(0);
 
   useEffect(() => {
     setPositions(pets.map(() => ({ x: Math.random() * width, y: Math.random() * height })));
     setMoving(pets.map(() => false));
+    setFacing(pets.map(() => 0));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [petsKey, width, height]);
 
@@ -71,7 +85,9 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
     if (pets.length === 0) return;
     const interval = window.setInterval(() => {
       const prevPositions = positionsRef.current;
+      const prevFacing = facingRef.current;
       const nextPositions = pets.map(() => ({ x: Math.random() * width, y: Math.random() * height }));
+      const nextFacing = pets.map((_, i) => prevFacing[i] ?? 0);
       const newEmbers: Ember[] = [];
       pets.forEach((p, i) => {
         if (evolutionInfo(p.petId).baseId !== "phoenix_chick") return;
@@ -81,9 +97,10 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         // Compass bearing (0=up, clockwise) of the travel direction — matches how `rotate()`
-        // orients our flame slivers, which point "up" at rotate(0). The flame trails behind, so
-        // it points the reverse of that bearing (+180).
+        // orients our flame slivers, which point "up" at rotate(0). The bird itself should turn
+        // to face this bearing; the flame trails behind it, so it points the reverse (+180).
         const travelHeading = (Math.atan2(dx, -dy) * 180) / Math.PI;
+        nextFacing[i] = unwrapAngle(travelHeading, prevFacing[i] ?? 0);
         const heading = travelHeading + 180;
         for (let e = 0; e < EMBERS_PER_STEP; e++) {
           emberIdRef.current += 1;
@@ -104,6 +121,7 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
         }
       }
       setPositions(nextPositions);
+      setFacing(nextFacing);
       setMoving(pets.map(() => true));
       window.setTimeout(() => setMoving(pets.map(() => false)), MOVE_TRANSITION_MS);
     }, WANDER_INTERVAL_MS);
@@ -120,14 +138,16 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
       ))}
       {pets.map((p, i) => {
         const pos = positions[i] ?? { x: 0, y: 0 };
+        const isPhoenix = evolutionInfo(p.petId).baseId === "phoenix_chick";
+        const rotate = isPhoenix ? ` rotate(${facing[i] ?? 0}deg)` : "";
         return (
           <span
             key={`${p.petId}-${p.size}-${i}`}
             className="roaming-pet"
-            style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}
+            style={{ transform: `translate(${pos.x}px, ${pos.y}px)${rotate}` }}
             title={p.pet.name}
           >
-            <PetIcon pet={p.pet} size={20} variant="top" moving={moving[i] ?? false} />
+            <PetIcon pet={p.pet} size={34} variant="top" moving={moving[i] ?? false} />
           </span>
         );
       })}
