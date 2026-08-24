@@ -12,27 +12,30 @@ interface Ember {
   id: number;
   x: number;
   y: number;
-  rotation: number;
+  heading: number;
 }
 
-const FLARE_COLORS = ["#ffb23d", "#ff9ad1", "#c77dff", "#6fa0f0", "#ffb23d", "#ff9ad1", "#c77dff", "#6fa0f0"];
+const FLARE_COLORS = ["#ffb23d", "#ff6a1e", "#ff9ad1", "#c77dff", "#6fa0f0"];
+const FLARE_SPREAD_DEG = 65;
 
 function flareSliverPath(len: number): string {
   return `M0,0 L-1.1,${-len * 0.55} Q0,${-len} 1.1,${-len * 0.55} Z`;
 }
 
-/** A tiny radiating flame-flare left behind by a roaming Phoenix Chick — orange at the tips
- *  fading through pink/purple/blue toward the center, echoing the phoenix's own palette split
- *  between its warm tail and cool wings. */
-function FireFlare() {
+/** A small directional flame streak trailing behind a roaming Phoenix Chick — fanned out around
+ *  `heading` (the compass angle, 0=up/clockwise, the pet is opposite the flame should point:
+ *  {@link RoamingPets} passes the reverse of its travel direction), orange/red at the core
+ *  fading to pink/purple/blue at the fan's edges. */
+function FireFlare({ heading }: { heading: number }) {
   const n = FLARE_COLORS.length;
   return (
-    <svg width="16" height="16" viewBox="-12 -12 24 24" aria-hidden="true">
-      {FLARE_COLORS.map((color, i) => (
-        <path key={i} d={flareSliverPath(9 + (i % 3))} fill={color} transform={`rotate(${i * (360 / n) + 8})`} />
-      ))}
-      <circle cx="0" cy="0" r="2.4" fill="#7a52d0" />
-      <circle cx="0" cy="0" r="1.1" fill="#ffd9f0" />
+    <svg width="20" height="20" viewBox="-10 -10 20 20" aria-hidden="true">
+      {FLARE_COLORS.map((color, i) => {
+        const angle = heading - FLARE_SPREAD_DEG / 2 + (FLARE_SPREAD_DEG / (n - 1)) * i;
+        const len = 7 + (i % 3);
+        return <path key={i} d={flareSliverPath(len)} fill={color} transform={`rotate(${angle})`} />;
+      })}
+      <circle cx="0" cy="0" r="1.4" fill="#ffe27a" />
     </svg>
   );
 }
@@ -63,18 +66,27 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
     if (pets.length === 0) return;
     const interval = window.setInterval(() => {
       const prevPositions = positionsRef.current;
+      const nextPositions = pets.map(() => ({ x: Math.random() * width, y: Math.random() * height }));
       const newEmbers: Ember[] = [];
       pets.forEach((p, i) => {
         if (evolutionInfo(p.petId).baseId !== "phoenix_chick") return;
-        const pos = prevPositions[i];
-        if (!pos) return;
+        const from = prevPositions[i];
+        const to = nextPositions[i];
+        if (!from || !to) return;
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        // Compass bearing (0=up, clockwise) of the travel direction — matches how `rotate()`
+        // orients our flame slivers, which point "up" at rotate(0). The flame trails behind, so
+        // it points the reverse of that bearing (+180).
+        const travelHeading = (Math.atan2(dx, -dy) * 180) / Math.PI;
+        const heading = travelHeading + 180;
         for (let e = 0; e < EMBERS_PER_STEP; e++) {
           emberIdRef.current += 1;
           newEmbers.push({
             id: emberIdRef.current,
-            x: pos.x + (Math.random() - 0.5) * 10,
-            y: pos.y + (Math.random() - 0.5) * 10,
-            rotation: Math.random() * 360,
+            x: from.x + (Math.random() - 0.5) * 6,
+            y: from.y + (Math.random() - 0.5) * 6,
+            heading: heading + (Math.random() - 0.5) * 12,
           });
         }
       });
@@ -86,7 +98,7 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
           }, EMBER_LIFETIME_MS);
         }
       }
-      setPositions((prev) => prev.map(() => ({ x: Math.random() * width, y: Math.random() * height })));
+      setPositions(nextPositions);
     }, WANDER_INTERVAL_MS);
     return () => window.clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -95,12 +107,8 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
   return (
     <>
       {embers.map((em) => (
-        <span
-          key={em.id}
-          className="pet-fire-ember"
-          style={{ transform: `translate(${em.x}px, ${em.y}px) rotate(${em.rotation}deg)` }}
-        >
-          <FireFlare />
+        <span key={em.id} className="pet-fire-ember" style={{ transform: `translate(${em.x}px, ${em.y}px)` }}>
+          <FireFlare heading={em.heading} />
         </span>
       ))}
       {pets.map((p, i) => {
