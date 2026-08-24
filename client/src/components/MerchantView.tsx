@@ -24,6 +24,7 @@ interface Group {
   mutations: MutationId[];
   count: number;
   unitPrice: number;
+  isDiamond: boolean;
 }
 
 export default function MerchantView({ player }: { player: PlayerState }) {
@@ -36,12 +37,19 @@ export default function MerchantView({ player }: { player: PlayerState }) {
     if (!crop) continue;
     const mKey = mutationKey(item.mutations);
     const key = `${item.cropId}:${item.sizeLabel}:${mKey}`;
-    let mutationMult = 1;
-    for (const m of item.mutations) mutationMult *= MUTATIONS[m].priceMultiplier;
-    const unitPrice = Math.round(crop.sellPrice * item.sizePriceMultiplier * mutationMult * sellMult);
+    const diamondReward = (crop as { diamondReward?: number }).diamondReward;
+    const isDiamond = !!diamondReward;
+    let unitPrice: number;
+    if (isDiamond) {
+      unitPrice = diamondReward!;
+    } else {
+      let mutationMult = 1;
+      for (const m of item.mutations) mutationMult *= MUTATIONS[m].priceMultiplier;
+      unitPrice = Math.round(crop.sellPrice * item.sizePriceMultiplier * mutationMult * sellMult);
+    }
     const existing = groups.get(key);
     if (existing) existing.count += 1;
-    else groups.set(key, { cropId: item.cropId, sizeLabel: item.sizeLabel, mutations: item.mutations, count: 1, unitPrice });
+    else groups.set(key, { cropId: item.cropId, sizeLabel: item.sizeLabel, mutations: item.mutations, count: 1, unitPrice, isDiamond });
   }
 
   const sortedGroups = Array.from(groups.values()).sort((a, b) => {
@@ -59,7 +67,8 @@ export default function MerchantView({ player }: { player: PlayerState }) {
     });
   }
 
-  const totalEstimate = sortedGroups.reduce((sum, g) => sum + g.unitPrice * g.count, 0);
+  const totalCoinEstimate = sortedGroups.filter((g) => !g.isDiamond).reduce((sum, g) => sum + g.unitPrice * g.count, 0);
+  const totalDiamondEstimate = sortedGroups.filter((g) => g.isDiamond).reduce((sum, g) => sum + g.unitPrice * g.count, 0);
   const totalCount = sortedGroups.reduce((sum, g) => sum + g.count, 0);
 
   function handleSellAll() {
@@ -76,7 +85,8 @@ export default function MerchantView({ player }: { player: PlayerState }) {
       {error && <p className="lobby-error">{error}</p>}
       {sortedGroups.length > 0 && (
         <button className="btn btn-primary sell-all-btn" onClick={handleSellAll}>
-          🪙 Sell All {totalCount} Items (≈{totalEstimate})
+          Sell All {totalCount} Items (≈🪙{totalCoinEstimate}
+          {totalDiamondEstimate > 0 ? ` + 💎${totalDiamondEstimate}` : ""})
         </button>
       )}
       {sortedGroups.length === 0 ? (
@@ -109,14 +119,17 @@ export default function MerchantView({ player }: { player: PlayerState }) {
                     ))}
                     <span className="owned-badge">have {g.count}</span>
                   </div>
-                  <div className="shop-row-stats">🪙 {g.unitPrice} each</div>
+                  <div className="shop-row-stats">
+                    {g.isDiamond ? "💎" : "🪙"} {g.unitPrice} each
+                  </div>
                 </div>
                 <div className="shop-row-actions">
                   <button className="btn btn-secondary" onClick={() => handleSell(g, 1)}>
                     Sell 1
                   </button>
                   <button className="btn btn-primary" onClick={() => handleSell(g, "all")}>
-                    Sell All ({g.unitPrice * g.count})
+                    Sell All ({g.isDiamond ? "💎" : ""}
+                    {g.unitPrice * g.count})
                   </button>
                 </div>
               </div>

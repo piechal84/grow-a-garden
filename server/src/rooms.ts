@@ -447,8 +447,14 @@ export function sell(
   if (qty > matching.length) return { error: "You don't have that many." };
   const toSell = matching.slice(0, qty);
   const mult = sellMultiplier(player);
+  const diamondReward = (crop as { diamondReward?: number }).diamondReward;
   let earned = 0;
+  let diamonds = 0;
   for (const item of toSell) {
+    if (diamondReward) {
+      diamonds += diamondReward;
+      continue;
+    }
     let mutationMult = 1;
     for (const m of item.mutations) mutationMult *= MUTATIONS[m].priceMultiplier;
     earned += Math.round(crop.sellPrice * item.sizePriceMultiplier * mutationMult * mult);
@@ -457,18 +463,25 @@ export function sell(
   player.cropInventory = player.cropInventory.filter((c) => !soldIds.has(c.itemId));
   player.coins += earned;
   player.lifetimeCoins += earned;
+  player.diamonds += diamonds;
   advanceQuests(player, "sell", qty);
   advanceQuests(player, "earn_coins", earned);
   return {};
 }
 
-export function sellAll(player: PlayerState): { error?: string; earned?: number; count?: number } {
+export function sellAll(player: PlayerState): { error?: string; earned?: number; diamonds?: number; count?: number } {
   if (player.cropInventory.length === 0) return { error: "Nothing to sell." };
   const mult = sellMultiplier(player);
   let earned = 0;
+  let diamonds = 0;
   for (const item of player.cropInventory) {
     const crop = getCropDef(item.cropId);
     if (!crop) continue;
+    const diamondReward = (crop as { diamondReward?: number }).diamondReward;
+    if (diamondReward) {
+      diamonds += diamondReward;
+      continue;
+    }
     let mutationMult = 1;
     for (const m of item.mutations) mutationMult *= MUTATIONS[m].priceMultiplier;
     earned += Math.round(crop.sellPrice * item.sizePriceMultiplier * mutationMult * mult);
@@ -477,9 +490,10 @@ export function sellAll(player: PlayerState): { error?: string; earned?: number;
   player.cropInventory = [];
   player.coins += earned;
   player.lifetimeCoins += earned;
+  player.diamonds += diamonds;
   advanceQuests(player, "sell", count);
   advanceQuests(player, "earn_coins", earned);
-  return { earned, count };
+  return { earned, diamonds, count };
 }
 
 export function buyGear(player: PlayerState, gearId: string): { error?: string } {

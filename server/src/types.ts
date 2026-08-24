@@ -121,6 +121,7 @@ export interface ActionAck {
 
 export interface SellAllAck extends ActionAck {
   earned?: number;
+  diamonds?: number;
   count?: number;
 }
 

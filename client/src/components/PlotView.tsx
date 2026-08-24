@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { SIZE_COLORS } from "../gameData";
-import { getCropDef, MOON_CROPS_BY_ID } from "../moonData";
+import { MOON_CROPS_BY_ID } from "../moonData";
+import { getAnyCropDef as getCropDef, SOLAR_CROPS_BY_ID } from "../solarData";
 import type { PlayerState, Planting } from "../types";
 import { socket } from "../socket";
 import { effectiveWorkBetween, MUTATIONS, type MutationId } from "../weather";
@@ -37,7 +38,7 @@ function previewMutations(planting: Planting, allPlantings: Planting[]): Mutatio
 }
 
 function auraTierFor(cropId: string): "divine" | "celestial" | undefined {
-  const tier = MOON_CROPS_BY_ID[cropId]?.tier;
+  const tier = MOON_CROPS_BY_ID[cropId]?.tier ?? SOLAR_CROPS_BY_ID[cropId]?.tier;
   if (tier === "mythic") return "divine";
   if (tier === "legendary") return "celestial";
   return undefined;

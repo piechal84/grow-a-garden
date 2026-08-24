@@ -162,7 +162,7 @@ io.on("connection", (socket) => {
     const { room, player } = currentPlayer();
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
     const result = sellAll(player);
-    ack?.({ ok: !result.error, error: result.error, earned: result.earned, count: result.count });
+    ack?.({ ok: !result.error, error: result.error, earned: result.earned, diamonds: result.diamonds, count: result.count });
     if (!result.error) broadcast(room);
   });
 

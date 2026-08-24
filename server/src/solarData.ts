@@ -15,6 +15,9 @@ export interface SolarCrop {
   footprint: { w: number; h: number };
   variableFootprint?: boolean;
   persistent?: boolean;
+  /** Divine (mythic) and Celestial (legendary) solar crops pay out in Diamonds instead of coins
+   *  when sold — a flat per-unit amount, not scaled by size/mutation multipliers. */
+  diamondReward?: number;
 }
 
 export const SOLAR_CROPS: SolarCrop[] = [
@@ -22,8 +25,8 @@ export const SOLAR_CROPS: SolarCrop[] = [
   { id: "radiant_lemon", name: "Radiant Lemon", emoji: "🍋", tier: "uncommon", growSeconds: 55, sellPrice: 400, footprint: { w: 1, h: 1 } },
   { id: "blazing_pineapple", name: "Blazing Pineapple", emoji: "🍍", tier: "rare", growSeconds: 75, sellPrice: 900, footprint: { w: 1, h: 1 }, persistent: true },
   { id: "corona_orange", name: "Corona Orange", emoji: "🍊", tier: "epic", growSeconds: 100, sellPrice: 2200, footprint: { w: 2, h: 1 }, variableFootprint: true, persistent: true },
-  { id: "phoenix_sunflower", name: "Phoenix Sunflower", emoji: "🌻", tier: "mythic", growSeconds: 140, sellPrice: 6000, footprint: { w: 2, h: 1 }, variableFootprint: true, persistent: true },
-  { id: "sun_blossom", name: "Sun Blossom", emoji: "☀️", tier: "legendary", growSeconds: 200, sellPrice: 20000, footprint: { w: 2, h: 2 }, persistent: true },
+  { id: "phoenix_sunflower", name: "Phoenix Sunflower", emoji: "🌻", tier: "mythic", growSeconds: 140, sellPrice: 6000, footprint: { w: 2, h: 1 }, variableFootprint: true, persistent: true, diamondReward: 1 },
+  { id: "sun_blossom", name: "Sun Blossom", emoji: "☀️", tier: "legendary", growSeconds: 200, sellPrice: 20000, footprint: { w: 2, h: 2 }, persistent: true, diamondReward: 2 },
 ];
 
 export const SOLAR_CROPS_BY_ID: Record<string, SolarCrop> = Object.fromEntries(SOLAR_CROPS.map((c) => [c.id, c]));
