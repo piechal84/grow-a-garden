@@ -96,6 +96,9 @@ export const GEAR_BY_ID: Record<string, GearItem> = Object.fromEntries(GEAR.map(
 
 export const MAX_PLAYERS_PER_ROOM = 6;
 
+/** Must match server/src/rooms.ts's STOCK_CYCLE_MS — how often seed shop stock rolls over. */
+export const SEED_STOCK_CYCLE_MS = 2 * 60 * 1000;
+
 export function nextGearCost(gear: GearItem, owned: number): number {
   return Math.round(gear.cost * (1 + owned * 0.5));
 }

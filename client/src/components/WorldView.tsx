@@ -338,7 +338,7 @@ export default function WorldView({
 
       {openShop && me && (
         <ShopModal onClose={() => setOpenShop(null)}>
-          {openShop === "seed" && <SeedShopView player={me} />}
+          {openShop === "seed" && <SeedShopView player={me} now={now} />}
           {openShop === "gear" && <GearShopView player={me} />}
           {openShop === "quests" && <QuestGiverView player={me} />}
           {openShop === "merchant" && <MerchantView player={me} />}

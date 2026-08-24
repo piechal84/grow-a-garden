@@ -1,15 +1,24 @@
 import { useState } from "react";
-import { CROP_TIER_COLORS, CROP_TIER_LABELS, CROPS } from "../gameData";
+import { CROP_TIER_COLORS, CROP_TIER_LABELS, CROPS, SEED_STOCK_CYCLE_MS } from "../gameData";
 import { growSpeedMultiplier, isUnlocked, sellMultiplier } from "../derived";
 import type { PlayerState } from "../types";
 import { socket } from "../socket";
 import CropIcon from "./CropIcon";
 
-export default function SeedShopView({ player }: { player: PlayerState }) {
+function formatCountdown(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+export default function SeedShopView({ player, now }: { player: PlayerState; now: number }) {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const growMult = growSpeedMultiplier(player);
   const sellMult = sellMultiplier(player);
+  const nextRestockAt = (Math.floor(now / SEED_STOCK_CYCLE_MS) + 1) * SEED_STOCK_CYCLE_MS;
+  const restockCountdown = formatCountdown(nextRestockAt - now);
 
   function qty(cropId: string, stock: number) {
     return Math.min(quantities[cropId] ?? 1, Math.max(1, stock));
@@ -30,6 +39,10 @@ export default function SeedShopView({ player }: { player: PlayerState }) {
     <div className="shop-view">
       <h2>🌱 Seed Shop</h2>
       <p className="shop-sub">Buy seeds, then plant them from an empty garden plot.</p>
+      <div className="restock-banner">
+        🔄 Stock refreshes in <strong>{restockCountdown}</strong>
+        <span className="restock-banner-sub">Common–Epic always restock · Mythic+ only have a chance to</span>
+      </div>
       {error && <p className="lobby-error">{error}</p>}
       <div className="shop-list">
         {CROPS.map((crop) => {
@@ -70,11 +83,12 @@ export default function SeedShopView({ player }: { player: PlayerState }) {
                       className={stock > 0 ? "stock-tag stock-tag-available" : "stock-tag stock-tag-empty"}
                       title={
                         isRareTier
-                          ? "Rare stock — restocks with a small chance every 2 minutes"
-                          : "Restocks to full every 2 minutes"
+                          ? "Rare stock — has a chance to restock every 2 minutes"
+                          : "Always restocks to full every 2 minutes"
                       }
                     >
                       {stock > 0 ? `📦 ${stock} in stock` : "📦 Out of stock"}
+                      {isRareTier ? ` · next chance in ${restockCountdown}` : ` · resets in ${restockCountdown}`}
                     </span>
                   </div>
                 ) : (
