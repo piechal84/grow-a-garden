@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { MERGE_COUNT, nextEvolutionId, PETS_BY_ID, PET_SIZES, PET_SIZE_LABELS, type PetSize } from "../petData";
 import type { IncubatorState, PlayerState } from "../types";
 import { socket } from "../socket";
@@ -11,8 +12,15 @@ function formatDuration(ms: number): string {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
+interface Selection {
+  petId: string;
+  size: PetSize;
+}
+
 /** A Kelka Egg Incubator planted on the plot (3x3) — tap while idle to feed it 4 identical pets
- *  and start a merge, tap again once ready to collect the evolved result. */
+ *  and start a merge, tap again once ready to collect the evolved result. The picker modal is
+ *  portaled to <body> since the plot lives inside a zoomed/scaled container — a `transform` on
+ *  an ancestor turns `position: fixed` into "fixed to that ancestor", not the real screen. */
 export default function IncubatorStructure({
   incubator,
   player,
@@ -25,6 +33,8 @@ export default function IncubatorStructure({
   now: number;
 }) {
   const [showPicker, setShowPicker] = useState(false);
+  const [selected, setSelected] = useState<Selection | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const merge = incubator.merge;
@@ -35,6 +45,7 @@ export default function IncubatorStructure({
     e.stopPropagation();
     if (!isOwner) return;
     if (!merge) {
+      setSelected(null);
       setShowPicker(true);
       return;
     }
@@ -45,11 +56,17 @@ export default function IncubatorStructure({
     }
   }
 
-  function handleStartMerge(petId: string, size: PetSize) {
+  function handleConfirmMerge() {
+    if (!selected) return;
+    setSubmitting(true);
     setError(null);
-    socket.emit("start_pet_merge", { incubatorId: incubator.id, petId, size }, (res) => {
+    socket.emit("start_pet_merge", { incubatorId: incubator.id, petId: selected.petId, size: selected.size }, (res) => {
+      setSubmitting(false);
       if (!res.ok) setError(res.error ?? "Could not start merge.");
-      else setShowPicker(false);
+      else {
+        setShowPicker(false);
+        setSelected(null);
+      }
     });
   }
 
@@ -61,6 +78,9 @@ export default function IncubatorStructure({
       if (count >= MERGE_COUNT) groups.push({ petId, size, count });
     }
   }
+
+  const selectedPet = selected ? PETS_BY_ID[selected.petId] : undefined;
+  const outcomePet = selected ? PETS_BY_ID[nextEvolutionId(selected.petId)!] : undefined;
 
   return (
     <div
@@ -84,51 +104,79 @@ export default function IncubatorStructure({
         </div>
       )}
 
-      {showPicker && (
-        <div
-          className="modal-backdrop"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowPicker(false);
-          }}
-        >
-          <div className="modal modal-shop" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setShowPicker(false)} aria-label="Close">
-              ✕
-            </button>
-            <h2>🥚 Merge Pets</h2>
-            <p className="shop-sub">Pick 4 identical pets (same pet, same size) to merge into a stronger evolved form.</p>
-            {groups.length === 0 ? (
-              <p className="modal-empty">You need 4 identical pets (same pet + size) to merge.</p>
-            ) : (
-              <div className="shop-list">
-                {groups.map((g) => {
-                  const pet = PETS_BY_ID[g.petId];
-                  const resultPet = PETS_BY_ID[nextEvolutionId(g.petId)!];
-                  return (
-                    <div key={`${g.petId}#${g.size}`} className="shop-row">
-                      <div className="shop-row-icon">
-                        <span style={{ fontSize: 30 }}>{pet.emoji}</span>
-                      </div>
-                      <div className="shop-row-info">
-                        <div className="shop-row-name">
-                          {pet.name} ({PET_SIZE_LABELS[g.size]}) x{g.count}
-                        </div>
-                        <div className="shop-row-stats">Becomes {resultPet.name}</div>
-                      </div>
-                      <div className="shop-row-actions">
-                        <button className="btn btn-primary" onClick={() => handleStartMerge(g.petId, g.size)}>
-                          Merge 4
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+      {showPicker &&
+        createPortal(
+          <div
+            className="modal-backdrop"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowPicker(false);
+            }}
+          >
+            <div className="modal modal-shop" onClick={(e) => e.stopPropagation()}>
+              <button className="modal-close" onClick={() => setShowPicker(false)} aria-label="Close">
+                ✕
+              </button>
+              <h2>🥚 Merge Pets</h2>
+              <p className="shop-sub">Fill all 4 slots with the same pet (same pet, same size) to merge them into a stronger evolved form.</p>
+
+              <div className="merge-slots">
+                {Array.from({ length: MERGE_COUNT }, (_, i) => (
+                  <button
+                    key={i}
+                    className={`merge-slot ${selected ? "merge-slot-filled" : ""}`}
+                    onClick={() => selected && setSelected(null)}
+                    title={selected ? "Tap to clear" : "Empty slot"}
+                  >
+                    {selectedPet ? selectedPet.emoji : "+"}
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
-        </div>
-      )}
+
+              {selected && outcomePet && (
+                <div className="merge-outcome">
+                  <span>Becomes</span>
+                  <span className="merge-outcome-emoji">{outcomePet.emoji}</span>
+                  <strong>{outcomePet.name}</strong>
+                </div>
+              )}
+
+              {selected ? (
+                <button className="btn btn-primary" disabled={submitting} onClick={handleConfirmMerge}>
+                  {submitting ? "Merging…" : "Confirm Merge"}
+                </button>
+              ) : groups.length === 0 ? (
+                <p className="modal-empty">You need 4 identical pets (same pet + size) to fill the slots.</p>
+              ) : (
+                <div className="shop-list">
+                  {groups.map((g) => {
+                    const pet = PETS_BY_ID[g.petId];
+                    const resultPet = PETS_BY_ID[nextEvolutionId(g.petId)!];
+                    return (
+                      <div key={`${g.petId}#${g.size}`} className="shop-row">
+                        <div className="shop-row-icon">
+                          <span style={{ fontSize: 30 }}>{pet.emoji}</span>
+                        </div>
+                        <div className="shop-row-info">
+                          <div className="shop-row-name">
+                            {pet.name} ({PET_SIZE_LABELS[g.size]}) x{g.count}
+                          </div>
+                          <div className="shop-row-stats">Becomes {resultPet.name}</div>
+                        </div>
+                        <div className="shop-row-actions">
+                          <button className="btn btn-primary" onClick={() => setSelected({ petId: g.petId, size: g.size })}>
+                            Fill 4 Slots
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

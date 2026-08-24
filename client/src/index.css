@@ -848,6 +848,46 @@ button {
   }
 }
 
+.merge-slots {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.merge-slot {
+  width: 60px;
+  height: 60px;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  font-size: 26px;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.merge-slot-filled {
+  border-style: solid;
+  border-color: var(--sun-dark);
+  background: #fff8e6;
+  cursor: pointer;
+}
+
+.merge-outcome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.merge-outcome-emoji {
+  font-size: 26px;
+}
+
 /* Reclaim/Move controls live in a toolbar above the plot — not on the tiny crop tiles
    themselves — so they're easy to hit on tablets/phones without misclicking a neighbor. */
 .plot-toolbar {

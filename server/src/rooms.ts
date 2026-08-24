@@ -109,9 +109,33 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     petsEquipped: saved?.petsEquipped ?? defaultEquippedSlots(saved?.petsOwned ?? {}, saved?.petSlots ?? BASE_PET_SLOTS),
     incubators: saved?.incubators ?? [],
   };
+  sanitizePetState(player);
   ensureQuestsFresh(player, Date.now());
   ensureStockFresh(player, Date.now());
   return player;
+}
+
+/** Pets went through a few storage shapes as the feature grew (owned-list -> single size per pet
+ *  -> stacked counts) — a save from an older shape, or any other corruption, could otherwise
+ *  leave `petsEquipped` pointing at a (pet, size) with zero real copies backing it, which would
+ *  silently keep granting its bonus forever while the pet lists show nothing owned. Called once
+ *  on load to make sure equipped slots always match reality. */
+function sanitizePetState(player: PlayerState) {
+  for (const [petId, sizes] of Object.entries(player.petsOwned)) {
+    if (!sizes || typeof sizes !== "object") {
+      delete player.petsOwned[petId];
+      continue;
+    }
+    for (const size of Object.keys(sizes) as PetSize[]) {
+      const count = sizes[size];
+      if (typeof count !== "number" || !Number.isFinite(count) || count <= 0) delete sizes[size];
+    }
+    if (Object.keys(sizes).length === 0) delete player.petsOwned[petId];
+  }
+  player.petsEquipped = player.petsEquipped.filter((key) => {
+    const { petId, size } = parseSlotKey(key);
+    return (player.petsOwned[petId]?.[size] ?? 0) > 0;
+  });
 }
 
 const STOCK_CYCLE_MS = 2 * 60 * 1000;
