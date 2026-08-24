@@ -2,6 +2,7 @@ import { useState } from "react";
 import { GEAR, nextGearPrice, type GearItem } from "../gameData";
 import type { PlayerState } from "../types";
 import { socket } from "../socket";
+import GrowSpeedBanner from "./GrowSpeedBanner";
 
 function formatPct(v: number): string {
   return `${Math.round(v * 1000) / 10}%`;
@@ -37,6 +38,7 @@ export default function GearShopView({ player }: { player: PlayerState }) {
         <span className="kelka-mark">◆ KELKA INDUSTRIES</span>
         <span className="kelka-tagline">Manufacturer of record. More information in future updates.</span>
       </div>
+      <GrowSpeedBanner player={player} />
       {error && <p className="lobby-error">{error}</p>}
       <div className="shop-list">
         {GEAR.map((gear) => {

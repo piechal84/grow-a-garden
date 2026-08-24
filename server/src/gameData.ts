@@ -144,6 +144,11 @@ export const STARTING_COINS = 25;
  *  Used by rooms.ts for the real timer and by the shop views (client) for an accurate preview. */
 export const PERSISTENT_REGROW_MULTIPLIER = 10;
 
+/** Floor on the grow-speed multiplier from stacked gear + pets — crops can never grow faster
+ *  than 1/GROW_SPEED_FLOOR the normal rate (0.1 = 10x max). Used by rooms.ts for the real
+ *  timer and by the Pet/Gear shops (client) to show when a player has maxed it out. */
+export const GROW_SPEED_FLOOR = 0.1;
+
 /**
  * Each planted seed secretly rolls one of these tiers, then visibly grows toward
  * its visualScale as the plot's grow timer progresses. Weighted so most crops land

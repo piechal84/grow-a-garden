@@ -6,6 +6,7 @@ import {
   nextPetSlotCost,
   parseSlotKey,
   PET_EGGS,
+  petEffectValue,
   PET_SIZE_LABELS,
   PET_SIZES,
   PETS_BY_ID,
@@ -15,6 +16,7 @@ import {
 } from "../petData";
 import type { PetEggAck, PetEggBulkAck, PetHatchOutcome, PlayerState } from "../types";
 import { socket } from "../socket";
+import GrowSpeedBanner from "./GrowSpeedBanner";
 import PetIcon from "./PetIcon";
 
 const BULK_EGG_COUNT = 10;
@@ -131,6 +133,27 @@ export default function PetShopView({ player }: { player: PlayerState }) {
     });
   }
 
+  /** Fills only the currently-open slots (never touches what's already equipped) with the
+   *  player's strongest owned-but-unequipped pets of the given effect type, best value first. */
+  function handleAutoFillBest(effectType: "growSpeed" | "sellBonus") {
+    const openSlots = player.petSlots - equipped.size;
+    if (openSlots <= 0) return;
+    const best = unequippedGroups
+      .filter((g) => g.pet.effect.type === effectType)
+      .sort((a, b) => petEffectValue(b.pet, b.size) - petEffectValue(a.pet, a.size))
+      .slice(0, openSlots);
+    if (best.length === 0) {
+      setError(`No owned ${effectType === "growSpeed" ? "Grow Speed" : "Sell Price"} pets to add.`);
+      return;
+    }
+    setError(null);
+    for (const { petId, size } of best) {
+      socket.emit("equip_pet", { petId, size }, (res) => {
+        if (!res.ok) setError(res.error ?? "Could not equip pet.");
+      });
+    }
+  }
+
   const hatchPet = lastHatch ? PETS_BY_ID[lastHatch.petId] : undefined;
   const bulkBest = bulkResults && bulkResults.length > 0 ? bestOf(bulkResults) : undefined;
 
@@ -149,6 +172,8 @@ export default function PetShopView({ player }: { player: PlayerState }) {
       </p>
       {error && <p className="lobby-error">{error}</p>}
 
+      <GrowSpeedBanner player={player} />
+
       <div className="restock-banner">
         <span>
           🎪 Pet Slots: <strong>{equipped.size}</strong>/{player.petSlots} used (max {MAX_PET_SLOTS})
@@ -160,6 +185,22 @@ export default function PetShopView({ player }: { player: PlayerState }) {
         ) : (
           <span className="plot-ready-tag">Maxed</span>
         )}
+        <button
+          className="btn btn-secondary"
+          disabled={emptySlotCount === 0}
+          title="Fill open slots with your best owned Grow Speed pets"
+          onClick={() => handleAutoFillBest("growSpeed")}
+        >
+          ⏩ Best Growth
+        </button>
+        <button
+          className="btn btn-secondary"
+          disabled={emptySlotCount === 0}
+          title="Fill open slots with your best owned Sell Price pets"
+          onClick={() => handleAutoFillBest("sellBonus")}
+        >
+          💰 Best Sell
+        </button>
       </div>
 
       <div className="inventory-grid">

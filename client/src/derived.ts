@@ -1,4 +1,4 @@
-import { GEAR_BY_ID } from "./gameData";
+import { GEAR_BY_ID, GROW_SPEED_FLOOR } from "./gameData";
 import { parseSlotKey, PET_SIZE_MULTIPLIER, PETS_BY_ID } from "./petData";
 import type { PlayerState } from "./types";
 
@@ -17,7 +17,19 @@ function activePets(player: PlayerState) {
   });
 }
 
-export function growSpeedMultiplier(player: PlayerState): number {
+export interface GrowSpeedInfo {
+  /** Fraction of normal grow time a crop now takes (e.g. 0.25 = 25% of normal = 4x faster). */
+  multiplier: number;
+  /** How many times faster than normal, i.e. 1 / multiplier. */
+  speedFactor: number;
+  /** True once stacked gear + pets have pushed past GROW_SPEED_FLOOR — any further grow-speed
+   *  source would be completely wasted. */
+  capped: boolean;
+}
+
+/** Same reduction math `growSpeedMultiplier` uses, but returns the pieces the Pet/Gear shops
+ *  need to show "growth speed Nx faster" and flag when the floor's been hit. */
+export function growSpeedInfo(player: PlayerState): GrowSpeedInfo {
   let reduction = 0;
   for (const [gearId, owned] of Object.entries(player.gearOwned)) {
     const gear = GEAR_BY_ID[gearId];
@@ -26,7 +38,13 @@ export function growSpeedMultiplier(player: PlayerState): number {
   for (const { pet, size } of activePets(player)) {
     if (pet && pet.effect.type === "growSpeed") reduction += pet.effect.value * PET_SIZE_MULTIPLIER[size];
   }
-  return Math.max(0.25, 1 - reduction);
+  const uncapped = 1 - reduction;
+  const multiplier = Math.max(GROW_SPEED_FLOOR, uncapped);
+  return { multiplier, speedFactor: 1 / multiplier, capped: uncapped < GROW_SPEED_FLOOR };
+}
+
+export function growSpeedMultiplier(player: PlayerState): number {
+  return growSpeedInfo(player).multiplier;
 }
 
 export function sellMultiplier(player: PlayerState): number {

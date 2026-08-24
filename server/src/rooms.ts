@@ -3,6 +3,7 @@ import {
   CROPS,
   CROPS_BY_ID,
   GEAR_BY_ID,
+  GROW_SPEED_FLOOR,
   MAX_PLAYERS_PER_ROOM,
   PERSISTENT_REGROW_MULTIPLIER,
   rollSizeTier,
@@ -369,7 +370,7 @@ function growSpeedMultiplier(player: PlayerState): number {
   for (const { pet, size } of activePets(player)) {
     if (pet && pet.effect.type === "growSpeed") reduction += pet.effect.value * PET_SIZE_MULTIPLIER[size];
   }
-  return Math.max(0.25, 1 - reduction);
+  return Math.max(GROW_SPEED_FLOOR, 1 - reduction);
 }
 
 /** Rescales every still-growing planting's remaining time to a new grow-speed multiplier,
