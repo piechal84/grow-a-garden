@@ -1062,13 +1062,16 @@ button {
   }
 }
 
+/* The streak is rotated to exactly match its own travel vector (236px, 110px below ≈ 25deg) so
+   the bar visibly points the direction it's flying instead of sliding sideways like a raindrop —
+   and the bright end leads the motion while the tail fades out behind it. */
 .shooting-star {
   position: absolute;
   width: 90px;
   height: 2px;
-  background: linear-gradient(90deg, #fff, rgba(255, 255, 255, 0));
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), #fff);
   border-radius: 2px;
-  transform: rotate(-28deg);
+  transform: rotate(25deg);
   animation-name: shooting-star-streak;
   animation-duration: 9s;
   animation-timing-function: linear;
@@ -1076,20 +1079,32 @@ button {
   pointer-events: none;
 }
 
+.shooting-star::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: -1.5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.85);
+}
+
 @keyframes shooting-star-streak {
   0% {
-    transform: translate(0, 0) rotate(-28deg);
+    transform: translate(0, 0) rotate(25deg);
     opacity: 0;
   }
   3% {
     opacity: 1;
   }
-  16% {
-    transform: translate(240px, 140px) rotate(-28deg);
+  18% {
+    transform: translate(236px, 110px) rotate(25deg);
     opacity: 0;
   }
   100% {
-    transform: translate(240px, 140px) rotate(-28deg);
+    transform: translate(236px, 110px) rotate(25deg);
     opacity: 0;
   }
 }
