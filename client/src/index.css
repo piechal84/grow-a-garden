@@ -1815,6 +1815,22 @@ button {
   gap: 3px;
 }
 
+.pet-effect-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--leaf-dark);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.pet-special-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-align: center;
+  line-height: 1.25;
+}
+
 .pet-hatch-reveal {
   display: flex;
   align-items: center;

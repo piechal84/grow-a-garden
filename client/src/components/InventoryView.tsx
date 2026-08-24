@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CROPS_BY_ID, CROP_TIER_COLORS, CROP_TIER_LABELS, SIZE_COLORS } from "../gameData";
 import { MOON_CROPS_BY_ID, MOON_TIER_TO_CROP_TIER } from "../moonData";
-import { PET_SIZES, PET_SIZE_LABELS, PETS_BY_ID, type Pet, type PetSize } from "../petData";
+import { formatPetEffect, PET_SIZES, PET_SIZE_LABELS, PETS_BY_ID, petSpecialAbility, type Pet, type PetSize } from "../petData";
 import { getAnyCropDef as getCropDef, SOLAR_CROPS_BY_ID, SOLAR_TIER_TO_CROP_TIER } from "../solarData";
 import { socket } from "../socket";
 import type { PlayerState } from "../types";
@@ -132,15 +132,18 @@ export default function InventoryView({ player }: { player: PlayerState }) {
             const key = `${petId}#${size}`;
             const isEquipped = equipped.has(key);
             const stage = pet.id.includes("_tenacious") ? "tenacious" : pet.id.includes("_empowered") ? "empowered" : undefined;
+            const special = petSpecialAbility(petId);
             return (
               <div
                 key={key}
                 className={`inventory-tile ${stage ? `pet-aura-${stage}` : ""}`}
-                title={`${pet.name} (${PET_SIZE_LABELS[size]})`}
+                title={`${pet.name} (${PET_SIZE_LABELS[size]}) — ${formatPetEffect(pet, size)}${special ? `. ${special}` : ""}`}
               >
                 <span className="inventory-count">x{count}</span>
                 <span style={{ fontSize: 32 }}>{pet.emoji}</span>
                 <span className="inventory-tile-name">{pet.name}</span>
+                <span className="pet-effect-label">{formatPetEffect(pet, size)}</span>
+                {special && <span className="pet-special-label">🌈 Rain bonus</span>}
                 <div className="inventory-tile-badges">
                   <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
                     {CROP_TIER_LABELS[pet.tier]}

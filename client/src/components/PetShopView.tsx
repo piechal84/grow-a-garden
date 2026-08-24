@@ -1,6 +1,17 @@
 import { useState } from "react";
 import { CROP_TIER_COLORS, CROP_TIER_LABELS } from "../gameData";
-import { MAX_PET_SLOTS, nextPetSlotCost, PET_EGGS, PET_SIZE_LABELS, PET_SIZES, PETS_BY_ID, type Pet, type PetSize } from "../petData";
+import {
+  formatPetEffect,
+  MAX_PET_SLOTS,
+  nextPetSlotCost,
+  PET_EGGS,
+  PET_SIZE_LABELS,
+  PET_SIZES,
+  PETS_BY_ID,
+  petSpecialAbility,
+  type Pet,
+  type PetSize,
+} from "../petData";
 import type { PetEggAck, PetEggBulkAck, PetHatchOutcome, PlayerState } from "../types";
 import { socket } from "../socket";
 
@@ -118,6 +129,11 @@ export default function PetShopView({ player }: { player: PlayerState }) {
         stack: gather 4 identical pets (same pet, same size) and feed them to a planted Kelka Egg Incubator (Gear
         Shop) to merge them into a stronger evolved form.
       </p>
+      <p className="shop-sub">
+        Every equipped pet passively boosts either ⏩ Grow Speed (crops finish faster) or 💰 Sell Price (crops sell for
+        more) — bonuses stack across all equipped pets. Big and Giant sizes multiply the bonus (1.5x / 2.5x), and
+        merging into Empowered / Tenacious forms multiplies it further (2.5x / 5x).
+      </p>
       {error && <p className="lobby-error">{error}</p>}
 
       <div className="restock-banner">
@@ -156,15 +172,18 @@ export default function PetShopView({ player }: { player: PlayerState }) {
             const key = `${petId}#${size}`;
             const isEquipped = equipped.has(key);
             const stage = pet.id.includes("_tenacious") ? "tenacious" : pet.id.includes("_empowered") ? "empowered" : undefined;
+            const special = petSpecialAbility(petId);
             return (
               <div
                 key={key}
                 className={`inventory-tile ${stage ? `pet-aura-${stage}` : ""}`}
-                title={`${pet.name} (${PET_SIZE_LABELS[size]})`}
+                title={`${pet.name} (${PET_SIZE_LABELS[size]}) — ${formatPetEffect(pet, size)}${special ? `. ${special}` : ""}`}
               >
                 <span className="inventory-count">x{count}</span>
                 <span style={{ fontSize: 32 }}>{pet.emoji}</span>
                 <span className="inventory-tile-name">{pet.name}</span>
+                <span className="pet-effect-label">{formatPetEffect(pet, size)}</span>
+                {special && <span className="pet-special-label">🌈 Rain bonus</span>}
                 <div className="inventory-tile-badges">
                   <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
                     {CROP_TIER_LABELS[pet.tier]}
@@ -196,6 +215,9 @@ export default function PetShopView({ player }: { player: PlayerState }) {
             <div className="pet-hatch-sub" style={{ color: CROP_TIER_COLORS[hatchPet.tier] }}>
               {CROP_TIER_LABELS[hatchPet.tier]} — you now have {lastHatch.count}
             </div>
+            <div className="pet-effect-label" style={{ textAlign: "left" }}>
+              {formatPetEffect(hatchPet, lastHatch.size)}
+            </div>
           </div>
         </div>
       )}
@@ -209,9 +231,14 @@ export default function PetShopView({ player }: { player: PlayerState }) {
               {bulkResults.map((r, i) => {
                 const pet = PETS_BY_ID[r.petId];
                 return (
-                  <div key={i} className="inventory-tile" title={`${pet.name} (${PET_SIZE_LABELS[r.size]})`}>
+                  <div
+                    key={i}
+                    className="inventory-tile"
+                    title={`${pet.name} (${PET_SIZE_LABELS[r.size]}) — ${formatPetEffect(pet, r.size)}`}
+                  >
                     <span className="inventory-count">x{r.count}</span>
                     <span style={{ fontSize: 26 }}>{pet.emoji}</span>
+                    <span className="pet-effect-label">{formatPetEffect(pet, r.size)}</span>
                     <div className="inventory-tile-badges">
                       <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
                         {CROP_TIER_LABELS[pet.tier]}

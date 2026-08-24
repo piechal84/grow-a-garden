@@ -28,6 +28,7 @@ export function setMuted(next: boolean) {
   if (cicadaNodes) cicadaNodes.gain.gain.value = muted ? 0 : CICADA_VOLUME;
   if (rainAudio) rainAudio.volume = muted ? 0 : RAIN_FILE_VOLUME;
   if (stormAudio) stormAudio.volume = muted ? 0 : STORM_FILE_VOLUME;
+  if (heatwaveAudio) heatwaveAudio.volume = muted ? 0 : HEATWAVE_FILE_VOLUME;
 }
 
 function makeNoiseBuffer(context: AudioContext, seconds: number): AudioBuffer {
@@ -72,6 +73,24 @@ export function stopThunderstormAmbience() {
   if (!stormAudio) return;
   stormAudio.pause();
   stormAudio = null;
+}
+
+const HEATWAVE_FILE_VOLUME = 0.35;
+let heatwaveAudio: HTMLAudioElement | null = null;
+
+/** Heatwave temperature weather — a recorded ambience loop. */
+export function startHeatwaveAmbience() {
+  if (heatwaveAudio) return;
+  heatwaveAudio = new Audio("/sounds/heatwave.mp3");
+  heatwaveAudio.loop = true;
+  heatwaveAudio.volume = muted ? 0 : HEATWAVE_FILE_VOLUME;
+  void heatwaveAudio.play().catch(() => {});
+}
+
+export function stopHeatwaveAmbience() {
+  if (!heatwaveAudio) return;
+  heatwaveAudio.pause();
+  heatwaveAudio = null;
 }
 
 const THUNDERCLAP_VOLUME = 0.55;

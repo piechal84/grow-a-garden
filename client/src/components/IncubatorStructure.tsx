@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { MERGE_COUNT, nextEvolutionId, PETS_BY_ID, PET_SIZES, PET_SIZE_LABELS, type PetSize } from "../petData";
+import { formatPetEffect, MERGE_COUNT, nextEvolutionId, PETS_BY_ID, PET_SIZES, PET_SIZE_LABELS, type PetSize } from "../petData";
 import type { IncubatorState, PlayerState } from "../types";
 import { socket } from "../socket";
 import { CELL_SIZE } from "../world";
@@ -138,6 +138,7 @@ export default function IncubatorStructure({
                   <span>Becomes</span>
                   <span className="merge-outcome-emoji">{outcomePet.emoji}</span>
                   <strong>{outcomePet.name}</strong>
+                  <span className="pet-effect-label">{formatPetEffect(outcomePet, selected.size)}</span>
                 </div>
               )}
 
@@ -161,7 +162,9 @@ export default function IncubatorStructure({
                           <div className="shop-row-name">
                             {pet.name} ({PET_SIZE_LABELS[g.size]}) x{g.count}
                           </div>
-                          <div className="shop-row-stats">Becomes {resultPet.name}</div>
+                          <div className="shop-row-stats">
+                            Becomes {resultPet.name} — {formatPetEffect(resultPet, g.size)}
+                          </div>
                         </div>
                         <div className="shop-row-actions">
                           <button className="btn btn-primary" onClick={() => setSelected({ petId: g.petId, size: g.size })}>

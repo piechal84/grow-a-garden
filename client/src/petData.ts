@@ -230,6 +230,32 @@ export function defaultEquippedSlots(petsOwned: Record<string, Partial<Record<Pe
     .map(({ pet, size }) => slotKey(pet.id, size));
 }
 
+/** The actual bonus a pet grants once size is factored in (evolution is already baked into
+ *  pet.effect.value — see `evolve` above). */
+export function petEffectValue(pet: Pet, size: PetSize): number {
+  return pet.effect.value * PET_SIZE_MULTIPLIER[size];
+}
+
+/** Human-readable "+N% Grow Speed" / "+N% Sell Price" label for a pet at a given size, shown
+ *  anywhere a pet is listed so its power is never a mystery. */
+export function formatPetEffect(pet: Pet, size: PetSize): string {
+  const pct = Math.round(petEffectValue(pet, size) * 1000) / 10;
+  const label = pet.effect.type === "growSpeed" ? "Grow Speed" : "Sell Price";
+  return `+${pct}% ${label}`;
+}
+
+/** The Unicorn line has a hidden second ability beyond its stat line: while equipped, rain gets
+ *  an extra independent shot at rolling the Rainbow mutation on freshly planted crops (see
+ *  rollMutations in weather.ts, server-authoritative). Called out explicitly here since nothing
+ *  else in the UI would otherwise reveal it. */
+export function petSpecialAbility(petId: string): string | undefined {
+  const { baseId } = evolutionInfo(petId);
+  if (baseId === "unicorn") {
+    return "While equipped: rain has an 18% chance per planting to grant a Rainbow mutation (2.8x sell price).";
+  }
+  return undefined;
+}
+
 export interface EquippedPetInfo {
   petId: string;
   size: PetSize;

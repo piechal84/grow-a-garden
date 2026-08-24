@@ -19,9 +19,11 @@ import {
   playMoonBlossomChime,
   playThunderClap,
   startCicadaAmbience,
+  startHeatwaveAmbience,
   startRainAmbience,
   startThunderstormAmbience,
   stopCicadaAmbience,
+  stopHeatwaveAmbience,
   stopRainAmbience,
   stopThunderstormAmbience,
 } from "../sound";
@@ -295,6 +297,16 @@ export default function WorldView({
     scheduleNext(5000 + Math.random() * 4000);
     return () => window.clearTimeout(timeout);
   }, [sky.id]);
+
+  useEffect(() => {
+    if (temperature.id === "heatwave") {
+      startHeatwaveAmbience();
+    } else {
+      stopHeatwaveAmbience();
+    }
+    return () => stopHeatwaveAmbience();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [temperature.id]);
 
   useEffect(() => {
     if (isDay) {
