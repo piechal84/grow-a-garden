@@ -7,6 +7,9 @@ import PetIcon from "./PetIcon";
 const WANDER_INTERVAL_MS = 4500;
 const EMBER_LIFETIME_MS = 1100;
 const EMBERS_PER_STEP = 3;
+/** Must match .roaming-pet's `transition: transform` duration in index.css — how long a wander
+ *  step visually takes to glide to its new spot, after which the pet reads as "landed" again. */
+const MOVE_TRANSITION_MS = 3600;
 
 interface Ember {
   id: number;
@@ -52,6 +55,7 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
   const petsKey = pets.map((p) => `${p.petId}#${p.size}`).join(",");
 
   const [positions, setPositions] = useState<{ x: number; y: number }[]>([]);
+  const [moving, setMoving] = useState<boolean[]>([]);
   const [embers, setEmbers] = useState<Ember[]>([]);
   const positionsRef = useRef(positions);
   positionsRef.current = positions;
@@ -59,6 +63,7 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
 
   useEffect(() => {
     setPositions(pets.map(() => ({ x: Math.random() * width, y: Math.random() * height })));
+    setMoving(pets.map(() => false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [petsKey, width, height]);
 
@@ -99,6 +104,8 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
         }
       }
       setPositions(nextPositions);
+      setMoving(pets.map(() => true));
+      window.setTimeout(() => setMoving(pets.map(() => false)), MOVE_TRANSITION_MS);
     }, WANDER_INTERVAL_MS);
     return () => window.clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,7 +127,7 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
             style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}
             title={p.pet.name}
           >
-            <PetIcon pet={p.pet} size={20} variant="top" />
+            <PetIcon pet={p.pet} size={20} variant="top" moving={moving[i] ?? false} />
           </span>
         );
       })}
