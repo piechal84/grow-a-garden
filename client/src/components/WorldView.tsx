@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MAX_PLAYERS_PER_ROOM } from "../gameData";
-import { equippedPetsInfo, type PetSize } from "../petData";
+import { equippedPetsInfo, type Pet, type PetSize } from "../petData";
 import { socket } from "../socket";
 import type { RoomState } from "../types";
 import { getActiveWeather, getFeaturedShop, phaseInfo } from "../weather";
@@ -34,6 +34,7 @@ import MerchantView from "./MerchantView";
 import MoonShopView from "./MoonShopView";
 import MutationToasts from "./MutationToasts";
 import NPCStall, { NPC_INFO, SOLAR_INFO, type NPCKind } from "./NPCStall";
+import PetIcon from "./PetIcon";
 import PetShopView from "./PetShopView";
 import PlotView from "./PlotView";
 import PremiumShopView from "./PremiumShopView";
@@ -52,10 +53,10 @@ const PET_BADGE_SCALE: Record<PetSize, number> = { normal: 1, big: 1.2, giant: 1
 
 /** Shows the player's best equipped pet as a small companion badge next to their avatar, scaled
  *  up a bit for Big/Giant hatches — visible to every player in the room, not just its owner. */
-function topPetCompanion(petsEquipped: string[]): { emoji: string; scale: number } | undefined {
+function topPetCompanion(petsEquipped: string[]): { pet: Pet; scale: number } | undefined {
   const [best] = equippedPetsInfo(petsEquipped);
   if (!best) return undefined;
-  return { emoji: best.pet.emoji, scale: PET_BADGE_SCALE[best.size] };
+  return { pet: best.pet, scale: PET_BADGE_SCALE[best.size] };
 }
 
 interface MoveState {
@@ -463,7 +464,7 @@ export default function WorldView({
               <span className="avatar-emoji">🧑‍🌾</span>
               {petCompanion && (
                 <span className="avatar-pet" style={{ scale: String(petCompanion.scale) }} title="Companion pet">
-                  {petCompanion.emoji}
+                  <PetIcon pet={petCompanion.pet} size={14} />
                 </span>
               )}
               <span className="avatar-name">{p.name}</span>

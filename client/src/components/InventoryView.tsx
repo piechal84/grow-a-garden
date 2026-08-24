@@ -7,6 +7,7 @@ import { socket } from "../socket";
 import type { PlayerState } from "../types";
 import { MUTATIONS, mutationKey, type MutationId } from "../weather";
 import CropIcon from "./CropIcon";
+import PetIcon from "./PetIcon";
 
 function sortRank(cropId: string): number {
   const normal = CROPS_BY_ID[cropId];
@@ -140,7 +141,7 @@ export default function InventoryView({ player }: { player: PlayerState }) {
                 title={`${pet.name} (${PET_SIZE_LABELS[size]}) — ${formatPetEffect(pet, size)}${special ? `. ${special}` : ""}`}
               >
                 <span className="inventory-count">x{count}</span>
-                <span style={{ fontSize: 32 }}>{pet.emoji}</span>
+                <PetIcon pet={pet} size={32} />
                 <span className="inventory-tile-name">{pet.name}</span>
                 <span className="pet-effect-label">{formatPetEffect(pet, size)}</span>
                 {special && <span className="pet-special-label">🌈 Rain bonus</span>}

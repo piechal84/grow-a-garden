@@ -4,6 +4,7 @@ import { formatPetEffect, MERGE_COUNT, nextEvolutionId, PETS_BY_ID, PET_SIZES, P
 import type { IncubatorState, PlayerState } from "../types";
 import { socket } from "../socket";
 import { CELL_SIZE } from "../world";
+import PetIcon from "./PetIcon";
 
 function formatDuration(ms: number): string {
   const totalSec = Math.max(0, Math.ceil(ms / 1000));
@@ -94,7 +95,7 @@ export default function IncubatorStructure({
       onClick={handleClick}
       title={!merge ? "Tap to merge 4 identical pets" : ready ? "Tap to collect" : "Merging…"}
     >
-      <span className="incubator-emoji">{ready && targetPet ? targetPet.emoji : "🥚"}</span>
+      <span className="incubator-emoji">{ready && targetPet ? <PetIcon pet={targetPet} size={30} /> : "🥚"}</span>
       {merge && !ready && <span className="incubator-timer">{formatDuration(merge.readyAt - now)}</span>}
       {merge && ready && <span className="incubator-collect-label">Tap to collect!</span>}
       {!merge && <span className="incubator-collect-label">Merge 4 pets</span>}
@@ -136,7 +137,9 @@ export default function IncubatorStructure({
               {selected && outcomePet && (
                 <div className="merge-outcome">
                   <span>Becomes</span>
-                  <span className="merge-outcome-emoji">{outcomePet.emoji}</span>
+                  <span className="merge-outcome-emoji">
+                    <PetIcon pet={outcomePet} size={26} />
+                  </span>
                   <strong>{outcomePet.name}</strong>
                   <span className="pet-effect-label">{formatPetEffect(outcomePet, selected.size)}</span>
                 </div>
@@ -156,7 +159,7 @@ export default function IncubatorStructure({
                     return (
                       <div key={`${g.petId}#${g.size}`} className="shop-row">
                         <div className="shop-row-icon">
-                          <span style={{ fontSize: 30 }}>{pet.emoji}</span>
+                          <PetIcon pet={pet} size={30} />
                         </div>
                         <div className="shop-row-info">
                           <div className="shop-row-name">

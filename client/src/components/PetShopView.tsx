@@ -14,6 +14,7 @@ import {
 } from "../petData";
 import type { PetEggAck, PetEggBulkAck, PetHatchOutcome, PlayerState } from "../types";
 import { socket } from "../socket";
+import PetIcon from "./PetIcon";
 
 const BULK_EGG_COUNT = 10;
 const BULK_EGG_DISCOUNT = 0.1;
@@ -180,7 +181,7 @@ export default function PetShopView({ player }: { player: PlayerState }) {
                 title={`${pet.name} (${PET_SIZE_LABELS[size]}) — ${formatPetEffect(pet, size)}${special ? `. ${special}` : ""}`}
               >
                 <span className="inventory-count">x{count}</span>
-                <span style={{ fontSize: 32 }}>{pet.emoji}</span>
+                <PetIcon pet={pet} size={32} />
                 <span className="inventory-tile-name">{pet.name}</span>
                 <span className="pet-effect-label">{formatPetEffect(pet, size)}</span>
                 {special && <span className="pet-special-label">🌈 Rain bonus</span>}
@@ -207,7 +208,9 @@ export default function PetShopView({ player }: { player: PlayerState }) {
 
       {hatchPet && lastHatch && (
         <div className="pet-hatch-reveal" style={{ borderColor: CROP_TIER_COLORS[hatchPet.tier] }}>
-          <span className="pet-hatch-emoji">{hatchPet.emoji}</span>
+          <span className="pet-hatch-emoji">
+            <PetIcon pet={hatchPet} size={40} />
+          </span>
           <div>
             <div className="pet-hatch-title">
               {hatchPet.name} — {PET_SIZE_LABELS[lastHatch.size]}
@@ -224,7 +227,9 @@ export default function PetShopView({ player }: { player: PlayerState }) {
 
       {bulkResults && bulkBest && (
         <div className="pet-hatch-reveal" style={{ borderColor: CROP_TIER_COLORS[bulkBest.tier] }}>
-          <span className="pet-hatch-emoji">{bulkBest.emoji}</span>
+          <span className="pet-hatch-emoji">
+            <PetIcon pet={bulkBest} size={40} />
+          </span>
           <div style={{ flex: 1 }}>
             <div className="pet-hatch-title">10 eggs opened — best pull: {bulkBest.name}</div>
             <div className="inventory-grid" style={{ marginTop: 8 }}>
@@ -237,7 +242,7 @@ export default function PetShopView({ player }: { player: PlayerState }) {
                     title={`${pet.name} (${PET_SIZE_LABELS[r.size]}) — ${formatPetEffect(pet, r.size)}`}
                   >
                     <span className="inventory-count">x{r.count}</span>
-                    <span style={{ fontSize: 26 }}>{pet.emoji}</span>
+                    <PetIcon pet={pet} size={26} />
                     <span className="pet-effect-label">{formatPetEffect(pet, r.size)}</span>
                     <div className="inventory-tile-badges">
                       <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
