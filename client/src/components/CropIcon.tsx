@@ -51,6 +51,20 @@ function MoonBlossomImage({ size, color = "purple" }: { size: number; color?: Bl
   );
 }
 
+/** The flagship legendary solar crop: real artwork — a faceted crystal orb cradling a fire-toned
+ *  rose bloom, radiating sun-ray spikes, on a golden-brown budding vine. Moon Blossom's solar
+ *  counterpart, single color variant (no per-planting roll). */
+function SunBlossomImage({ size }: { size: number }) {
+  return (
+    <img
+      src="/images/plants/sun-blossom.png"
+      alt=""
+      aria-hidden="true"
+      style={{ width: size, height: size, objectFit: "contain", display: "block" }}
+    />
+  );
+}
+
 /** The mythic (Divine) moon crop gets a starry, glowing cosmic-cherry glyph of its own. */
 function NebulaCherryGlyph({ size }: { size: number }) {
   return (
@@ -150,6 +164,7 @@ export default function CropIcon({
   if (crop.id === "moon_blossom") return <MoonBlossomImage size={size} color={blossomColor} />;
   if (crop.id === "nebula_cherry") return <NebulaCherryGlyph size={size} />;
   if (crop.id === "phoenix_sunflower") return <PhoenixSunflowerGlyph size={size} />;
+  if (crop.id === "sun_blossom") return <SunBlossomImage size={size} />;
   return (
     <span style={{ fontSize: size, lineHeight: 1 }} role="img" aria-label={crop.name}>
       {crop.emoji}
