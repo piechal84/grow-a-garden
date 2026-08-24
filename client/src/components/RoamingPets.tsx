@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { equippedPetsInfo, evolutionInfo } from "../petData";
+import { equippedPetsInfo, evolutionInfo, PET_SIZE_MULTIPLIER, type PetSize } from "../petData";
 import type { PlayerState } from "../types";
 import { CELL_SIZE } from "../world";
 import PetIcon from "./PetIcon";
@@ -11,15 +11,47 @@ const EMBERS_PER_STEP = 3;
  *  step visually takes to glide to its new spot, after which the pet reads as "landed" again. */
 const MOVE_TRANSITION_MS = 3600;
 
-interface Ember {
+/** Roaming sprite base size (before the pet's own Normal/Big/Giant multiplier). Phoenix Chick
+ *  and Baby Dragon get a bigger base since their real artwork reads poorly small; every other
+ *  species still falls back to a plain emoji, which stays legible at the smaller size. */
+const BASE_ROAMING_SIZE = 34;
+const ILLUSTRATED_ROAMING_SIZE = 46;
+
+type FlightKind = "phoenix" | "dragon";
+
+function flightKindFor(petId: string): FlightKind | undefined {
+  const { baseId } = evolutionInfo(petId);
+  if (baseId === "phoenix_chick") return "phoenix";
+  if (baseId === "baby_dragon") return "dragon";
+  return undefined;
+}
+
+function roamingIconSize(petId: string, size: PetSize): number {
+  const base = flightKindFor(petId) ? ILLUSTRATED_ROAMING_SIZE : BASE_ROAMING_SIZE;
+  return Math.round(base * PET_SIZE_MULTIPLIER[size]);
+}
+
+interface FireEffect {
   id: number;
   x: number;
   y: number;
   heading: number;
+  colors: string[];
+  spreadDeg: number;
+  baseLen: number;
 }
 
-const FLARE_COLORS = ["#ffb23d", "#ff6a1e", "#ff9ad1", "#c77dff", "#6fa0f0"];
-const FLARE_SPREAD_DEG = 65;
+/** Wide, scattered warm-to-cool embers — echoes the Phoenix Chick's own palette split between
+ *  its warm tail and cool wings. */
+const PHOENIX_TRAIL_COLORS = ["#ffb23d", "#ff6a1e", "#ff9ad1", "#c77dff", "#6fa0f0"];
+const PHOENIX_TRAIL_SPREAD_DEG = 65;
+const PHOENIX_TRAIL_LEN = 7;
+
+/** A narrow, hot-cored jet — red at the edges fading to bright yellow at the center, like an
+ *  actual flame breath rather than a scatter of sparks. */
+const DRAGON_BREATH_COLORS = ["#e8341e", "#ff8a1e", "#ffe27a", "#ff8a1e", "#e8341e"];
+const DRAGON_BREATH_SPREAD_DEG = 30;
+const DRAGON_BREATH_LEN = 10;
 
 function flareSliverPath(len: number): string {
   return `M0,0 L-1.1,${-len * 0.55} Q0,${-len} 1.1,${-len * 0.55} Z`;
@@ -35,17 +67,26 @@ function unwrapAngle(target: number, reference: number): number {
   return a;
 }
 
-/** A small directional flame streak trailing behind a roaming Phoenix Chick — fanned out around
- *  `heading` (the compass angle, 0=up/clockwise, the pet is opposite the flame should point:
- *  {@link RoamingPets} passes the reverse of its travel direction), orange/red at the core
- *  fading to pink/purple/blue at the fan's edges. */
-function FireFlare({ heading }: { heading: number }) {
-  const n = FLARE_COLORS.length;
+/** A small directional flame effect — fanned out around `heading` (the compass angle, 0=up/
+ *  clockwise). Used for both the Phoenix Chick's trailing embers (heading = reverse of travel)
+ *  and the Baby Dragon's forward fire breath (heading = travel direction itself). */
+function FireFlare({
+  heading,
+  colors,
+  spreadDeg,
+  baseLen,
+}: {
+  heading: number;
+  colors: string[];
+  spreadDeg: number;
+  baseLen: number;
+}) {
+  const n = colors.length;
   return (
     <svg width="20" height="20" viewBox="-10 -10 20 20" aria-hidden="true">
-      {FLARE_COLORS.map((color, i) => {
-        const angle = heading - FLARE_SPREAD_DEG / 2 + (FLARE_SPREAD_DEG / (n - 1)) * i;
-        const len = 7 + (i % 3);
+      {colors.map((color, i) => {
+        const angle = heading - spreadDeg / 2 + (spreadDeg / (n - 1)) * i;
+        const len = baseLen + (i % 3);
         return <path key={i} d={flareSliverPath(len)} fill={color} transform={`rotate(${angle})`} />;
       })}
       <circle cx="0" cy="0" r="1.4" fill="#ffe27a" />
@@ -56,8 +97,9 @@ function FireFlare({ heading }: { heading: number }) {
 /** Purely cosmetic — every equipped pet wanders to a new random spot within its owner's plot
  *  every few seconds. Each client picks its own random walk locally (no server sync needed,
  *  same as any other ambient animation), so exact paths can differ between viewers. Phoenix
- *  Chicks additionally drop a few fading embers at their old spot on every move, reading as a
- *  faint fire trail left behind as they wander. */
+ *  Chicks and Baby Dragons additionally turn to face the direction they're heading, and each
+ *  leaves its own fire effect on every move — a trailing scatter of embers behind the phoenix,
+ *  a forward jet of breath in front of the dragon. */
 export default function RoamingPets({ player }: { player: PlayerState }) {
   const pets = equippedPetsInfo(player.petsEquipped);
   const width = player.gridWidth * CELL_SIZE;
@@ -67,12 +109,12 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
   const [positions, setPositions] = useState<{ x: number; y: number }[]>([]);
   const [moving, setMoving] = useState<boolean[]>([]);
   const [facing, setFacing] = useState<number[]>([]);
-  const [embers, setEmbers] = useState<Ember[]>([]);
+  const [fireEffects, setFireEffects] = useState<FireEffect[]>([]);
   const positionsRef = useRef(positions);
   positionsRef.current = positions;
   const facingRef = useRef(facing);
   facingRef.current = facing;
-  const emberIdRef = useRef(0);
+  const effectIdRef = useRef(0);
 
   useEffect(() => {
     setPositions(pets.map(() => ({ x: Math.random() * width, y: Math.random() * height })));
@@ -88,35 +130,54 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
       const prevFacing = facingRef.current;
       const nextPositions = pets.map(() => ({ x: Math.random() * width, y: Math.random() * height }));
       const nextFacing = pets.map((_, i) => prevFacing[i] ?? 0);
-      const newEmbers: Ember[] = [];
+      const newEffects: FireEffect[] = [];
       pets.forEach((p, i) => {
-        if (evolutionInfo(p.petId).baseId !== "phoenix_chick") return;
+        const kind = flightKindFor(p.petId);
+        if (!kind) return;
         const from = prevPositions[i];
         const to = nextPositions[i];
         if (!from || !to) return;
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         // Compass bearing (0=up, clockwise) of the travel direction — matches how `rotate()`
-        // orients our flame slivers, which point "up" at rotate(0). The bird itself should turn
-        // to face this bearing; the flame trails behind it, so it points the reverse (+180).
+        // orients our flame slivers, which point "up" at rotate(0). Both species turn to face
+        // this bearing; the phoenix's embers trail behind it (reverse, +180), while the
+        // dragon's breath jets forward (the bearing itself).
         const travelHeading = (Math.atan2(dx, -dy) * 180) / Math.PI;
         nextFacing[i] = unwrapAngle(travelHeading, prevFacing[i] ?? 0);
-        const heading = travelHeading + 180;
-        for (let e = 0; e < EMBERS_PER_STEP; e++) {
-          emberIdRef.current += 1;
-          newEmbers.push({
-            id: emberIdRef.current,
-            x: from.x + (Math.random() - 0.5) * 6,
-            y: from.y + (Math.random() - 0.5) * 6,
-            heading: heading + (Math.random() - 0.5) * 12,
+
+        if (kind === "phoenix") {
+          const heading = travelHeading + 180;
+          for (let e = 0; e < EMBERS_PER_STEP; e++) {
+            effectIdRef.current += 1;
+            newEffects.push({
+              id: effectIdRef.current,
+              x: from.x + (Math.random() - 0.5) * 6,
+              y: from.y + (Math.random() - 0.5) * 6,
+              heading: heading + (Math.random() - 0.5) * 12,
+              colors: PHOENIX_TRAIL_COLORS,
+              spreadDeg: PHOENIX_TRAIL_SPREAD_DEG,
+              baseLen: PHOENIX_TRAIL_LEN,
+            });
+          }
+        } else {
+          effectIdRef.current += 1;
+          newEffects.push({
+            id: effectIdRef.current,
+            x: from.x,
+            y: from.y,
+            heading: travelHeading + (Math.random() - 0.5) * 8,
+            colors: DRAGON_BREATH_COLORS,
+            spreadDeg: DRAGON_BREATH_SPREAD_DEG,
+            baseLen: DRAGON_BREATH_LEN,
           });
         }
       });
-      if (newEmbers.length > 0) {
-        setEmbers((cur) => [...cur, ...newEmbers]);
-        for (const em of newEmbers) {
+      if (newEffects.length > 0) {
+        setFireEffects((cur) => [...cur, ...newEffects]);
+        for (const fx of newEffects) {
           window.setTimeout(() => {
-            setEmbers((cur) => cur.filter((x) => x.id !== em.id));
+            setFireEffects((cur) => cur.filter((x) => x.id !== fx.id));
           }, EMBER_LIFETIME_MS);
         }
       }
@@ -131,15 +192,15 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
 
   return (
     <>
-      {embers.map((em) => (
-        <span key={em.id} className="pet-fire-ember" style={{ transform: `translate(${em.x}px, ${em.y}px)` }}>
-          <FireFlare heading={em.heading} />
+      {fireEffects.map((fx) => (
+        <span key={fx.id} className="pet-fire-ember" style={{ transform: `translate(${fx.x}px, ${fx.y}px)` }}>
+          <FireFlare heading={fx.heading} colors={fx.colors} spreadDeg={fx.spreadDeg} baseLen={fx.baseLen} />
         </span>
       ))}
       {pets.map((p, i) => {
         const pos = positions[i] ?? { x: 0, y: 0 };
-        const isPhoenix = evolutionInfo(p.petId).baseId === "phoenix_chick";
-        const rotate = isPhoenix ? ` rotate(${facing[i] ?? 0}deg)` : "";
+        const flight = flightKindFor(p.petId);
+        const rotate = flight ? ` rotate(${facing[i] ?? 0}deg)` : "";
         return (
           <span
             key={`${p.petId}-${p.size}-${i}`}
@@ -147,7 +208,7 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
             style={{ transform: `translate(${pos.x}px, ${pos.y}px)${rotate}` }}
             title={p.pet.name}
           >
-            <PetIcon pet={p.pet} size={34} variant="top" moving={moving[i] ?? false} />
+            <PetIcon pet={p.pet} size={roamingIconSize(p.petId, p.size)} variant="top" moving={moving[i] ?? false} />
           </span>
         );
       })}
