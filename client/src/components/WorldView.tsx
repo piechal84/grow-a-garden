@@ -7,6 +7,7 @@ import {
   BASE_GRID_HEIGHT,
   CELL_SIZE,
   distance,
+  MOVE_SPEED,
   NPC_INTERACT_RADIUS,
   NPC_POSITIONS,
   PLOT_GRID_WIDTH,
@@ -30,6 +31,7 @@ import { LightningBolts, RainParticles, SnowParticles } from "./WeatherParticles
 
 const AVATAR_OFFSET_X = 13;
 const AVATAR_OFFSET_Y = 26;
+const MOVE_KEYS = new Set(["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"]);
 
 interface MoveState {
   from: Position;
@@ -160,6 +162,59 @@ export default function WorldView({
   function moveTo(target: Position) {
     socket.emit("move", target);
   }
+
+  // WASD / arrow-key movement — an alternative to click-to-move for players whose clicks
+  // aren't registering (e.g. a flaky connection swallowing the occasional click) or who just
+  // prefer a keyboard. Steps the avatar's current position forward at MOVE_SPEED while a
+  // movement key is held, reusing the same "move" emit click-to-move already uses.
+  const pressedKeysRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    function isTypingTarget(target: EventTarget | null): boolean {
+      if (!(target instanceof HTMLElement)) return false;
+      return target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      const key = e.key.toLowerCase();
+      if (!MOVE_KEYS.has(key) || isTypingTarget(e.target)) return;
+      pressedKeysRef.current.add(key);
+    }
+    function onKeyUp(e: KeyboardEvent) {
+      pressedKeysRef.current.delete(e.key.toLowerCase());
+    }
+    function onBlur() {
+      pressedKeysRef.current.clear();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+
+  useEffect(() => {
+    const STEP_MS = 150;
+    const interval = window.setInterval(() => {
+      if (openShop) return; // don't wander while a shop modal is open
+      const keys = pressedKeysRef.current;
+      let dx = 0;
+      let dy = 0;
+      if (keys.has("w") || keys.has("arrowup")) dy -= 1;
+      if (keys.has("s") || keys.has("arrowdown")) dy += 1;
+      if (keys.has("a") || keys.has("arrowleft")) dx -= 1;
+      if (keys.has("d") || keys.has("arrowright")) dx += 1;
+      if (dx === 0 && dy === 0) return;
+      const len = Math.hypot(dx, dy);
+      const stepDist = (MOVE_SPEED * STEP_MS) / 1000;
+      const cur = currentRestPosition(meId);
+      moveTo({ x: cur.x + (dx / len) * stepDist, y: cur.y + (dy / len) * stepDist });
+    }, STEP_MS);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meId, openShop]);
 
   function handleWorldClick(e: React.MouseEvent) {
     if (e.target !== worldRef.current) return;

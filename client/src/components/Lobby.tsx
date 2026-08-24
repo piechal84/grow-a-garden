@@ -6,8 +6,21 @@ import type { Position } from "../world";
 
 const NAME_KEY = "grow-garden-name";
 const USERNAME_KEY = "grow-garden-username";
+const REMEMBER_KEY = "grow-garden-remembered-user";
 
 type Mode = "guest" | "account";
+
+function loadRememberedUser(): { userId: string; username: string } | null {
+  try {
+    const raw = localStorage.getItem(REMEMBER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.userId === "string" && typeof parsed.username === "string") return parsed;
+  } catch {
+    // corrupt/old data — ignore and fall back to a normal login
+  }
+  return null;
+}
 
 export default function Lobby({
   connected,
@@ -16,11 +29,12 @@ export default function Lobby({
   connected: boolean;
   onJoined: (playerId: string, positions: Record<string, Position>) => void;
 }) {
-  const [mode, setMode] = useState<Mode>("guest");
+  const [mode, setMode] = useState<Mode>(() => (loadRememberedUser() ? "account" : "guest"));
   const [name, setName] = useState(() => localStorage.getItem(NAME_KEY) ?? "");
   const [username, setUsername] = useState(() => localStorage.getItem(USERNAME_KEY) ?? "");
   const [password, setPassword] = useState("");
-  const [authedUser, setAuthedUser] = useState<{ userId: string; username: string } | null>(null);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [authedUser, setAuthedUser] = useState<{ userId: string; username: string } | null>(loadRememberedUser);
   const [roomCode, setRoomCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +82,10 @@ export default function Lobby({
       if (res.ok && res.userId && res.username) {
         localStorage.setItem(USERNAME_KEY, res.username);
         setPassword("");
-        setAuthedUser({ userId: res.userId, username: res.username });
+        const user = { userId: res.userId, username: res.username };
+        setAuthedUser(user);
+        if (rememberMe) localStorage.setItem(REMEMBER_KEY, JSON.stringify(user));
+        else localStorage.removeItem(REMEMBER_KEY);
       } else {
         setError(res.error ?? "Could not authenticate.");
       }
@@ -154,6 +171,10 @@ export default function Lobby({
                 placeholder="••••••••"
               />
             </label>
+            <label className="checkbox-field">
+              <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
+              <span>Remember me on this device</span>
+            </label>
             <div className="auth-actions">
               <button
                 type="button"
@@ -179,7 +200,14 @@ export default function Lobby({
         {mode === "account" && authedUser && (
           <p className="lobby-status">
             Logged in as <strong>{authedUser.username}</strong> ·{" "}
-            <button type="button" className="link-btn" onClick={() => setAuthedUser(null)}>
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => {
+                setAuthedUser(null);
+                localStorage.removeItem(REMEMBER_KEY);
+              }}
+            >
               switch account
             </button>
           </p>
