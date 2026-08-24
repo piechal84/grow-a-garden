@@ -1,11 +1,18 @@
 import { GEAR_BY_ID } from "./gameData";
 import type { PlayerState } from "./types";
 
+/** Each level's value replaces the previous one (it's an upgrade, not a stacking bonus) — so this
+ *  reads the value for the player's current level rather than summing across levels owned. */
+function currentLevelValue(levels: number[], owned: number): number {
+  if (owned <= 0) return 0;
+  return levels[Math.min(owned, levels.length) - 1];
+}
+
 export function growSpeedMultiplier(player: PlayerState): number {
   let reduction = 0;
   for (const [gearId, owned] of Object.entries(player.gearOwned)) {
     const gear = GEAR_BY_ID[gearId];
-    if (gear && gear.effect.type === "growSpeed" && owned > 0) reduction += gear.effect.value;
+    if (gear && gear.effect.type === "growSpeed") reduction += currentLevelValue(gear.effect.levels, owned);
   }
   return Math.max(0.25, 1 - reduction);
 }
@@ -14,7 +21,7 @@ export function sellMultiplier(player: PlayerState): number {
   let bonus = 0;
   for (const [gearId, owned] of Object.entries(player.gearOwned)) {
     const gear = GEAR_BY_ID[gearId];
-    if (gear && gear.effect.type === "sellBonus" && owned > 0) bonus += gear.effect.value;
+    if (gear && gear.effect.type === "sellBonus") bonus += currentLevelValue(gear.effect.levels, owned);
   }
   return 1 + bonus;
 }

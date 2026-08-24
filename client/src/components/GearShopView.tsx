@@ -1,7 +1,23 @@
 import { useState } from "react";
-import { GEAR, nextGearCost } from "../gameData";
+import { GEAR, nextGearCost, type GearItem } from "../gameData";
 import type { PlayerState } from "../types";
 import { socket } from "../socket";
+
+function formatPct(v: number): string {
+  return `${Math.round(v * 1000) / 10}%`;
+}
+
+/** Watering Can / Fertilizer Bag have per-level values instead of one flat bonus — this
+ *  describes the current level's effect and, if not maxed, what the next level bumps it to. */
+function levelEffectLine(gear: GearItem, owned: number): string | null {
+  if (gear.effect.type !== "growSpeed" && gear.effect.type !== "sellBonus") return null;
+  const verb = gear.effect.type === "growSpeed" ? "faster grow time" : "higher sale price";
+  const levels = gear.effect.levels;
+  if (owned <= 0) return `Level 1: ${formatPct(levels[0])} ${verb}`;
+  const current = `${formatPct(levels[owned - 1])} ${verb}`;
+  if (owned >= levels.length) return `Currently ${current} (max level)`;
+  return `Currently ${current} — next level: ${formatPct(levels[owned])} ${verb}`;
+}
 
 export default function GearShopView({ player }: { player: PlayerState }) {
   const [error, setError] = useState<string | null>(null);
@@ -29,18 +45,27 @@ export default function GearShopView({ player }: { player: PlayerState }) {
           const alreadyOwned = !gear.repeatable && owned > 0;
           const cost = nextGearCost(gear, owned);
           const affordable = player.coins >= cost;
+          const icon = gear.levelEmojis ? gear.levelEmojis[Math.max(0, owned - 1)] : gear.emoji;
+          const effectLine = levelEffectLine(gear, owned);
 
           return (
             <div key={gear.id} className="shop-row">
               <div className="shop-row-icon">
-                <span style={{ fontSize: 30 }}>{gear.emoji}</span>
+                <span style={{ fontSize: 30 }}>{icon}</span>
               </div>
               <div className="shop-row-info">
                 <div className="shop-row-name">
                   {gear.name}
-                  {owned > 0 && <span className="owned-badge">{gear.repeatable ? `x${owned}` : "owned"}</span>}
+                  {owned > 0 &&
+                    (gear.maxOwned && gear.maxOwned > 1 ? (
+                      <span className="owned-badge">
+                        Lv {owned}/{gear.maxOwned}
+                      </span>
+                    ) : (
+                      <span className="owned-badge">{gear.repeatable ? `x${owned}` : "owned"}</span>
+                    ))}
                 </div>
-                <div className="shop-row-stats">{gear.description}</div>
+                <div className="shop-row-stats">{effectLine ?? gear.description}</div>
               </div>
               <div className="shop-row-actions">
                 {alreadyOwned || maxedOut ? (

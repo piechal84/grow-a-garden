@@ -28,8 +28,8 @@ export const CROPS: Crop[] = [
 export const CROPS_BY_ID: Record<string, Crop> = Object.fromEntries(CROPS.map((c) => [c.id, c]));
 
 export type GearEffect =
-  | { type: "growSpeed"; value: number }
-  | { type: "sellBonus"; value: number }
+  | { type: "growSpeed"; levels: number[] }
+  | { type: "sellBonus"; levels: number[] }
   | { type: "expandGarden"; value: number }
   | { type: "unlockReclaim" }
   | { type: "unlockMove" };
@@ -43,6 +43,9 @@ export interface GearItem {
   repeatable: boolean;
   maxOwned?: number;
   effect: GearEffect;
+  /** One emoji per upgrade level (index 0 = level 1) — shown in place of `emoji` once owned,
+   *  so the icon visibly upgrades in quality alongside the effect. */
+  levelEmojis?: string[];
 }
 
 export const GEAR: GearItem[] = [
@@ -50,19 +53,23 @@ export const GEAR: GearItem[] = [
     id: "watering_can",
     name: "Watering Can",
     emoji: "💧",
-    description: "Cuts every crop's grow time by 15%.",
+    description: "Cuts every crop's grow time — upgrade up to 5 times for a bigger cut.",
     cost: 200,
-    repeatable: false,
-    effect: { type: "growSpeed", value: 0.15 },
+    repeatable: true,
+    maxOwned: 5,
+    effect: { type: "growSpeed", levels: [0.15, 0.175, 0.2, 0.225, 0.25] },
+    levelEmojis: ["💧", "🚰", "🚿", "⛲", "🌊"],
   },
   {
     id: "fertilizer",
     name: "Fertilizer Bag",
     emoji: "🧪",
-    description: "Boosts every sale price by 20%.",
+    description: "Boosts every sale price — upgrade up to 5 times for a bigger cut.",
     cost: 400,
-    repeatable: false,
-    effect: { type: "sellBonus", value: 0.2 },
+    repeatable: true,
+    maxOwned: 5,
+    effect: { type: "sellBonus", levels: [0.02, 0.09, 0.16, 0.23, 0.3] },
+    levelEmojis: ["🧪", "🌿", "🍀", "⭐", "💎"],
   },
   {
     id: "garden_expansion",
