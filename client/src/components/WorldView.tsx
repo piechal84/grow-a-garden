@@ -6,10 +6,7 @@ import { getActiveWeather, getFeaturedShop, phaseInfo } from "../weather";
 import {
   BASE_GRID_HEIGHT,
   CELL_SIZE,
-  distance,
   MOVE_SPEED,
-  NPC_INTERACT_RADIUS,
-  NPC_POSITIONS,
   PLOT_GRID_WIDTH,
   plotOrigin,
   WORLD_HEIGHT,
@@ -61,11 +58,9 @@ export default function WorldView({
   now: number;
   initialPositions: Record<string, Position>;
 }) {
-  const worldRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const avatarRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const moveStates = useRef<Map<string, MoveState>>(new Map());
-  const pendingInteraction = useRef<NPCKind | null>(null);
   const [openShop, setOpenShop] = useState<NPCKind | null>(null);
   const [zoom, setZoom] = useState(1);
   const initialPositionsRef = useRef(initialPositions);
@@ -133,11 +128,6 @@ export default function WorldView({
     }
     function onMoved(payload: MoveState & { playerId: string }) {
       moveStates.current.set(payload.playerId, payload);
-      if (payload.playerId === meId && pendingInteraction.current) {
-        const kind = pendingInteraction.current;
-        pendingInteraction.current = null;
-        window.setTimeout(() => setOpenShop(kind), payload.duration);
-      }
     }
     socket.on("player_spawned", onSpawned);
     socket.on("player_moved", onMoved);
@@ -145,7 +135,7 @@ export default function WorldView({
       socket.off("player_spawned", onSpawned);
       socket.off("player_moved", onMoved);
     };
-  }, [meId]);
+  }, []);
 
   useEffect(() => {
     let raf: number;
@@ -238,28 +228,10 @@ export default function WorldView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meId, openShop]);
 
-  function handleWorldClick(e: React.MouseEvent) {
-    if (e.target !== worldRef.current) return;
-    if (!worldRef.current) return;
-    const rect = worldRef.current.getBoundingClientRect();
-    moveTo({ x: (e.clientX - rect.left) / zoom, y: (e.clientY - rect.top) / zoom });
-  }
-
+  /** Opens a shop instantly — the avatar no longer needs to be near an NPC stall (or exist at
+   *  all in a given spot) to interact with shops; clicking a stall or a shop-dock button both
+   *  just open the modal directly. */
   function handleNpcClick(kind: NPCKind) {
-    const npcPos = NPC_POSITIONS[kind];
-    const myPos = currentRestPosition(meId);
-    if (distance(myPos, npcPos) <= NPC_INTERACT_RADIUS) {
-      setOpenShop(kind);
-      return;
-    }
-    pendingInteraction.current = kind;
-    moveTo({ x: npcPos.x, y: npcPos.y + 46 });
-  }
-
-  /** Opens a shop instantly regardless of where the avatar is on the map — the in-world NPC
-   *  stalls still exist for walking up to, but players in far-away plots (e.g. row 2/3) shouldn't
-   *  have to trek or scroll back to the market row just to buy seeds or sell a harvest. */
-  function handleShopShortcut(kind: NPCKind) {
     setOpenShop(kind);
   }
 
@@ -354,8 +326,8 @@ export default function WorldView({
               key={kind}
               className="shop-dock-btn"
               style={{ borderColor: info.accent }}
-              title={`Open ${info.label} — no walking needed`}
-              onClick={() => handleShopShortcut(kind)}
+              title={`Open ${info.label}`}
+              onClick={() => handleNpcClick(kind)}
             >
               <span>{info.emoji}</span>
               {info.label}
@@ -369,10 +341,8 @@ export default function WorldView({
         style={{ width: WORLD_WIDTH * zoom, height: WORLD_HEIGHT * zoom }}
       >
       <div
-        ref={worldRef}
         className="world"
         style={{ width: WORLD_WIDTH, height: WORLD_HEIGHT, transform: `scale(${zoom})`, transformOrigin: "top left" }}
-        onClick={handleWorldClick}
       >
         <GardenDecor />
         {!isDay && <div className="weather-overlay night-overlay" />}
@@ -421,7 +391,6 @@ export default function WorldView({
                 isOwner={player.id === meId}
                 now={now}
                 roomCreatedAt={room.createdAt}
-                onWalkTo={moveTo}
               />
             </div>
           );

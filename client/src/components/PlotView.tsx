@@ -5,7 +5,7 @@ import { getAnyCropDef as getCropDef, SOLAR_CROPS_BY_ID } from "../solarData";
 import type { PlayerState, Planting } from "../types";
 import { socket } from "../socket";
 import { effectiveWorkBetween, MUTATIONS, type MutationId } from "../weather";
-import { CELL_SIZE, plotOrigin, type Position } from "../world";
+import { CELL_SIZE, plotOrigin } from "../world";
 import GrowthPlant from "./GrowthPlant";
 import PlantPickerModal from "./PlantPickerModal";
 
@@ -49,13 +49,11 @@ export default function PlotView({
   isOwner,
   now,
   roomCreatedAt,
-  onWalkTo,
 }: {
   player: PlayerState;
   isOwner: boolean;
   now: number;
   roomCreatedAt: number;
-  onWalkTo: (pos: Position) => void;
 }) {
   const [pickerCell, setPickerCell] = useState<{ x: number; y: number } | null>(null);
   const [activeTool, setActiveTool] = useState<"reclaim" | "move" | null>(null);
@@ -70,18 +68,10 @@ export default function PlotView({
     }
   }
 
-  function cellWorldPos(x: number, y: number, w = 1, h = 1): Position {
-    return {
-      x: origin.x + (x + w / 2) * CELL_SIZE,
-      y: origin.y + (y + h / 2) * CELL_SIZE,
-    };
-  }
-
   function handleEmptyCellClick(e: React.MouseEvent, x: number, y: number) {
     e.stopPropagation();
     if (!isOwner) return;
     if (activeTool === "move" && movingId) {
-      onWalkTo(cellWorldPos(x, y));
       const id = movingId;
       socket.emit("move_planting", { plantingId: id, x, y }, (res) => {
         if (res.ok) {
@@ -94,23 +84,19 @@ export default function PlotView({
       return;
     }
     if (activeTool) return; // reclaim mode (or move mode with nothing selected yet) has no empty-cell action
-    onWalkTo(cellWorldPos(x, y));
     setPickerCell({ x, y });
   }
 
-  function handleHarvest(plantingId: string, x: number, y: number, w: number, h: number) {
-    onWalkTo(cellWorldPos(x, y, w, h));
+  function handleHarvest(plantingId: string) {
     socket.emit("harvest", { plantingId });
   }
 
-  function handleReclaim(plantingId: string, x: number, y: number, w: number, h: number) {
-    onWalkTo(cellWorldPos(x, y, w, h));
+  function handleReclaim(plantingId: string) {
     socket.emit("reclaim_planting", { plantingId });
     setMoveError(null);
   }
 
-  function handleSelectForMove(plantingId: string, x: number, y: number, w: number, h: number) {
-    onWalkTo(cellWorldPos(x, y, w, h));
+  function handleSelectForMove(plantingId: string) {
     setMoveError(null);
     setMovingId(plantingId);
   }
@@ -118,14 +104,14 @@ export default function PlotView({
   function handlePlantingClick(planting: Planting, ready: boolean) {
     if (!isOwner) return;
     if (activeTool === "reclaim") {
-      handleReclaim(planting.id, planting.x, planting.y, planting.w, planting.h);
+      handleReclaim(planting.id);
       return;
     }
     if (activeTool === "move") {
-      handleSelectForMove(planting.id, planting.x, planting.y, planting.w, planting.h);
+      handleSelectForMove(planting.id);
       return;
     }
-    if (ready) handleHarvest(planting.id, planting.x, planting.y, planting.w, planting.h);
+    if (ready) handleHarvest(planting.id);
   }
 
   function toggleTool(tool: "reclaim" | "move") {

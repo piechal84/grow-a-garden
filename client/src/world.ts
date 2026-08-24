@@ -30,7 +30,6 @@ export const WORLD_WIDTH = PLOT_ORIGIN_X_START + PLOTS_PER_ROW * PLOT_SPACING_X 
 /** 3 rows of PLOTS_PER_ROW covers all 6 player seats. */
 export const WORLD_HEIGHT = PLOT_ORIGIN_Y + 3 * PLOT_ROW_SPACING_Y;
 export const MOVE_SPEED = 180; // px/sec
-export const NPC_INTERACT_RADIUS = 55;
 
 export interface Position {
   x: number;
@@ -56,8 +55,4 @@ export function clampToWorld(pos: Position): Position {
     x: Math.max(20, Math.min(WORLD_WIDTH - 20, pos.x)),
     y: Math.max(20, Math.min(WORLD_HEIGHT - 20, pos.y)),
   };
-}
-
-export function distance(a: Position, b: Position): number {
-  return Math.hypot(a.x - b.x, a.y - b.y);
 }
