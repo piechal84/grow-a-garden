@@ -139,6 +139,11 @@ export const MAX_PLAYERS_PER_ROOM = 6;
 /** Must match server/src/rooms.ts's STOCK_CYCLE_MS — how often seed shop stock rolls over. */
 export const SEED_STOCK_CYCLE_MS = 2 * 60 * 1000;
 
+/** Mirrors server/src/gameData.ts — multiplier applied to a persistent crop's regrow time once
+ *  it has been harvested at least once. Used here only to preview the real grow time in shops;
+ *  the server is authoritative for the actual timer. */
+export const PERSISTENT_REGROW_MULTIPLIER = 10;
+
 export function nextGearPrice(gear: GearItem, owned: number): GearPrice {
   if (gear.levelCosts) return gear.levelCosts[Math.min(owned, gear.levelCosts.length - 1)];
   return { coins: Math.round(gear.cost * (1 + owned * 0.5)), diamonds: 0 };

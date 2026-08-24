@@ -139,6 +139,11 @@ export const GEAR_BY_ID: Record<string, GearItem> = Object.fromEntries(GEAR.map(
 export const MAX_PLAYERS_PER_ROOM = 6;
 export const STARTING_COINS = 25;
 
+/** Multiplier applied to a persistent crop's regrow time once it has been harvested at least
+ *  once — keeps a reclaim+replant loop from re-rolling the fast first-grow speed indefinitely.
+ *  Used by rooms.ts for the real timer and by the shop views (client) for an accurate preview. */
+export const PERSISTENT_REGROW_MULTIPLIER = 10;
+
 /**
  * Each planted seed secretly rolls one of these tiers, then visibly grows toward
  * its visualScale as the plot's grow timer progresses. Weighted so most crops land

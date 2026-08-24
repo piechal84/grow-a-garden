@@ -1,5 +1,15 @@
 import { customAlphabet, nanoid } from "nanoid";
-import { CROPS, CROPS_BY_ID, GEAR_BY_ID, MAX_PLAYERS_PER_ROOM, rollSizeTier, STARTING_COINS, type GearItem, type GearPrice } from "./gameData.js";
+import {
+  CROPS,
+  CROPS_BY_ID,
+  GEAR_BY_ID,
+  MAX_PLAYERS_PER_ROOM,
+  PERSISTENT_REGROW_MULTIPLIER,
+  rollSizeTier,
+  STARTING_COINS,
+  type GearItem,
+  type GearPrice,
+} from "./gameData.js";
 import { MOON_PACK_COST, resolveFootprint, rollBlossomColor, rollMoonPack, type PackResult } from "./moonData.js";
 import {
   BASE_PET_SLOTS,
@@ -602,10 +612,6 @@ function withLunarAura(player: PlayerState, planting: Planting, mutations: Mutat
   if (!blessed || mutations.includes("lunar")) return mutations;
   return [...mutations, "lunar"];
 }
-
-/** Persistent crops regrow 10x slower than their first grow — they're a one-time seed cost that
- *  would otherwise print money forever, so the ongoing regrow needs a real time cost. */
-const PERSISTENT_REGROW_MULTIPLIER = 10;
 
 export function buySeed(player: PlayerState, cropId: string, quantity: number): { error?: string } {
   const crop = CROPS_BY_ID[cropId];

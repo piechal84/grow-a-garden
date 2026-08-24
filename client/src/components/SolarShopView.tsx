@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { CROP_TIER_COLORS, CROP_TIER_LABELS } from "../gameData";
+import { growSpeedMultiplier } from "../derived";
+import { CROP_TIER_COLORS, CROP_TIER_LABELS, PERSISTENT_REGROW_MULTIPLIER } from "../gameData";
 import { SOLAR_CROPS, SOLAR_PACK_COST, SOLAR_PACK_ODDS, SOLAR_TIER_TO_CROP_TIER, type SolarTier } from "../solarData";
 import type { PlayerState, SolarPackAck, SolarPackBulkAck, SolarPackResult } from "../types";
 import { socket } from "../socket";
@@ -31,6 +32,7 @@ function delay(ms: number) {
 type Phase = "idle" | "spinning" | "revealed";
 
 export default function SolarShopView({ player }: { player: PlayerState }) {
+  const growMult = growSpeedMultiplier(player);
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<SolarPackResult | null>(null);
   const [bulkResults, setBulkResults] = useState<SolarPackResult[] | null>(null);
@@ -182,35 +184,47 @@ export default function SolarShopView({ player }: { player: PlayerState }) {
 
       <h3 className="moon-section-title">The 6 Solar Seeds</h3>
       <div className="shop-list">
-        {SOLAR_CROPS.map((crop) => (
-          <div key={crop.id} className="shop-row">
-            <div
-              className={`shop-row-icon ${crop.tier === "mythic" ? "plant-aura-divine" : ""} ${
-                crop.tier === "legendary" ? "plant-aura-celestial" : ""
-              }`}
-            >
-              <CropIcon crop={crop} size={30} />
-            </div>
-            <div className="shop-row-info">
-              <div className="shop-row-name">
-                {crop.name}
-                <span className="size-badge" style={{ background: tierColor(crop.tier) }}>
-                  {tierLabel(crop.tier)}
-                </span>
-                {crop.persistent && (
-                  <span className="tree-tag" title="Regrows after harvest — never consumed">
-                    🌳 Persistent
+        {SOLAR_CROPS.map((crop) => {
+          const regrowsSlower = !!crop.persistent && !!player.persistentUnlocked[crop.id];
+          const effectiveGrow = Math.round(crop.growSeconds * growMult * (regrowsSlower ? PERSISTENT_REGROW_MULTIPLIER : 1));
+          return (
+            <div key={crop.id} className="shop-row">
+              <div
+                className={`shop-row-icon ${crop.tier === "mythic" ? "plant-aura-divine" : ""} ${
+                  crop.tier === "legendary" ? "plant-aura-celestial" : ""
+                }`}
+              >
+                <CropIcon crop={crop} size={30} />
+              </div>
+              <div className="shop-row-info">
+                <div className="shop-row-name">
+                  {crop.name}
+                  <span className="size-badge" style={{ background: tierColor(crop.tier) }}>
+                    {tierLabel(crop.tier)}
                   </span>
-                )}
-              </div>
-              <div className="shop-row-stats">
-                <span>⏱ {crop.growSeconds}s to grow</span>
-                <span>{crop.diamondReward ? `💎 sells for ${crop.diamondReward}` : `💰 sells ${crop.sellPrice}`}</span>
-                <span>📐 {crop.variableFootprint ? "2x1 or 1x2 (random)" : `${crop.footprint.w}x${crop.footprint.h}`}</span>
+                  {crop.persistent && (
+                    <span className="tree-tag" title="Regrows after harvest — never consumed">
+                      🌳 Persistent
+                    </span>
+                  )}
+                  {regrowsSlower && (
+                    <span
+                      className="tree-tag"
+                      title={`You've harvested this before, so it (and any new one you plant) now regrows at ${PERSISTENT_REGROW_MULTIPLIER}x the normal time.`}
+                    >
+                      🐌 Regrows {PERSISTENT_REGROW_MULTIPLIER}x slower
+                    </span>
+                  )}
+                </div>
+                <div className="shop-row-stats">
+                  <span>⏱ {effectiveGrow}s to grow</span>
+                  <span>{crop.diamondReward ? `💎 sells for ${crop.diamondReward}` : `💰 sells ${crop.sellPrice}`}</span>
+                  <span>📐 {crop.variableFootprint ? "2x1 or 1x2 (random)" : `${crop.footprint.w}x${crop.footprint.h}`}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <h3 className="moon-section-title">Pack Odds</h3>
