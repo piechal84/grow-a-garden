@@ -281,6 +281,7 @@ export default function PlotView({
               glowColor={glowColor}
               auraTier={auraTier}
               rainbow={rainbow}
+              blossomColor={planting.blossomColor}
             />
             {crop.persistent && <span className="tree-badge" title="Regrows after harvest — never consumed">🌳</span>}
             {pct >= 70 && displayMutations.length > 0 && (

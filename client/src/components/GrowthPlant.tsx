@@ -1,3 +1,4 @@
+import type { BlossomColor } from "../moonData";
 import { CELL_SIZE } from "../world";
 import CropIcon, { type IconCrop } from "./CropIcon";
 
@@ -24,6 +25,7 @@ export default function GrowthPlant({
   glowColor,
   auraTier,
   rainbow,
+  blossomColor,
 }: {
   crop: IconCrop;
   pct: number;
@@ -35,6 +37,8 @@ export default function GrowthPlant({
   /** The Unicorn pet's rain-only mutation — swaps the flat mutation glow for a spinning
    *  multi-color ring so it's unmistakable at a glance. */
   rainbow?: boolean;
+  /** Moon Blossom only — the cosmetic color rolled for this planting. */
+  blossomColor?: BlossomColor;
 }) {
   const auraClass = auraTier ? `plant-aura-${auraTier}` : "";
 
@@ -90,7 +94,7 @@ export default function GrowthPlant({
         } ${rainbow ? "plant-mutation-rainbow" : ""} ${auraClass}`}
         style={{ scale: String(scale), ["--mutation-glow" as string]: glowColor }}
       >
-        <CropIcon crop={crop} size={CROP_ICON_SIZE} />
+        <CropIcon crop={crop} size={CROP_ICON_SIZE} blossomColor={blossomColor} />
       </div>
     </div>
   );

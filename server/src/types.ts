@@ -1,4 +1,4 @@
-import type { MoonTier } from "./moonData.js";
+import type { BlossomColor, MoonTier } from "./moonData.js";
 import type { PetSize } from "./petData.js";
 import type { Quest } from "./quests.js";
 import type { SolarTier } from "./solarData.js";
@@ -18,6 +18,8 @@ export interface Planting {
   sizePriceMultiplier: number;
   sizeVisualScale: number;
   mutations: MutationId[];
+  /** Moon Blossom only — purely cosmetic color rolled at plant time. */
+  blossomColor?: BlossomColor;
 }
 
 export interface HarvestedCrop {

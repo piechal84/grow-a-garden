@@ -1,6 +1,6 @@
 import { customAlphabet, nanoid } from "nanoid";
 import { CROPS, CROPS_BY_ID, GEAR_BY_ID, MAX_PLAYERS_PER_ROOM, rollSizeTier, STARTING_COINS, type GearItem, type GearPrice } from "./gameData.js";
-import { MOON_PACK_COST, resolveFootprint, rollMoonPack, type PackResult } from "./moonData.js";
+import { MOON_PACK_COST, resolveFootprint, rollBlossomColor, rollMoonPack, type PackResult } from "./moonData.js";
 import {
   BASE_PET_SLOTS,
   defaultEquippedSlots,
@@ -654,6 +654,7 @@ export function plant(room: RoomState, player: PlayerState, x: number, y: number
     sizePriceMultiplier: tier.priceMultiplier,
     sizeVisualScale: tier.visualScale,
     mutations: rollMutations(room.createdAt, now, hasUnicornEquipped(player)),
+    blossomColor: cropId === "moon_blossom" ? rollBlossomColor() : undefined,
   };
   player.plantings.push(planting);
   advanceQuests(player, "plant", 1);
@@ -690,6 +691,7 @@ export function harvest(room: RoomState, player: PlayerState, plantingId: string
     planting.sizePriceMultiplier = tier.priceMultiplier;
     planting.sizeVisualScale = tier.visualScale;
     planting.mutations = rollMutations(room.createdAt, now, hasUnicornEquipped(player));
+    if (planting.cropId === "moon_blossom") planting.blossomColor = rollBlossomColor();
   } else {
     player.plantings.splice(idx, 1);
   }

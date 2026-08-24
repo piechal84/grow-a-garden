@@ -77,3 +77,29 @@ export function resolveFootprint(cropId: string, fallback: { w: number; h: numbe
 export function getCropDef(cropId: string): Crop | MoonCrop | undefined {
   return CROPS_BY_ID[cropId] ?? MOON_CROPS_BY_ID[cropId];
 }
+
+/** Purely cosmetic — rolled at plant time (and again each persistent regrow), so reclaiming and
+ *  replanting a Moon Blossom is a valid way to reroll for a rarer color. */
+export type BlossomColor = "purple" | "blue" | "yellow" | "grey";
+
+interface BlossomColorWeight {
+  color: BlossomColor;
+  weight: number;
+}
+
+export const BLOSSOM_COLOR_WEIGHTS: BlossomColorWeight[] = [
+  { color: "purple", weight: 90 },
+  { color: "blue", weight: 5 },
+  { color: "yellow", weight: 4 },
+  { color: "grey", weight: 1 },
+];
+
+export function rollBlossomColor(): BlossomColor {
+  const total = BLOSSOM_COLOR_WEIGHTS.reduce((sum, w) => sum + w.weight, 0);
+  let r = Math.random() * total;
+  for (const w of BLOSSOM_COLOR_WEIGHTS) {
+    if (r < w.weight) return w.color;
+    r -= w.weight;
+  }
+  return BLOSSOM_COLOR_WEIGHTS[0].color;
+}

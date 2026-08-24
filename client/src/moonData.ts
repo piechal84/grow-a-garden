@@ -56,6 +56,10 @@ export const MOON_PACK_ODDS: { pct: number; tier: MoonTier }[] = [
   { pct: 0.8, tier: "legendary" },
 ];
 
+/** Purely cosmetic — rolled server-side when a Moon Blossom is planted (or regrows), so
+ *  reclaiming and replanting is a valid way to reroll for a rarer color. */
+export type BlossomColor = "purple" | "blue" | "yellow" | "grey";
+
 export function getCropDef(cropId: string): Crop | MoonCrop | undefined {
   return CROPS_BY_ID[cropId] ?? MOON_CROPS_BY_ID[cropId];
 }
