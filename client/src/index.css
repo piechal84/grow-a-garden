@@ -479,6 +479,42 @@ button {
   border-bottom: 2px solid #a9d18a;
 }
 
+/* Always visible, never scrolls away — so players whose plot sits far from the market row
+   (e.g. row 2/3) can reach any shop instantly instead of walking/scrolling back up. */
+.shop-dock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #fbfbf5;
+  border-bottom: 2px solid #a9d18a;
+}
+
+.shop-dock-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1.5px solid;
+  background: #fff;
+  border-radius: 999px;
+  padding: 5px 11px 5px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.shop-dock-btn span {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.shop-dock-btn:hover {
+  filter: brightness(0.97);
+}
+
 .zoom-btn {
   border: none;
   background: #edf7e3;

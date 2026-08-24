@@ -1,15 +1,15 @@
 import { NPC_POSITIONS } from "../world";
 
-const NPC_INFO = {
+export const NPC_INFO = {
   seed: { emoji: "🧑‍🌾", label: "Seed Shop", accent: "#3fae5a" },
   gear: { emoji: "🧑‍🔧", label: "Gear Shop", accent: "#2f7dc4" },
   quests: { emoji: "📜", label: "Quest Giver", accent: "#c4472f" },
-  merchant: { emoji: "🧺", label: "Merchant", accent: "#e0982a" },
+  merchant: { emoji: "🧺", label: "Sell Crops", accent: "#e0982a" },
   moon: { emoji: "🌙", label: "Moon Shop", accent: "#8a6fd8" },
   premium: { emoji: "💎", label: "Premium Shop", accent: "#2fb8d6" },
 } as const;
 
-const SOLAR_INFO = { emoji: "☀️", label: "Solar Shop", accent: "#f2b23a" };
+export const SOLAR_INFO = { emoji: "☀️", label: "Solar Shop", accent: "#f2b23a" };
 
 export type NPCKind = keyof typeof NPC_INFO;
 

@@ -21,7 +21,7 @@ import GardenDecor from "./GardenDecor";
 import GearShopView from "./GearShopView";
 import MerchantView from "./MerchantView";
 import MoonShopView from "./MoonShopView";
-import NPCStall, { type NPCKind } from "./NPCStall";
+import NPCStall, { NPC_INFO, SOLAR_INFO, type NPCKind } from "./NPCStall";
 import PlotView from "./PlotView";
 import PremiumShopView from "./PremiumShopView";
 import QuestGiverView from "./QuestGiverView";
@@ -179,6 +179,10 @@ export default function WorldView({
     function onKeyDown(e: KeyboardEvent) {
       const key = e.key.toLowerCase();
       if (!MOVE_KEYS.has(key) || isTypingTarget(e.target)) return;
+      // Arrow keys (and, in some browsers, held letter keys during autoscroll gestures)
+      // natively scroll the page, which drifts the pixel↔world-coordinate mapping click-to-move
+      // relies on — every click afterward would land somewhere other than where it looked like.
+      e.preventDefault();
       pressedKeysRef.current.add(key);
     }
     function onKeyUp(e: KeyboardEvent) {
@@ -187,13 +191,21 @@ export default function WorldView({
     function onBlur() {
       pressedKeysRef.current.clear();
     }
+    function onVisibilityChange() {
+      // A physical keyup can be missed entirely if focus leaves the tab/window mid-press (very
+      // common when switching apps) — clearing on both blur and hidden covers more of those cases,
+      // so a "held" key never gets stuck fighting every click afterward.
+      if (document.hidden) pressedKeysRef.current.clear();
+    }
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 
@@ -234,6 +246,13 @@ export default function WorldView({
     }
     pendingInteraction.current = kind;
     moveTo({ x: npcPos.x, y: npcPos.y + 46 });
+  }
+
+  /** Opens a shop instantly regardless of where the avatar is on the map — the in-world NPC
+   *  stalls still exist for walking up to, but players in far-away plots (e.g. row 2/3) shouldn't
+   *  have to trek or scroll back to the market row just to buy seeds or sell a harvest. */
+  function handleShopShortcut(kind: NPCKind) {
+    setOpenShop(kind);
   }
 
   const { isDay } = phaseInfo(room.createdAt, now);
@@ -308,6 +327,23 @@ export default function WorldView({
         <button className="zoom-btn zoom-step" onClick={() => handleZoomStep(0.1)} title="Zoom in">
           +
         </button>
+      </div>
+      <div className="shop-dock">
+        {(Object.keys(NPC_INFO) as NPCKind[]).map((kind) => {
+          const info = kind === "moon" && featuredShop === "solar" ? SOLAR_INFO : NPC_INFO[kind];
+          return (
+            <button
+              key={kind}
+              className="shop-dock-btn"
+              style={{ borderColor: info.accent }}
+              title={`Open ${info.label} — no walking needed`}
+              onClick={() => handleShopShortcut(kind)}
+            >
+              <span>{info.emoji}</span>
+              {info.label}
+            </button>
+          );
+        })}
       </div>
       <div className="world-viewport" ref={viewportRef}>
       <div

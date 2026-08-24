@@ -71,8 +71,8 @@ export default function MerchantView({ player }: { player: PlayerState }) {
 
   return (
     <div className="shop-view">
-      <h2>🧺 Merchant</h2>
-      <p className="shop-sub">Sell your harvest for coins — bigger sizes and mutations fetch a lot more.</p>
+      <h2>🧺 Merchant — Sell Your Crops</h2>
+      <p className="shop-sub">Sell your harvested fruit here for coins — bigger sizes and mutations fetch a lot more.</p>
       {error && <p className="lobby-error">{error}</p>}
       {sortedGroups.length > 0 && (
         <button className="btn btn-primary sell-all-btn" onClick={handleSellAll}>
