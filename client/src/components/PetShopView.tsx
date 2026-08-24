@@ -154,6 +154,16 @@ export default function PetShopView({ player }: { player: PlayerState }) {
     }
   }
 
+  function handleUnequipAll() {
+    if (equippedList.length === 0) return;
+    setError(null);
+    for (const { petId, size } of equippedList) {
+      socket.emit("unequip_pet", { petId, size }, (res) => {
+        if (!res.ok) setError(res.error ?? "Could not unequip pet.");
+      });
+    }
+  }
+
   const hatchPet = lastHatch ? PETS_BY_ID[lastHatch.petId] : undefined;
   const bulkBest = bulkResults && bulkResults.length > 0 ? bestOf(bulkResults) : undefined;
 
@@ -200,6 +210,14 @@ export default function PetShopView({ player }: { player: PlayerState }) {
           onClick={() => handleAutoFillBest("sellBonus")}
         >
           💰 Best Sell
+        </button>
+        <button
+          className="btn btn-secondary"
+          disabled={equippedList.length === 0}
+          title="Unequip every pet in your slots"
+          onClick={handleUnequipAll}
+        >
+          🚫 Unequip All
         </button>
       </div>
 
