@@ -110,6 +110,21 @@ function PhoenixChickTopImage({ size, moving }: { size: number; moving: boolean 
   );
 }
 
+/** The Baby Dragon as seen from above while roaming the garden — real artwork, single pose
+ *  (no moving/stationary distinction like the Phoenix Chick, since only one reference image
+ *  exists for it). No portrait glyph exists yet, so the front-facing shop/inventory tile still
+ *  falls back to the plain emoji. */
+function BabyDragonTopImage({ size }: { size: number }) {
+  return (
+    <img
+      src="/images/pets/baby-dragon-top.png"
+      alt=""
+      aria-hidden="true"
+      style={{ width: size, height: size, objectFit: "contain", display: "block" }}
+    />
+  );
+}
+
 export default function PetIcon({
   pet,
   size = 28,
@@ -128,6 +143,9 @@ export default function PetIcon({
   const { baseId } = evolutionInfo(pet.id);
   if (baseId === "phoenix_chick") {
     return variant === "top" ? <PhoenixChickTopImage size={size} moving={moving} /> : <PhoenixChickGlyph size={size} />;
+  }
+  if (baseId === "baby_dragon" && variant === "top") {
+    return <BabyDragonTopImage size={size} />;
   }
   return (
     <span style={{ fontSize: size, lineHeight: 1 }} role="img" aria-label={pet.name}>

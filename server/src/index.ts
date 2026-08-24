@@ -39,6 +39,7 @@ import {
   sellAll,
   sellDiamonds,
   startPetMerge,
+  tickDragonInstaGrow,
   unequipPet,
 } from "./rooms.js";
 import type { ClientToServerEvents, RoomState, ServerToClientEvents } from "./types.js";
@@ -331,6 +332,14 @@ io.on("connection", (socket) => {
     if (room) broadcast(room);
   });
 });
+
+// Baby Dragon's insta-grow ability needs to fire on its own 60s cooldown even when a player
+// isn't taking any action, unlike everything else in this game (which is all lazily computed
+// from stored timestamps on read/broadcast) — so it's the one thing driven by a real tick.
+const DRAGON_TICK_MS = 2000;
+setInterval(() => {
+  for (const room of tickDragonInstaGrow()) broadcast(room);
+}, DRAGON_TICK_MS);
 
 await initUserStore();
 httpServer.listen(PORT, () => {

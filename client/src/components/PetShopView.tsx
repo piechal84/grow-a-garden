@@ -12,6 +12,7 @@ import {
   PET_SIZES,
   PETS_BY_ID,
   petSpecialAbility,
+  petSpecialAbilityBadge,
   type Pet,
   type PetSize,
 } from "../petData";
@@ -244,7 +245,7 @@ export default function PetShopView({ player }: { player: PlayerState }) {
               <PetIcon pet={pet} size={32} />
               <span className="inventory-tile-name">{pet.name}</span>
               <span className="pet-effect-label">{formatPetEffect(pet, size)}</span>
-              {special && <span className="pet-special-label">🌈 Rain bonus</span>}
+              {special && <span className="pet-special-label">{petSpecialAbilityBadge(petId)}</span>}
               <div className="inventory-tile-badges">
                 <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
                   {CROP_TIER_LABELS[pet.tier]}
@@ -305,7 +306,7 @@ export default function PetShopView({ player }: { player: PlayerState }) {
                 <PetIcon pet={pet} size={32} />
                 <span className="inventory-tile-name">{pet.name}</span>
                 <span className="pet-effect-label">{formatPetEffect(pet, size)}</span>
-                {special && <span className="pet-special-label">🌈 Rain bonus</span>}
+                {special && <span className="pet-special-label">{petSpecialAbilityBadge(petId)}</span>}
                 <div className="inventory-tile-badges">
                   <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
                     {CROP_TIER_LABELS[pet.tier]}

@@ -78,6 +78,9 @@ export interface PlayerState {
   petsEquipped: string[];
   /** Kelka Egg Incubators planted on this player's plot (up to gearOwned.kelka_incubator, max 2). */
   incubators: IncubatorState[];
+  /** Next timestamp (ms) each equipped Baby Dragon-line pet (keyed by its slotKey) can instantly
+   *  finish a growing crop again — server bookkeeping, not used directly by the client. */
+  dragonProcAt: Record<string, number>;
 }
 
 export interface RoomState {

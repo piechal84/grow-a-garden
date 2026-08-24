@@ -120,6 +120,7 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     // used to auto-contribute (best by tier) so nobody's bonuses silently disappear on upgrade.
     petsEquipped: saved?.petsEquipped ?? defaultEquippedSlots(saved?.petsOwned ?? {}, saved?.petSlots ?? BASE_PET_SLOTS),
     incubators: saved?.incubators ?? [],
+    dragonProcAt: saved?.dragonProcAt ?? {},
   };
   sanitizePetState(player);
   ensureQuestsFresh(player, Date.now());
@@ -137,6 +138,9 @@ function sanitizePetState(player: PlayerState) {
     player.petsOwned = {};
   }
   if (!Array.isArray(player.petsEquipped)) player.petsEquipped = [];
+  if (!player.dragonProcAt || typeof player.dragonProcAt !== "object" || Array.isArray(player.dragonProcAt)) {
+    player.dragonProcAt = {};
+  }
   for (const [petId, sizes] of Object.entries(player.petsOwned)) {
     if (!sizes || typeof sizes !== "object") {
       delete player.petsOwned[petId];
@@ -429,6 +433,45 @@ function rebaseIncubatorTimers(player: PlayerState, oldMultiplier: number, newMu
   }
 }
 
+const DRAGON_PROC_INTERVAL_MS = 60 * 1000;
+
+/** Every equipped Baby Dragon (any evolution stage) instantly finishes one of its owner's still-
+ *  growing plantings (the one with the most time left, for the biggest payoff) on its own
+ *  independent 60s cooldown — multiple equipped dragons never share a timer, so N dragons
+ *  insta-grow N crops every interval. This needs to fire even when the player isn't taking any
+ *  action, so it's driven by a fixed server tick (see index.ts) rather than lazily on read like
+ *  everything else in this file. Returns the rooms that actually changed, so the caller knows
+ *  which ones to broadcast. */
+export function tickDragonInstaGrow(): RoomState[] {
+  const now = Date.now();
+  const changed: RoomState[] = [];
+  for (const room of rooms.values()) {
+    let roomChanged = false;
+    for (const player of room.players) {
+      for (const key of player.petsEquipped) {
+        const { petId } = parseSlotKey(key);
+        if (evolutionInfo(petId).baseId !== "baby_dragon") continue;
+        const nextAt = player.dragonProcAt[key];
+        if (nextAt === undefined) {
+          // First tick since this dragon was equipped — start its cooldown instead of
+          // proc'ing immediately, so equip timing can't be used to grab a free insta-grow.
+          player.dragonProcAt[key] = now + DRAGON_PROC_INTERVAL_MS;
+          continue;
+        }
+        if (now < nextAt) continue;
+        player.dragonProcAt[key] = now + DRAGON_PROC_INTERVAL_MS;
+        const target = player.plantings.filter((p) => now < p.readyAt).sort((a, b) => b.readyAt - a.readyAt)[0];
+        if (target) {
+          target.readyAt = now;
+          roomChanged = true;
+        }
+      }
+    }
+    if (roomChanged) changed.push(room);
+  }
+  return changed;
+}
+
 interface PetHatchOutcome {
   petId: string;
   size: PetSize;
@@ -494,6 +537,9 @@ export function unequipPet(room: RoomState, player: PlayerState, petId: string, 
   const oldGrowMult = growSpeedMultiplier(player);
   const oldIncubatorMult = incubatorSpeedMultiplier(player);
   player.petsEquipped.splice(idx, 1);
+  // Otherwise a stale (already-elapsed) cooldown would let a re-equipped dragon insta-grow
+  // immediately instead of waiting out a fresh 60s — see tickDragonInstaGrow.
+  delete player.dragonProcAt[key];
   rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
   rebaseIncubatorTimers(player, oldIncubatorMult, incubatorSpeedMultiplier(player));
   return {};
@@ -888,6 +934,7 @@ export function extractProgress(player: PlayerState): SavedProgress {
     petSlots: player.petSlots,
     petsEquipped: player.petsEquipped,
     incubators: player.incubators,
+    dragonProcAt: player.dragonProcAt,
   };
 }
 

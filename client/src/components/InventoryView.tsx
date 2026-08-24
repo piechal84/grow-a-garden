@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { CROPS_BY_ID, CROP_TIER_COLORS, CROP_TIER_LABELS, SIZE_COLORS } from "../gameData";
 import { MOON_CROPS_BY_ID, MOON_TIER_TO_CROP_TIER } from "../moonData";
-import { formatPetEffect, PET_SIZES, PET_SIZE_LABELS, PETS_BY_ID, petSpecialAbility, type Pet, type PetSize } from "../petData";
+import {
+  formatPetEffect,
+  PET_SIZES,
+  PET_SIZE_LABELS,
+  PETS_BY_ID,
+  petSpecialAbility,
+  petSpecialAbilityBadge,
+  type Pet,
+  type PetSize,
+} from "../petData";
 import { getAnyCropDef as getCropDef, SOLAR_CROPS_BY_ID, SOLAR_TIER_TO_CROP_TIER } from "../solarData";
 import { socket } from "../socket";
 import type { PlayerState } from "../types";
@@ -144,7 +153,7 @@ export default function InventoryView({ player }: { player: PlayerState }) {
                 <PetIcon pet={pet} size={32} />
                 <span className="inventory-tile-name">{pet.name}</span>
                 <span className="pet-effect-label">{formatPetEffect(pet, size)}</span>
-                {special && <span className="pet-special-label">🌈 Rain bonus</span>}
+                {special && <span className="pet-special-label">{petSpecialAbilityBadge(petId)}</span>}
                 <div className="inventory-tile-badges">
                   <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
                     {CROP_TIER_LABELS[pet.tier]}

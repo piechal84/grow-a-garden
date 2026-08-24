@@ -262,6 +262,17 @@ export function petSpecialAbility(petId: string): string | undefined {
   if (baseId === "unicorn") {
     return "While equipped: rain has an 18% chance per planting to grant a Rainbow mutation (2.8x sell price).";
   }
+  if (baseId === "baby_dragon") {
+    return "While equipped: instantly finishes growing one crop every 60 seconds. Each equipped Baby Dragon has its own independent timer.";
+  }
+  return undefined;
+}
+
+/** Short badge label to go with petSpecialAbility's longer tooltip text. */
+export function petSpecialAbilityBadge(petId: string): string | undefined {
+  const { baseId } = evolutionInfo(petId);
+  if (baseId === "unicorn") return "🌈 Rain bonus";
+  if (baseId === "baby_dragon") return "⚡ Insta-grow";
   return undefined;
 }
 

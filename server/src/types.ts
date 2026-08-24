@@ -83,6 +83,10 @@ export interface PlayerState {
   petsEquipped: string[];
   /** Kelka Egg Incubators planted on this player's plot (up to gearOwned.kelka_incubator, max 2). */
   incubators: IncubatorState[];
+  /** Next timestamp (ms) each equipped Baby Dragon-line pet (keyed by its slotKey) can instantly
+   *  finish a growing crop again — every equipped dragon procs on its own independent 60s
+   *  cooldown, never shared. See tickDragonInstaGrow in rooms.ts. */
+  dragonProcAt: Record<string, number>;
 }
 
 export interface RoomState {
