@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GEAR, nextGearCost, type GearItem } from "../gameData";
+import { GEAR, nextGearPrice, type GearItem } from "../gameData";
 import type { PlayerState } from "../types";
 import { socket } from "../socket";
 
@@ -43,8 +43,8 @@ export default function GearShopView({ player }: { player: PlayerState }) {
           const owned = player.gearOwned[gear.id] ?? 0;
           const maxedOut = gear.maxOwned !== undefined && owned >= gear.maxOwned;
           const alreadyOwned = !gear.repeatable && owned > 0;
-          const cost = nextGearCost(gear, owned);
-          const affordable = player.coins >= cost;
+          const price = nextGearPrice(gear, owned);
+          const affordable = player.coins >= price.coins && player.diamonds >= price.diamonds;
           const icon = gear.levelEmojis ? gear.levelEmojis[Math.max(0, owned - 1)] : gear.emoji;
           const effectLine = levelEffectLine(gear, owned);
 
@@ -72,7 +72,13 @@ export default function GearShopView({ player }: { player: PlayerState }) {
                   <span className="plot-ready-tag">{maxedOut ? "Maxed" : "Owned"}</span>
                 ) : (
                   <button className="btn btn-primary" disabled={!affordable} onClick={() => handleBuy(gear.id)}>
-                    Buy ({cost})
+                    Buy (
+                    {price.diamonds > 0
+                      ? price.coins > 0
+                        ? `${price.coins} + 💎${price.diamonds}`
+                        : `💎${price.diamonds}`
+                      : price.coins}
+                    )
                   </button>
                 )}
               </div>

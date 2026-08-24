@@ -1,5 +1,5 @@
 import { customAlphabet, nanoid } from "nanoid";
-import { CROPS, CROPS_BY_ID, GEAR_BY_ID, MAX_PLAYERS_PER_ROOM, rollSizeTier, STARTING_COINS } from "./gameData.js";
+import { CROPS, CROPS_BY_ID, GEAR_BY_ID, MAX_PLAYERS_PER_ROOM, rollSizeTier, STARTING_COINS, type GearItem, type GearPrice } from "./gameData.js";
 import { MOON_PACK_COST, resolveFootprint, rollMoonPack, type PackResult } from "./moonData.js";
 import {
   getAnyCropDef as getCropDef,
@@ -509,24 +509,27 @@ export function sellAll(player: PlayerState): { error?: string; earned?: number;
   return { earned, diamonds, count };
 }
 
+export function nextGearPrice(gear: GearItem, owned: number): GearPrice {
+  if (gear.levelCosts) return gear.levelCosts[Math.min(owned, gear.levelCosts.length - 1)];
+  return { coins: Math.round(gear.cost * (1 + owned * 0.5)), diamonds: 0 };
+}
+
 export function buyGear(player: PlayerState, gearId: string): { error?: string } {
   const gear = GEAR_BY_ID[gearId];
   if (!gear) return { error: "Unknown gear." };
   const owned = player.gearOwned[gearId] ?? 0;
   if (!gear.repeatable && owned > 0) return { error: "You already own that." };
   if (gear.maxOwned && owned >= gear.maxOwned) return { error: "Maxed out." };
-  const cost = Math.round(gear.cost * (1 + owned * 0.5));
-  if (player.coins < cost) return { error: "Not enough coins." };
-  player.coins -= cost;
+  const price = nextGearPrice(gear, owned);
+  if (player.coins < price.coins) return { error: "Not enough coins." };
+  if (player.diamonds < price.diamonds) return { error: "Not enough diamonds." };
+  player.coins -= price.coins;
+  player.diamonds -= price.diamonds;
   player.gearOwned[gearId] = owned + 1;
   if (gear.effect.type === "expandGarden") {
     player.gridHeight = Math.min(BASE_GRID_HEIGHT + GRID_EXPANSION_MAX, player.gridHeight + gear.effect.value);
   }
   return {};
-}
-
-export function nextGearCost(gear: { id: string; cost: number }, owned: number): number {
-  return Math.round(gear.cost * (1 + owned * 0.5));
 }
 
 /** Snapshots the fields worth persisting for a logged-in player's account. */

@@ -34,6 +34,11 @@ export type GearEffect =
   | { type: "unlockReclaim" }
   | { type: "unlockMove" };
 
+export interface GearPrice {
+  coins: number;
+  diamonds: number;
+}
+
 export interface GearItem {
   id: string;
   name: string;
@@ -46,6 +51,9 @@ export interface GearItem {
   /** One emoji per upgrade level (index 0 = level 1) — shown in place of `emoji` once owned,
    *  so the icon visibly upgrades in quality alongside the effect. */
   levelEmojis?: string[];
+  /** Explicit price per level (index 0 = cost to buy level 1), overriding the generic
+   *  cost-rises-50%-per-unit formula — used for steep, exponential upgrade curves. */
+  levelCosts?: GearPrice[];
 }
 
 export const GEAR: GearItem[] = [
@@ -59,6 +67,13 @@ export const GEAR: GearItem[] = [
     maxOwned: 5,
     effect: { type: "growSpeed", levels: [0.15, 0.175, 0.2, 0.225, 0.25] },
     levelEmojis: ["💧", "🚰", "🚿", "⛲", "🌊"],
+    levelCosts: [
+      { coins: 200, diamonds: 0 },
+      { coins: 600, diamonds: 0 },
+      { coins: 1800, diamonds: 0 },
+      { coins: 5400, diamonds: 0 },
+      { coins: 0, diamonds: 1 },
+    ],
   },
   {
     id: "fertilizer",
@@ -70,6 +85,13 @@ export const GEAR: GearItem[] = [
     maxOwned: 5,
     effect: { type: "sellBonus", levels: [0.02, 0.09, 0.16, 0.23, 0.3] },
     levelEmojis: ["🧪", "🌿", "🍀", "⭐", "💎"],
+    levelCosts: [
+      { coins: 400, diamonds: 0 },
+      { coins: 1200, diamonds: 0 },
+      { coins: 3600, diamonds: 0 },
+      { coins: 10800, diamonds: 0 },
+      { coins: 0, diamonds: 1 },
+    ],
   },
   {
     id: "garden_expansion",
