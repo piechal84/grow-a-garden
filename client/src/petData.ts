@@ -239,7 +239,7 @@ export function petEffectValue(pet: Pet, size: PetSize): number {
   return pet.effect.value * PET_SIZE_MULTIPLIER[size];
 }
 
-const PET_EFFECT_LABELS: Record<PetEffect["type"], string> = {
+export const PET_EFFECT_LABELS: Record<PetEffect["type"], string> = {
   growSpeed: "Grow Speed",
   sellBonus: "Sell Price",
   incubatorSpeed: "Incubator Speed",

@@ -5,6 +5,7 @@ import {
   MAX_PET_SLOTS,
   nextPetSlotCost,
   parseSlotKey,
+  PET_EFFECT_LABELS,
   PET_EGGS,
   petEffectValue,
   PET_SIZE_LABELS,
@@ -135,7 +136,7 @@ export default function PetShopView({ player }: { player: PlayerState }) {
 
   /** Fills only the currently-open slots (never touches what's already equipped) with the
    *  player's strongest owned-but-unequipped pets of the given effect type, best value first. */
-  function handleAutoFillBest(effectType: "growSpeed" | "sellBonus") {
+  function handleAutoFillBest(effectType: Pet["effect"]["type"]) {
     const openSlots = player.petSlots - equipped.size;
     if (openSlots <= 0) return;
     const best = unequippedGroups
@@ -143,7 +144,7 @@ export default function PetShopView({ player }: { player: PlayerState }) {
       .sort((a, b) => petEffectValue(b.pet, b.size) - petEffectValue(a.pet, a.size))
       .slice(0, openSlots);
     if (best.length === 0) {
-      setError(`No owned ${effectType === "growSpeed" ? "Grow Speed" : "Sell Price"} pets to add.`);
+      setError(`No owned ${PET_EFFECT_LABELS[effectType]} pets to add.`);
       return;
     }
     setError(null);
@@ -211,6 +212,14 @@ export default function PetShopView({ player }: { player: PlayerState }) {
           onClick={() => handleAutoFillBest("sellBonus")}
         >
           💰 Best Sell
+        </button>
+        <button
+          className="btn btn-secondary"
+          disabled={emptySlotCount === 0}
+          title="Fill open slots with your best owned Incubator Speed pets (Bunny/Owl)"
+          onClick={() => handleAutoFillBest("incubatorSpeed")}
+        >
+          🥚 Best Incubator
         </button>
         <button
           className="btn btn-secondary"
