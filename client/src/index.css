@@ -1860,6 +1860,15 @@ button {
   box-shadow: var(--shadow);
 }
 
+.pet-slot-empty {
+  background: transparent;
+  border: 1.5px dashed var(--border);
+  box-shadow: none;
+  opacity: 0.6;
+  justify-content: center;
+  min-height: 88px;
+}
+
 .inventory-count {
   position: absolute;
   top: -7px;

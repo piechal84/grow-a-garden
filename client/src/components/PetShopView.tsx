@@ -4,6 +4,7 @@ import {
   formatPetEffect,
   MAX_PET_SLOTS,
   nextPetSlotCost,
+  parseSlotKey,
   PET_EGGS,
   PET_SIZE_LABELS,
   PET_SIZES,
@@ -73,6 +74,17 @@ export default function PetShopView({ player }: { player: PlayerState }) {
     }
   }
   groups.sort((a, b) => b.pet.tier - a.pet.tier || b.count - a.count);
+  const unequippedGroups = groups.filter((g) => !equipped.has(`${g.petId}#${g.size}`));
+
+  const equippedList = player.petsEquipped
+    .map((key) => {
+      const { petId, size } = parseSlotKey(key);
+      const pet = PETS_BY_ID[petId];
+      return pet ? { key, petId, size, pet } : undefined;
+    })
+    .filter((e): e is { key: string; petId: string; size: PetSize; pet: Pet } => !!e)
+    .sort((a, b) => b.pet.tier - a.pet.tier);
+  const emptySlotCount = Math.max(0, player.petSlots - equippedList.length);
 
   function handleOpenEgg(eggId: string) {
     setError(null);
@@ -150,6 +162,46 @@ export default function PetShopView({ player }: { player: PlayerState }) {
         )}
       </div>
 
+      <div className="inventory-grid">
+        {equippedList.map(({ key, petId, size, pet }) => {
+          const stage = pet.id.includes("_tenacious") ? "tenacious" : pet.id.includes("_empowered") ? "empowered" : undefined;
+          const special = petSpecialAbility(petId);
+          return (
+            <div
+              key={key}
+              className={`inventory-tile ${stage ? `pet-aura-${stage}` : ""}`}
+              title={`${pet.name} (${PET_SIZE_LABELS[size]}) — ${formatPetEffect(pet, size)}${special ? `. ${special}` : ""}`}
+            >
+              <PetIcon pet={pet} size={32} />
+              <span className="inventory-tile-name">{pet.name}</span>
+              <span className="pet-effect-label">{formatPetEffect(pet, size)}</span>
+              {special && <span className="pet-special-label">🌈 Rain bonus</span>}
+              <div className="inventory-tile-badges">
+                <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
+                  {CROP_TIER_LABELS[pet.tier]}
+                </span>
+                <span className="size-badge" style={{ background: "#5c6b56" }}>
+                  {PET_SIZE_LABELS[size]}
+                </span>
+              </div>
+              <button
+                className="btn btn-secondary pet-equip-btn"
+                disabled={busyKey === key}
+                onClick={() => handleToggleEquip(petId, size, true)}
+              >
+                Unequip
+              </button>
+            </div>
+          );
+        })}
+        {Array.from({ length: emptySlotCount }, (_, i) => (
+          <div key={`empty-${i}`} className="inventory-tile pet-slot-empty">
+            <span style={{ fontSize: 32 }}>➕</span>
+            <span className="inventory-tile-name">Empty slot</span>
+          </div>
+        ))}
+      </div>
+
       <div className="restock-banner">
         <span>
           🥚 Kelka Egg Incubators: <strong>{player.incubators.length}</strong>/{incubatorsOwned || 0} placed
@@ -162,16 +214,16 @@ export default function PetShopView({ player }: { player: PlayerState }) {
       </div>
 
       <h3 className="inventory-section-title">
-        Your Pets ({groups.reduce((sum, g) => sum + g.count, 0)}) — tap Equip/Unequip below to fill your{" "}
-        {player.petSlots} slots
+        Your Pets ({unequippedGroups.reduce((sum, g) => sum + g.count, 0)}) — tap Equip to fill an open slot above
       </h3>
       {groups.length === 0 ? (
         <p className="modal-empty">No pets yet — open an egg below!</p>
+      ) : unequippedGroups.length === 0 ? (
+        <p className="modal-empty">Everything you own is equipped — nice.</p>
       ) : (
         <div className="inventory-grid">
-          {groups.map(({ petId, size, count, pet }) => {
+          {unequippedGroups.map(({ petId, size, count, pet }) => {
             const key = `${petId}#${size}`;
-            const isEquipped = equipped.has(key);
             const stage = pet.id.includes("_tenacious") ? "tenacious" : pet.id.includes("_empowered") ? "empowered" : undefined;
             const special = petSpecialAbility(petId);
             return (
@@ -194,11 +246,11 @@ export default function PetShopView({ player }: { player: PlayerState }) {
                   </span>
                 </div>
                 <button
-                  className={`btn ${isEquipped ? "btn-secondary" : "btn-primary"} pet-equip-btn`}
-                  disabled={busyKey === key || (!isEquipped && equipped.size >= player.petSlots)}
-                  onClick={() => handleToggleEquip(petId, size, isEquipped)}
+                  className="btn btn-primary pet-equip-btn"
+                  disabled={busyKey === key || equipped.size >= player.petSlots}
+                  onClick={() => handleToggleEquip(petId, size, false)}
                 >
-                  {isEquipped ? "Unequip" : "Equip"}
+                  Equip
                 </button>
               </div>
             );
