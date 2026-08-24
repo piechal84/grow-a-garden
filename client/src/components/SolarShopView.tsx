@@ -205,7 +205,7 @@ export default function SolarShopView({ player }: { player: PlayerState }) {
               </div>
               <div className="shop-row-stats">
                 <span>⏱ {crop.growSeconds}s to grow</span>
-                <span>💰 sells {crop.sellPrice}</span>
+                <span>{crop.diamondReward ? `💎 sells for ${crop.diamondReward}` : `💰 sells ${crop.sellPrice}`}</span>
                 <span>📐 {crop.variableFootprint ? "2x1 or 1x2 (random)" : `${crop.footprint.w}x${crop.footprint.h}`}</span>
               </div>
             </div>

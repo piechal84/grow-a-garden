@@ -26,6 +26,8 @@ function buildParticles(count: number, seedOffset: number): Particle[] {
 
 const RAIN_DROPS = buildParticles(45, 0);
 const SNOW_FLAKES = buildParticles(30, 2000);
+const STARS = buildParticles(40, 5000);
+const SHOOTING_STARS = buildParticles(3, 8000);
 const FALL_DISTANCE = `${WORLD_HEIGHT + 60}px`;
 
 /** A bold, cartoon teardrop — not a thin CSS line — so rain reads clearly at a glance. */
@@ -87,6 +89,40 @@ export function SnowParticles() {
         >
           ❄️
         </span>
+      ))}
+    </div>
+  );
+}
+
+/** Gives the night sky some life beyond just a darker tint — a scatter of twinkling
+ *  stars plus the occasional shooting star streaking across the map. */
+export function NightStars() {
+  return (
+    <div className="weather-particles" style={{ height: WORLD_HEIGHT }}>
+      {STARS.map((s, i) => (
+        <span
+          key={i}
+          className="night-star"
+          style={{
+            left: s.left,
+            top: s.top,
+            width: 2 + s.scale * 2.4,
+            height: 2 + s.scale * 2.4,
+            animationDelay: `${s.delay}s`,
+            animationDuration: `${1.8 + s.duration}s`,
+          }}
+        />
+      ))}
+      {SHOOTING_STARS.map((s, i) => (
+        <span
+          key={`shoot-${i}`}
+          className="shooting-star"
+          style={{
+            left: s.left * 0.5,
+            top: s.top * 0.35,
+            animationDelay: `${i * 6 + s.delay * 4}s`,
+          }}
+        />
       ))}
     </div>
   );

@@ -25,6 +25,7 @@ export function setMuted(next: boolean) {
   muted = next;
   localStorage.setItem(MUTE_KEY, next ? "1" : "0");
   if (rainNodes) rainNodes.gain.gain.value = muted ? 0 : RAIN_VOLUME;
+  if (cicadaNodes) cicadaNodes.gain.gain.value = muted ? 0 : CICADA_VOLUME;
 }
 
 function makeNoiseBuffer(context: AudioContext, seconds: number): AudioBuffer {
@@ -62,6 +63,55 @@ export function stopRainAmbience() {
   gain.gain.setTargetAtTime(0, context.currentTime, 0.3);
   source.stop(context.currentTime + 1);
   rainNodes = null;
+}
+
+const CICADA_VOLUME = 0.032;
+let cicadaNodes: { source: AudioBufferSourceNode; gain: GainNode; tremolo: OscillatorNode } | null = null;
+
+/** A nighttime chorus: bandpassed noise pulsed by a fast LFO to read as a cicada trill
+ *  rather than plain static, distinct from the rain ambience's low rumble. */
+export function startCicadaAmbience() {
+  if (cicadaNodes) return;
+  const context = getCtx();
+  const source = context.createBufferSource();
+  source.buffer = makeNoiseBuffer(context, 2);
+  source.loop = true;
+
+  const bandpass = context.createBiquadFilter();
+  bandpass.type = "bandpass";
+  bandpass.frequency.value = 3600;
+  bandpass.Q.value = 3.5;
+
+  const tremoloGain = context.createGain();
+  tremoloGain.gain.value = 0.5;
+  const tremolo = context.createOscillator();
+  tremolo.frequency.value = 26;
+  const tremoloDepth = context.createGain();
+  tremoloDepth.gain.value = 0.45;
+  tremolo.connect(tremoloDepth);
+  tremoloDepth.connect(tremoloGain.gain);
+  tremolo.start();
+
+  const gain = context.createGain();
+  gain.gain.value = muted ? 0 : CICADA_VOLUME;
+
+  source.connect(bandpass);
+  bandpass.connect(tremoloGain);
+  tremoloGain.connect(gain);
+  gain.connect(context.destination);
+  source.start();
+
+  cicadaNodes = { source, gain, tremolo };
+}
+
+export function stopCicadaAmbience() {
+  if (!cicadaNodes) return;
+  const context = getCtx();
+  const { source, gain, tremolo } = cicadaNodes;
+  gain.gain.setTargetAtTime(0, context.currentTime, 0.3);
+  source.stop(context.currentTime + 1);
+  tremolo.stop(context.currentTime + 1);
+  cicadaNodes = null;
 }
 
 export function playThunderClap() {

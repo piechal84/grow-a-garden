@@ -16,7 +16,15 @@ import {
   WORLD_WIDTH,
   type Position,
 } from "../world";
-import { playDragonFruitEmber, playMoonBlossomChime, playThunderClap, startRainAmbience, stopRainAmbience } from "../sound";
+import {
+  playDragonFruitEmber,
+  playMoonBlossomChime,
+  playThunderClap,
+  startCicadaAmbience,
+  startRainAmbience,
+  stopCicadaAmbience,
+  stopRainAmbience,
+} from "../sound";
 import GardenDecor from "./GardenDecor";
 import GearShopView from "./GearShopView";
 import MerchantView from "./MerchantView";
@@ -29,7 +37,7 @@ import SeedShopView from "./SeedShopView";
 import ShopModal from "./ShopModal";
 import SolarShopView from "./SolarShopView";
 import WeatherBar from "./WeatherBar";
-import { LightningBolts, RainParticles, SnowParticles } from "./WeatherParticles";
+import { LightningBolts, NightStars, RainParticles, SnowParticles } from "./WeatherParticles";
 
 const AVATAR_OFFSET_X = 13;
 const AVATAR_OFFSET_Y = 26;
@@ -278,6 +286,16 @@ export default function WorldView({
   }, [sky.id]);
 
   useEffect(() => {
+    if (isDay) {
+      stopCicadaAmbience();
+    } else {
+      startCicadaAmbience();
+    }
+    return () => stopCicadaAmbience();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDay]);
+
+  useEffect(() => {
     if (sky.id !== "thunderstorm") return;
     const initial = window.setTimeout(() => playThunderClap(), 6500);
     const interval = window.setInterval(() => playThunderClap(), 7000);
@@ -358,6 +376,7 @@ export default function WorldView({
       >
         <GardenDecor />
         {!isDay && <div className="weather-overlay night-overlay" />}
+        {!isDay && <NightStars />}
         {temperature.id !== "clear" && <div className={`weather-overlay temp-overlay-${temperature.id}`} />}
         {sky.id !== "clear" && <div className={`weather-overlay sky-overlay-${sky.id}`} />}
         {temperature.id === "freeze" && <SnowParticles />}
