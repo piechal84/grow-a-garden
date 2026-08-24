@@ -35,78 +35,19 @@ function DragonFruitGlyph({ size }: { size: number }) {
   );
 }
 
-const BLOSSOM_PALETTE: Record<BlossomColor, { light: string; mid: string; dark: string }> = {
-  purple: { light: "#e6d9ff", mid: "#b18cf0", dark: "#7a52d0" },
-  blue: { light: "#cdeeff", mid: "#6fc8f0", dark: "#2f8fd0" },
-  yellow: { light: "#fff3b0", mid: "#ffd54a", dark: "#e0a80e" },
-  grey: { light: "#eceef2", mid: "#b7bac4", dark: "#7c7f8c" },
-};
-
-/** The flagship legendary moon crop: a glassy bubble cradling a full rose bloom on a curling
- *  vine. The bloom's base color is rolled per-planting (see rollBlossomColor, server-side) —
- *  overwhelmingly purple, with rare blue/yellow/grey variants. */
-function MoonBlossomGlyph({ size, color = "purple" }: { size: number; color?: BlossomColor }) {
-  const palette = BLOSSOM_PALETTE[color];
-  const haloId = `blossomHalo-${color}`;
-  const glassId = `blossomGlass-${color}`;
-  const outerPetals = Array.from({ length: 5 }, (_, i) => i * 72);
-  const innerPetals = Array.from({ length: 5 }, (_, i) => i * 72 + 36);
+/** The flagship legendary moon crop: real artwork — a glassy bubble cradling a full rose bloom
+ *  on a curling vine, rather than a redrawn glyph, since the reference has detail (bubble
+ *  refraction, individually inked petals) an SVG approximation loses. The bloom's base color is
+ *  rolled per-planting (see rollBlossomColor, server-side) — overwhelmingly purple, with rare
+ *  blue/yellow/grey variants, each its own cropped image. */
+function MoonBlossomImage({ size, color = "purple" }: { size: number; color?: BlossomColor }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
-      <defs>
-        <radialGradient id={haloId} cx="50%" cy="40%" r="62%">
-          <stop offset="0%" stopColor={palette.dark} stopOpacity="0.4" />
-          <stop offset="100%" stopColor={palette.dark} stopOpacity="0" />
-        </radialGradient>
-        <radialGradient id={glassId} cx="34%" cy="26%" r="78%">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
-          <stop offset="45%" stopColor={palette.light} stopOpacity="0.4" />
-          <stop offset="100%" stopColor={palette.light} stopOpacity="0.12" />
-        </radialGradient>
-      </defs>
-      <circle cx="24" cy="22" r="22" fill={`url(#${haloId})`} />
-      <path d="M24 45 C23 35 22 28 24 21" fill="none" stroke="#3fae5a" strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M23.5 33 C18 31 15 27 13 23" fill="none" stroke="#3fae5a" strokeWidth="1.7" strokeLinecap="round" />
-      <path d="M24.5 37 C30 35 33 31 35 27" fill="none" stroke="#3fae5a" strokeWidth="1.7" strokeLinecap="round" />
-      <circle cx="24" cy="19" r="15.5" fill={`url(#${glassId})`} stroke={palette.mid} strokeWidth="1" strokeOpacity="0.6" />
-      {outerPetals.map((angle) => (
-        <ellipse
-          key={`o${angle}`}
-          cx="24"
-          cy="12.5"
-          rx="5.6"
-          ry="8.4"
-          fill={palette.mid}
-          stroke={palette.dark}
-          strokeWidth="0.9"
-          transform={`rotate(${angle} 24 19)`}
-        />
-      ))}
-      {innerPetals.map((angle) => (
-        <ellipse
-          key={`i${angle}`}
-          cx="24"
-          cy="14.5"
-          rx="3.8"
-          ry="6.2"
-          fill={palette.light}
-          stroke={palette.mid}
-          strokeWidth="0.7"
-          transform={`rotate(${angle} 24 19)`}
-        />
-      ))}
-      <circle cx="24" cy="19" r="3.2" fill={palette.dark} />
-      <circle cx="22.8" cy="17.8" r="1" fill="#fff" opacity="0.7" />
-      <ellipse cx="18" cy="12" rx="3.5" ry="5" fill="#ffffff" opacity="0.3" transform="rotate(-25 18 12)" />
-      {[
-        [6, 10],
-        [42, 12],
-        [8, 38],
-        [40, 36],
-      ].map(([x, y], i) => (
-        <path key={i} d={`M${x},${y - 3} L${x + 1.4},${y} L${x},${y + 3} L${x - 1.4},${y} Z`} fill={palette.light} />
-      ))}
-    </svg>
+    <img
+      src={`/images/plants/moon-blossom-${color}.png`}
+      alt=""
+      aria-hidden="true"
+      style={{ width: size, height: size, objectFit: "contain", display: "block" }}
+    />
   );
 }
 
@@ -206,7 +147,7 @@ export default function CropIcon({
   blossomColor?: BlossomColor;
 }) {
   if (crop.id === "dragonfruit") return <DragonFruitGlyph size={size} />;
-  if (crop.id === "moon_blossom") return <MoonBlossomGlyph size={size} color={blossomColor} />;
+  if (crop.id === "moon_blossom") return <MoonBlossomImage size={size} color={blossomColor} />;
   if (crop.id === "nebula_cherry") return <NebulaCherryGlyph size={size} />;
   if (crop.id === "phoenix_sunflower") return <PhoenixSunflowerGlyph size={size} />;
   return (
