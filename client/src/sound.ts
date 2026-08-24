@@ -74,6 +74,18 @@ export function stopThunderstormAmbience() {
   stormAudio = null;
 }
 
+const THUNDERCLAP_VOLUME = 0.55;
+
+/** A discrete, one-shot thunderclap layered on top of the storm ambience loop at random
+ *  intervals — a fresh <audio> instance per call so overlapping claps can't cut each other off. */
+export function playThunderClap() {
+  if (muted) return;
+  const clap = new Audio("/sounds/thunderclap.mp3");
+  clap.volume = THUNDERCLAP_VOLUME;
+  clap.playbackRate = 0.92 + Math.random() * 0.16;
+  void clap.play().catch(() => {});
+}
+
 const CICADA_VOLUME = 0.032;
 let cicadaNodes: { source: AudioBufferSourceNode; gain: GainNode; tremolo: OscillatorNode } | null = null;
 

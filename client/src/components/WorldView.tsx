@@ -17,6 +17,7 @@ import {
 import {
   playDragonFruitEmber,
   playMoonBlossomChime,
+  playThunderClap,
   startCicadaAmbience,
   startRainAmbience,
   startThunderstormAmbience,
@@ -278,6 +279,21 @@ export default function WorldView({
       stopThunderstormAmbience();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sky.id]);
+
+  // Discrete thunderclaps layered on top of the storm ambience loop, at randomized intervals
+  // so they don't read as a metronome.
+  useEffect(() => {
+    if (sky.id !== "thunderstorm") return;
+    let timeout: number;
+    function scheduleNext(delay: number) {
+      timeout = window.setTimeout(() => {
+        playThunderClap();
+        scheduleNext(8000 + Math.random() * 12000);
+      }, delay);
+    }
+    scheduleNext(5000 + Math.random() * 4000);
+    return () => window.clearTimeout(timeout);
   }, [sky.id]);
 
   useEffect(() => {
