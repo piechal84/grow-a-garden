@@ -3,6 +3,7 @@ import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypt
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { STARTING_COINS } from "./gameData.js";
+import { BASE_PET_SLOTS, type PetSize } from "./petData.js";
 import type { Quest } from "./quests.js";
 import type { HarvestedCrop, Planting } from "./types.js";
 import { BASE_GRID_HEIGHT, PLOT_GRID_WIDTH } from "./world.js";
@@ -29,7 +30,8 @@ export interface SavedProgress {
   seedStockBucket: number;
   diamonds: number;
   persistentUnlocked: Record<string, boolean>;
-  petsOwned: string[];
+  petsOwned: Record<string, PetSize>;
+  petSlots: number;
 }
 
 export interface UserRecord {
@@ -61,7 +63,8 @@ function defaultProgress(): SavedProgress {
     seedStockBucket: -1,
     diamonds: 0,
     persistentUnlocked: {},
-    petsOwned: [],
+    petsOwned: {},
+    petSlots: BASE_PET_SLOTS,
   };
 }
 

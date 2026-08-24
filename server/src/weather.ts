@@ -64,7 +64,7 @@ export function effectiveWorkBetween(roomCreatedAt: number, from: number, to: nu
 
 // ---------- Weather & mutations ----------
 
-export type MutationId = "scorched" | "frozen" | "wet" | "charged" | "lunar";
+export type MutationId = "scorched" | "frozen" | "wet" | "charged" | "lunar" | "rainbow";
 
 export interface Mutation {
   id: MutationId;
@@ -81,6 +81,9 @@ export const MUTATIONS: Record<MutationId, Mutation> = {
   charged: { id: "charged", label: "Charged", emoji: "⚡", priceMultiplier: 2.2, color: "#f2d43a" },
   // Not weather-rolled — granted only while a crop sits next to a Moon Blossom (see rooms.ts).
   lunar: { id: "lunar", label: "Lunar", emoji: "🌙", priceMultiplier: 1.2, color: "#b18cf0" },
+  // Not a plain weather roll either — only possible while it's raining AND an equipped Unicorn
+  // pet is active (see rollMutations below).
+  rainbow: { id: "rainbow", label: "Rainbow", emoji: "🌈", priceMultiplier: 2.8, color: "#ff6ec7" },
 };
 
 export interface WeatherCondition {
@@ -157,14 +160,17 @@ export function mutationKey(mutations: MutationId[]): string {
 }
 
 const MUTATION_BASE_CHANCE = 0.1;
+const RAINBOW_CHANCE = 0.18;
 
-/** Rolls which mutations a freshly-planted seed catches from whatever weather is active right now. */
-export function rollMutations(roomCreatedAt: number, now: number): MutationId[] {
+/** Rolls which mutations a freshly-planted seed catches from whatever weather is active right now.
+ *  `unicornEquipped` gives rain an extra independent shot at the Unicorn-only Rainbow mutation. */
+export function rollMutations(roomCreatedAt: number, now: number, unicornEquipped: boolean): MutationId[] {
   const { temperature, sky } = getActiveWeather(roomCreatedAt, now);
   const chance = MUTATION_BASE_CHANCE * (isDayAt(roomCreatedAt, now) ? 1 : 2);
   const mutations: MutationId[] = [];
   for (const cond of [temperature, sky]) {
     if (cond.mutation && Math.random() < chance) mutations.push(cond.mutation);
   }
+  if (unicornEquipped && sky.id === "rain" && Math.random() < RAINBOW_CHANCE) mutations.push("rainbow");
   return mutations;
 }

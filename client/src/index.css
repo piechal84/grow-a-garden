@@ -1327,6 +1327,25 @@ button {
   }
 }
 
+/* Rainbow (Unicorn-only, rain-only) swaps the flat single-color halo for a spinning multi-hue
+   ring on the same pseudo-element — reusing plant-mutation-glow's ::after instead of adding a
+   third competing pseudo-element, since aura-divine/celestial already claim ::before/::after. */
+.plant-mutation-glow.plant-mutation-rainbow::after {
+  background: conic-gradient(from 0deg, #ff5e5e, #ffd23f, #6fe07a, #4fd8e0, #7a8cf0, #d06ee0, #ff5e5e);
+  opacity: 0.55;
+  filter: blur(3px) saturate(1.4);
+  animation: mutation-pulse 1.3s ease-in-out infinite, rainbow-spin 3.5s linear infinite;
+}
+
+@keyframes rainbow-spin {
+  from {
+    rotate: 0deg;
+  }
+  to {
+    rotate: 360deg;
+  }
+}
+
 /* Divine (Nebula Cherry) and Celestial (Moon Blossom) get a bold, unmistakable aura at every
    growth stage — a tight blurred glow hugging the icon plus big bright twinkles flung further
    out. Celestial runs faster, brighter, and bigger as the top of the rarity ladder. */
@@ -1680,6 +1699,46 @@ button {
   flex-wrap: wrap;
   justify-content: center;
   gap: 3px;
+}
+
+.pet-hatch-reveal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+  animation: pet-hatch-pop 0.35s ease-out;
+}
+
+.pet-hatch-emoji {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.pet-hatch-title {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.pet-hatch-sub {
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+@keyframes pet-hatch-pop {
+  0% {
+    scale: 0.85;
+    opacity: 0;
+  }
+  100% {
+    scale: 1;
+    opacity: 1;
+  }
 }
 
 .restock-banner {

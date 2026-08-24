@@ -209,6 +209,7 @@ export default function PlotView({
         const secondsLeft = Math.max(0, Math.ceil((planting.readyAt - now) / 1000));
         const displayMutations = previewMutations(planting, player.plantings);
         const glowColor = displayMutations.length > 0 ? MUTATIONS[displayMutations[0]].color : undefined;
+        const rainbow = displayMutations.includes("rainbow");
         const timerFontSize = Math.round(Math.min(planting.w, planting.h) * CELL_SIZE * 0.4);
         const auraTier = auraTierFor(planting.cropId);
         const isMoving = movingId === planting.id;
@@ -241,6 +242,7 @@ export default function PlotView({
               targetScale={planting.sizeVisualScale}
               glowColor={glowColor}
               auraTier={auraTier}
+              rainbow={rainbow}
             />
             {crop.persistent && <span className="tree-badge" title="Regrows after harvest — never consumed">🌳</span>}
             {pct >= 70 && displayMutations.length > 0 && (

@@ -1,7 +1,17 @@
 import { customAlphabet, nanoid } from "nanoid";
 import { CROPS, CROPS_BY_ID, GEAR_BY_ID, MAX_PLAYERS_PER_ROOM, rollSizeTier, STARTING_COINS, type GearItem, type GearPrice } from "./gameData.js";
 import { MOON_PACK_COST, resolveFootprint, rollMoonPack, type PackResult } from "./moonData.js";
-import { PETS_BY_ID } from "./petData.js";
+import {
+  BASE_PET_SLOTS,
+  equippedPetIds,
+  MAX_PET_SLOTS,
+  nextPetSlotCost,
+  PET_EGGS_BY_ID,
+  PET_SIZE_MULTIPLIER,
+  PETS_BY_ID,
+  rollPetEgg,
+  type PetSize,
+} from "./petData.js";
 import {
   getAnyCropDef as getCropDef,
   resolveSolarFootprint,
@@ -78,7 +88,8 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     seedStockBucket: saved?.seedStockBucket ?? -1,
     diamonds: saved?.diamonds ?? 0,
     persistentUnlocked: saved?.persistentUnlocked ?? {},
-    petsOwned: saved?.petsOwned ?? [],
+    petsOwned: saved?.petsOwned ?? {},
+    petSlots: saved?.petSlots ?? BASE_PET_SLOTS,
   };
   ensureQuestsFresh(player, Date.now());
   ensureStockFresh(player, Date.now());
@@ -275,15 +286,26 @@ function currentLevelValue(levels: number[], owned: number): number {
   return levels[Math.min(owned, levels.length) - 1];
 }
 
+/** Only pets within the player's slot count (their best pets, by tier) actively contribute. */
+function activePets(player: PlayerState) {
+  return equippedPetIds(player.petsOwned, player.petSlots).map((id) => ({
+    pet: PETS_BY_ID[id],
+    size: player.petsOwned[id],
+  }));
+}
+
+export function hasUnicornEquipped(player: PlayerState): boolean {
+  return equippedPetIds(player.petsOwned, player.petSlots).includes("unicorn");
+}
+
 function growSpeedMultiplier(player: PlayerState): number {
   let reduction = 0;
   for (const [gearId, owned] of Object.entries(player.gearOwned)) {
     const gear = GEAR_BY_ID[gearId];
     if (gear && gear.effect.type === "growSpeed") reduction += currentLevelValue(gear.effect.levels, owned);
   }
-  for (const petId of player.petsOwned) {
-    const pet = PETS_BY_ID[petId];
-    if (pet && pet.effect.type === "growSpeed") reduction += pet.effect.value;
+  for (const { pet, size } of activePets(player)) {
+    if (pet && pet.effect.type === "growSpeed") reduction += pet.effect.value * PET_SIZE_MULTIPLIER[size];
   }
   return Math.max(0.25, 1 - reduction);
 }
@@ -294,22 +316,75 @@ function sellMultiplier(player: PlayerState): number {
     const gear = GEAR_BY_ID[gearId];
     if (gear && gear.effect.type === "sellBonus") bonus += currentLevelValue(gear.effect.levels, owned);
   }
-  for (const petId of player.petsOwned) {
-    const pet = PETS_BY_ID[petId];
-    if (pet && pet.effect.type === "sellBonus") bonus += pet.effect.value;
+  for (const { pet, size } of activePets(player)) {
+    if (pet && pet.effect.type === "sellBonus") bonus += pet.effect.value * PET_SIZE_MULTIPLIER[size];
   }
   return 1 + bonus;
 }
 
-export function buyPet(player: PlayerState, petId: string): { error?: string } {
-  const pet = PETS_BY_ID[petId];
-  if (!pet) return { error: "Unknown pet." };
-  if (player.petsOwned.includes(petId)) return { error: "You already own that pet." };
-  if (player.coins < pet.cost.coins) return { error: "Not enough coins." };
-  if (player.diamonds < pet.cost.diamonds) return { error: "Not enough diamonds." };
-  player.coins -= pet.cost.coins;
-  player.diamonds -= pet.cost.diamonds;
-  player.petsOwned.push(petId);
+interface PetHatchOutcome {
+  petId: string;
+  size: PetSize;
+  isNew: boolean;
+  upgraded: boolean;
+}
+
+/** Applies one hatch to the player's collection — a bigger re-roll of a pet you already own
+ *  upgrades it in place, otherwise the roll is recorded but doesn't overwrite a bigger one. */
+function applyHatch(player: PlayerState, hatch: { petId: string; size: PetSize }): PetHatchOutcome {
+  const existingSize = player.petsOwned[hatch.petId];
+  const isNew = !existingSize;
+  const upgraded = !isNew && PET_SIZE_MULTIPLIER[hatch.size] > PET_SIZE_MULTIPLIER[existingSize];
+  if (isNew || upgraded) player.petsOwned[hatch.petId] = hatch.size;
+  return { petId: hatch.petId, size: player.petsOwned[hatch.petId], isNew, upgraded };
+}
+
+export function buyPetEgg(player: PlayerState, eggId: string): { error?: string } & Partial<PetHatchOutcome> {
+  const egg = PET_EGGS_BY_ID[eggId];
+  if (!egg) return { error: "Unknown egg." };
+  if (player.coins < egg.cost.coins) return { error: "Not enough coins." };
+  if (player.diamonds < egg.cost.diamonds) return { error: "Not enough diamonds." };
+  const hatch = rollPetEgg(eggId);
+  if (!hatch) return { error: "Unknown egg." };
+  player.coins -= egg.cost.coins;
+  player.diamonds -= egg.cost.diamonds;
+  return applyHatch(player, hatch);
+}
+
+const BULK_EGG_COUNT = 10;
+const BULK_EGG_DISCOUNT = 0.1;
+
+export function nextPetEggBulkCost(egg: { cost: { coins: number; diamonds: number } }): { coins: number; diamonds: number } {
+  return {
+    coins: Math.round(egg.cost.coins * BULK_EGG_COUNT * (1 - BULK_EGG_DISCOUNT)),
+    diamonds: Math.round(egg.cost.diamonds * BULK_EGG_COUNT * (1 - BULK_EGG_DISCOUNT)),
+  };
+}
+
+export function buyPetEggBulk(
+  player: PlayerState,
+  eggId: string,
+): { error?: string; results?: PetHatchOutcome[]; cost?: { coins: number; diamonds: number } } {
+  const egg = PET_EGGS_BY_ID[eggId];
+  if (!egg) return { error: "Unknown egg." };
+  const cost = nextPetEggBulkCost(egg);
+  if (player.coins < cost.coins) return { error: "Not enough coins." };
+  if (player.diamonds < cost.diamonds) return { error: "Not enough diamonds." };
+  player.coins -= cost.coins;
+  player.diamonds -= cost.diamonds;
+  const results = Array.from({ length: BULK_EGG_COUNT }, () => applyHatch(player, rollPetEgg(eggId)!));
+  return { results, cost };
+}
+
+export function buyPetSlot(player: PlayerState): { error?: string } {
+  if (player.petSlots >= MAX_PET_SLOTS) return { error: "Pet slots already maxed." };
+  const cost = nextPetSlotCost(player.petSlots);
+  if (!cost) return { error: "Pet slots already maxed." };
+  if (player.coins < cost.coins) return { error: "Not enough coins." };
+  if (player.diamonds < cost.diamonds) return { error: "Not enough diamonds." };
+  player.coins -= cost.coins;
+  player.diamonds -= cost.diamonds;
+  player.petSlots += 1;
   return {};
 }
 
@@ -399,7 +474,7 @@ export function plant(room: RoomState, player: PlayerState, x: number, y: number
     sizeLabel: tier.label,
     sizePriceMultiplier: tier.priceMultiplier,
     sizeVisualScale: tier.visualScale,
-    mutations: rollMutations(room.createdAt, now),
+    mutations: rollMutations(room.createdAt, now, hasUnicornEquipped(player)),
   };
   player.plantings.push(planting);
   advanceQuests(player, "plant", 1);
@@ -435,7 +510,7 @@ export function harvest(room: RoomState, player: PlayerState, plantingId: string
     planting.sizeLabel = tier.label;
     planting.sizePriceMultiplier = tier.priceMultiplier;
     planting.sizeVisualScale = tier.visualScale;
-    planting.mutations = rollMutations(room.createdAt, now);
+    planting.mutations = rollMutations(room.createdAt, now, hasUnicornEquipped(player));
   } else {
     player.plantings.splice(idx, 1);
   }
@@ -576,6 +651,7 @@ export function extractProgress(player: PlayerState): SavedProgress {
     diamonds: player.diamonds,
     persistentUnlocked: player.persistentUnlocked,
     petsOwned: player.petsOwned,
+    petSlots: player.petSlots,
   };
 }
 

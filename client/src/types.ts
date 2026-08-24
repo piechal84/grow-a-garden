@@ -1,4 +1,5 @@
 import type { MoonTier } from "./moonData";
+import type { PetSize } from "./petData";
 import type { Quest } from "./quests";
 import type { SolarTier } from "./solarData";
 import type { MutationId } from "./weather";
@@ -52,8 +53,10 @@ export interface PlayerState {
   seedStockBucket: number;
   diamonds: number;
   persistentUnlocked: Record<string, boolean>;
-  /** Pet IDs owned from the Pet Shop — each one passively contributes its own bonus. */
-  petsOwned: string[];
+  /** Pets hatched from Pet Shop eggs, keyed by pet ID -> the biggest size hatched so far. Only
+   *  the top `petSlots` (by tier) actively contribute their bonus — see equippedPetIds. */
+  petsOwned: Record<string, PetSize>;
+  petSlots: number;
 }
 
 export interface RoomState {
@@ -104,6 +107,25 @@ export interface SolarPackBulkAck extends ActionAck {
   cost?: number;
 }
 
+export interface PetEggAck extends ActionAck {
+  petId?: string;
+  size?: PetSize;
+  isNew?: boolean;
+  upgraded?: boolean;
+}
+
+export interface PetHatchOutcome {
+  petId: string;
+  size: PetSize;
+  isNew: boolean;
+  upgraded: boolean;
+}
+
+export interface PetEggBulkAck extends ActionAck {
+  results?: PetHatchOutcome[];
+  cost?: { coins: number; diamonds: number };
+}
+
 export interface SellAllAck extends ActionAck {
   earned?: number;
   diamonds?: number;
@@ -133,7 +155,9 @@ export interface ClientToServerEvents {
   ) => void;
   sell_all: (ack?: (res: SellAllAck) => void) => void;
   buy_gear: (payload: { gearId: string }, ack?: (res: ActionAck) => void) => void;
-  buy_pet: (payload: { petId: string }, ack?: (res: ActionAck) => void) => void;
+  buy_pet_egg: (payload: { eggId: string }, ack?: (res: PetEggAck) => void) => void;
+  buy_pet_egg_bulk: (payload: { eggId: string }, ack?: (res: PetEggBulkAck) => void) => void;
+  buy_pet_slot: (ack?: (res: ActionAck) => void) => void;
   buy_moon_pack: (ack?: (res: MoonPackAck) => void) => void;
   buy_moon_pack_bulk: (ack?: (res: MoonPackBulkAck) => void) => void;
   buy_solar_pack: (ack?: (res: SolarPackAck) => void) => void;

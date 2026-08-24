@@ -23,6 +23,7 @@ export default function GrowthPlant({
   targetScale,
   glowColor,
   auraTier,
+  rainbow,
 }: {
   crop: IconCrop;
   pct: number;
@@ -31,6 +32,9 @@ export default function GrowthPlant({
   glowColor?: string;
   /** Divine/Celestial moon crops get a persistent sparkle aura at every growth stage. */
   auraTier?: "divine" | "celestial";
+  /** The Unicorn pet's rain-only mutation — swaps the flat mutation glow for a spinning
+   *  multi-color ring so it's unmistakable at a glance. */
+  rainbow?: boolean;
 }) {
   const auraClass = auraTier ? `plant-aura-${auraTier}` : "";
 
@@ -83,7 +87,7 @@ export default function GrowthPlant({
         key="crop"
         className={`plant-visual plant-sway plant-stage-enter ${ready ? "plant-ready-pulse" : ""} ${
           glowColor ? "plant-mutation-glow" : ""
-        } ${auraClass}`}
+        } ${rainbow ? "plant-mutation-rainbow" : ""} ${auraClass}`}
         style={{ scale: String(scale), ["--mutation-glow" as string]: glowColor }}
       >
         <CropIcon crop={crop} size={CROP_ICON_SIZE} />

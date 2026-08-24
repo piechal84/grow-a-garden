@@ -1,5 +1,5 @@
 import { GEAR_BY_ID } from "./gameData";
-import { PETS_BY_ID } from "./petData";
+import { equippedPetIds, PET_SIZE_MULTIPLIER, PETS_BY_ID } from "./petData";
 import type { PlayerState } from "./types";
 
 /** Each level's value replaces the previous one (it's an upgrade, not a stacking bonus) — so this
@@ -9,15 +9,22 @@ function currentLevelValue(levels: number[], owned: number): number {
   return levels[Math.min(owned, levels.length) - 1];
 }
 
+/** Only pets within the player's slot count (their best pets, by tier) actively contribute. */
+function activePets(player: PlayerState) {
+  return equippedPetIds(player.petsOwned, player.petSlots).map((id) => ({
+    pet: PETS_BY_ID[id],
+    size: player.petsOwned[id],
+  }));
+}
+
 export function growSpeedMultiplier(player: PlayerState): number {
   let reduction = 0;
   for (const [gearId, owned] of Object.entries(player.gearOwned)) {
     const gear = GEAR_BY_ID[gearId];
     if (gear && gear.effect.type === "growSpeed") reduction += currentLevelValue(gear.effect.levels, owned);
   }
-  for (const petId of player.petsOwned) {
-    const pet = PETS_BY_ID[petId];
-    if (pet && pet.effect.type === "growSpeed") reduction += pet.effect.value;
+  for (const { pet, size } of activePets(player)) {
+    if (pet && pet.effect.type === "growSpeed") reduction += pet.effect.value * PET_SIZE_MULTIPLIER[size];
   }
   return Math.max(0.25, 1 - reduction);
 }
@@ -28,9 +35,8 @@ export function sellMultiplier(player: PlayerState): number {
     const gear = GEAR_BY_ID[gearId];
     if (gear && gear.effect.type === "sellBonus") bonus += currentLevelValue(gear.effect.levels, owned);
   }
-  for (const petId of player.petsOwned) {
-    const pet = PETS_BY_ID[petId];
-    if (pet && pet.effect.type === "sellBonus") bonus += pet.effect.value;
+  for (const { pet, size } of activePets(player)) {
+    if (pet && pet.effect.type === "sellBonus") bonus += pet.effect.value * PET_SIZE_MULTIPLIER[size];
   }
   return 1 + bonus;
 }

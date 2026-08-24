@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MAX_PLAYERS_PER_ROOM } from "../gameData";
-import { PETS_BY_ID } from "../petData";
+import { equippedPetIds, PETS_BY_ID, type PetSize } from "../petData";
 import { socket } from "../socket";
 import type { RoomState } from "../types";
 import { getActiveWeather, getFeaturedShop, phaseInfo } from "../weather";
@@ -43,15 +43,16 @@ const AVATAR_OFFSET_X = 13;
 const AVATAR_OFFSET_Y = 26;
 const MOVE_KEYS = new Set(["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"]);
 
-/** Shows the player's highest-tier owned pet as a small companion badge next to their avatar —
- *  visible to every player in the room, not just its owner. */
-function topPetEmoji(petsOwned: string[]): string | undefined {
-  let best: { tier: number; emoji: string } | undefined;
-  for (const petId of petsOwned) {
-    const pet = PETS_BY_ID[petId];
-    if (pet && (!best || pet.tier > best.tier)) best = { tier: pet.tier, emoji: pet.emoji };
-  }
-  return best?.emoji;
+const PET_BADGE_SCALE: Record<PetSize, number> = { normal: 1, big: 1.2, giant: 1.45 };
+
+/** Shows the player's best equipped pet as a small companion badge next to their avatar, scaled
+ *  up a bit for Big/Giant hatches — visible to every player in the room, not just its owner. */
+function topPetCompanion(petsOwned: Record<string, PetSize>, petSlots: number): { emoji: string; scale: number } | undefined {
+  const [topId] = equippedPetIds(petsOwned, petSlots);
+  if (!topId) return undefined;
+  const pet = PETS_BY_ID[topId];
+  if (!pet) return undefined;
+  return { emoji: pet.emoji, scale: PET_BADGE_SCALE[petsOwned[topId]] };
 }
 
 interface MoveState {
@@ -416,7 +417,7 @@ export default function WorldView({
         })}
 
         {room.players.map((p) => {
-          const petEmoji = topPetEmoji(p.petsOwned);
+          const petCompanion = topPetCompanion(p.petsOwned, p.petSlots);
           return (
             <div
               key={p.id}
@@ -433,9 +434,9 @@ export default function WorldView({
             >
               <span className="avatar-shadow" />
               <span className="avatar-emoji">🧑‍🌾</span>
-              {petEmoji && (
-                <span className="avatar-pet" title="Companion pet">
-                  {petEmoji}
+              {petCompanion && (
+                <span className="avatar-pet" style={{ scale: String(petCompanion.scale) }} title="Companion pet">
+                  {petCompanion.emoji}
                 </span>
               )}
               <span className="avatar-name">{p.name}</span>

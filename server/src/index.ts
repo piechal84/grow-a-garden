@@ -11,7 +11,9 @@ import {
   buyGear,
   buyMoonPack,
   buyMoonPackBulk,
-  buyPet,
+  buyPetEgg,
+  buyPetEggBulk,
+  buyPetSlot,
   buySeed,
   buySolarPack,
   buySolarPackBulk,
@@ -175,10 +177,33 @@ io.on("connection", (socket) => {
     if (!result.error) broadcast(room);
   });
 
-  socket.on("buy_pet", ({ petId }, ack) => {
+  socket.on("buy_pet_egg", ({ eggId }, ack) => {
     const { room, player } = currentPlayer();
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = buyPet(player, petId);
+    const result = buyPetEgg(player, eggId);
+    ack?.({
+      ok: !result.error,
+      error: result.error,
+      petId: result.petId,
+      size: result.size,
+      isNew: result.isNew,
+      upgraded: result.upgraded,
+    });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("buy_pet_egg_bulk", ({ eggId }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = buyPetEggBulk(player, eggId);
+    ack?.({ ok: !result.error, error: result.error, results: result.results, cost: result.cost });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("buy_pet_slot", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = buyPetSlot(player);
     ack?.({ ok: !result.error, error: result.error });
     if (!result.error) broadcast(room);
   });
