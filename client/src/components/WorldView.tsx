@@ -66,6 +66,9 @@ interface MoveState {
   duration: number;
 }
 
+const MIN_ZOOM = 0.3;
+const MAX_ZOOM = 1.4;
+
 export default function WorldView({
   room,
   meId,
@@ -91,7 +94,23 @@ export default function WorldView({
     if (!viewportRef.current) return 1;
     const fitW = viewportRef.current.clientWidth / WORLD_WIDTH;
     const fitH = viewportRef.current.clientHeight / WORLD_HEIGHT;
-    return Math.max(0.3, Math.min(1, Math.min(fitW, fitH)) - 0.02);
+    return Math.max(MIN_ZOOM, Math.min(1, Math.min(fitW, fitH)) - 0.02);
+  }
+
+  /** Picks the zoom to open the room at: shrinks (same as fitZoomToViewport) on a small screen so
+   *  the whole world isn't cut off, but on a wide screen zooms IN to fill the available width
+   *  instead of leaving the default 100% mostly empty on either side — capped at MAX_ZOOM so it
+   *  doesn't blow up on an ultra-wide monitor. Only width-based for the fill case (some vertical
+   *  scrolling to reach lower plots is already normal even at 100%). */
+  function initialZoomForViewport(): number {
+    if (!viewportRef.current) return 1;
+    const vw = viewportRef.current.clientWidth;
+    // Width-only gate, matching the original shrink-only behavior this replaces — the world is
+    // tall (3 stacked plot rows) so requiring height to fit too would almost never let a normal
+    // widescreen monitor take the fill branch below; scrolling down to reach lower plots is
+    // already normal even at exactly 100% zoom.
+    if (vw < WORLD_WIDTH) return fitZoomToViewport();
+    return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, vw / WORLD_WIDTH - 0.02));
   }
 
   function scrollToOwnPlot(targetZoom: number) {
@@ -106,8 +125,9 @@ export default function WorldView({
     for (const [playerId, pos] of Object.entries(initialPositionsRef.current)) {
       moveStates.current.set(playerId, { from: pos, to: pos, startedAt: 0, duration: 0 });
     }
-    // On small viewports, start zoomed out enough to see more of the map at once.
-    const initialZoom = viewportRef.current && viewportRef.current.clientWidth < WORLD_WIDTH ? fitZoomToViewport() : 1;
+    // Small viewport: zoom out enough to see the whole map. Wide viewport: zoom in enough to
+    // fill it instead of leaving the default 100% mostly empty on either side.
+    const initialZoom = initialZoomForViewport();
     setZoom(initialZoom);
     // Center horizontally on the player's own plot, but anchor to the top so the market
     // row (NPC shops) is always visible on arrival instead of being scrolled past.
@@ -128,7 +148,7 @@ export default function WorldView({
   }
 
   function handleZoomStep(delta: number) {
-    setZoom((z) => Math.round(Math.min(1.4, Math.max(0.3, z + delta)) * 100) / 100);
+    setZoom((z) => Math.round(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z + delta)) * 100) / 100);
   }
 
   // Auto-shrink to fit when the window/device viewport gets smaller (e.g. rotating a
