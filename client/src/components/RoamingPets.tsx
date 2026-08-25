@@ -285,7 +285,13 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
             style={{ transform: `translate(${pos.x}px, ${pos.y}px)${rotate}` }}
             title={p.pet.name}
           >
-            <PetIcon pet={p.pet} size={roamingIconSize(p.petId, p.size)} variant="top" moving={moving[i] ?? false} />
+            <PetIcon
+              pet={p.pet}
+              size={roamingIconSize(p.petId, p.size)}
+              variant="top"
+              moving={moving[i] ?? false}
+              seed={`${player.id}:${p.petId}:${p.size}`}
+            />
           </span>
         );
       })}

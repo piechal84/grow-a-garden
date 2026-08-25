@@ -9,9 +9,10 @@ export type PetEffect =
   | { type: "growSpeed"; value: number }
   | { type: "sellBonus"; value: number }
   | { type: "incubatorSpeed"; value: number }
-  /** Fox only — the ability itself (harvest 1 ready crop every 60s, always exactly one,
-   *  regardless of evolution/size) is hardcoded server-side, not scaled by `value`. The field
-   *  only exists so Fox's Empowered/Tenacious forms still fit the Pet/BasePet shape uniformly. */
+  /** Fox only — the ability itself (harvest N ready crops every 60s, where N = evolution stage +
+   *  1: base 1, Empowered 2, Tenacious 3) is hardcoded server-side by stage, not scaled by
+   *  `value`. The field only exists so Fox's Empowered/Tenacious forms still fit the
+   *  Pet/BasePet shape uniformly. */
   | { type: "autoHarvest"; value: number };
 
 export interface Pet {
@@ -254,7 +255,10 @@ export const PET_EFFECT_LABELS: Record<PetEffect["type"], string> = {
  *  power is never a mystery — "+N% Grow Speed" / "+N% Sell Price" / "+N% Incubator Speed" for the
  *  percentage-based effects, or a fixed description for Fox's flat "once every 60s" ability. */
 export function formatPetEffect(pet: Pet, size: PetSize): string {
-  if (pet.effect.type === "autoHarvest") return "Harvests 1 ready crop every 60s";
+  if (pet.effect.type === "autoHarvest") {
+    const count = evolutionInfo(pet.id).stage + 1;
+    return `Harvests ${count} ready crop${count === 1 ? "" : "s"} every 60s`;
+  }
   const pct = Math.round(petEffectValue(pet, size) * 1000) / 10;
   const label = PET_EFFECT_LABELS[pet.effect.type];
   return `+${pct}% ${label}`;
@@ -272,6 +276,9 @@ export function petSpecialAbility(petId: string): string | undefined {
   if (baseId === "baby_dragon") {
     return "While equipped: instantly finishes growing one crop every 60 seconds. Each equipped Baby Dragon has its own independent timer.";
   }
+  if (baseId === "fox") {
+    return "While equipped: auto-harvests a ready crop every 60 seconds — one extra crop per merge (1 base, 2 Empowered, 3 Tenacious). Each equipped Fox has its own independent timer.";
+  }
   return undefined;
 }
 
@@ -280,6 +287,7 @@ export function petSpecialAbilityBadge(petId: string): string | undefined {
   const { baseId } = evolutionInfo(petId);
   if (baseId === "unicorn") return "🌈 Rain bonus";
   if (baseId === "baby_dragon") return "⚡ Insta-grow";
+  if (baseId === "fox") return "🌾 Auto-harvest";
   return undefined;
 }
 

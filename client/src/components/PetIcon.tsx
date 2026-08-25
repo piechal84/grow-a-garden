@@ -110,14 +110,32 @@ function PhoenixChickTopImage({ size, moving }: { size: number; moving: boolean 
   );
 }
 
-/** The Baby Dragon as seen from above while roaming the garden — real artwork, single pose
- *  (no moving/stationary distinction like the Phoenix Chick, since only one reference image
- *  exists for it). No portrait glyph exists yet, so the front-facing shop/inventory tile still
- *  falls back to the plain emoji. */
-function BabyDragonTopImage({ size }: { size: number }) {
+/** Simple deterministic string hash (djb2) — used to pick a stable-but-varied cosmetic choice
+ *  (which Tenacious color an equipped dragon gets) without needing any server-side state for
+ *  something that's purely visual. Same seed always yields the same pick, so it never flickers
+ *  across re-renders or reconnects; different equipped instances land on either color roughly
+ *  50/50. */
+function hashString(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = (h * 33) ^ s.charCodeAt(i);
+  return h >>> 0;
+}
+
+const TENACIOUS_DRAGON_VARIANTS = [
+  "/images/pets/baby-dragon-top-tenacious-black-red.png",
+  "/images/pets/baby-dragon-top-tenacious-orange-black.png",
+];
+
+/** The Baby Dragon as seen from above while roaming the garden — real artwork, one image per
+ *  evolution stage: base is green, Empowered is yellow, Tenacious is randomly (but stably, see
+ *  hashString) either the black & red or orange & black colorway. */
+function BabyDragonTopImage({ stage, seed, size }: { stage: number; seed: string; size: number }) {
+  let src = "/images/pets/baby-dragon-top.png";
+  if (stage === 1) src = "/images/pets/baby-dragon-top-empowered.png";
+  else if (stage >= 2) src = TENACIOUS_DRAGON_VARIANTS[hashString(seed) % TENACIOUS_DRAGON_VARIANTS.length];
   return (
     <img
-      src="/images/pets/baby-dragon-top.png"
+      src={src}
       alt=""
       aria-hidden="true"
       style={{ width: size, height: size, objectFit: "contain", display: "block" }}
@@ -130,6 +148,7 @@ export default function PetIcon({
   size = 28,
   variant = "portrait",
   moving = false,
+  seed,
 }: {
   pet: IconPet;
   size?: number;
@@ -139,13 +158,18 @@ export default function PetIcon({
   variant?: "portrait" | "top";
   /** "top" variant only — swaps to a warmer walking pose while the pet is mid-move. */
   moving?: boolean;
+  /** Identifies this specific equipped instance (e.g. `${playerId}:${petId}:${size}`) so a
+   *  cosmetic random pick (which Tenacious Dragon colorway) stays stable for that instance
+   *  instead of re-rolling on every render. Falls back to the pet id, which is fine for callers
+   *  that don't need per-instance variety. */
+  seed?: string;
 }) {
-  const { baseId } = evolutionInfo(pet.id);
+  const { baseId, stage } = evolutionInfo(pet.id);
   if (baseId === "phoenix_chick") {
     return variant === "top" ? <PhoenixChickTopImage size={size} moving={moving} /> : <PhoenixChickGlyph size={size} />;
   }
   if (baseId === "baby_dragon" && variant === "top") {
-    return <BabyDragonTopImage size={size} />;
+    return <BabyDragonTopImage stage={stage} seed={seed ?? pet.id} size={size} />;
   }
   return (
     <span style={{ fontSize: size, lineHeight: 1 }} role="img" aria-label={pet.name}>

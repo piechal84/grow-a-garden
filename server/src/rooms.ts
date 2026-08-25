@@ -480,12 +480,14 @@ export function tickDragonInstaGrow(): DragonProc[] {
 
 const FOX_PROC_INTERVAL_MS = 60 * 1000;
 
-/** Every equipped Fox (any evolution stage) auto-harvests one of its owner's ready-to-collect
- *  plantings — always exactly one, picking whichever has been sitting ready longest — on its own
- *  independent 60s cooldown, the same petProcAt bookkeeping and equip-timing protection
- *  tickDragonInstaGrow uses. Just calls the real harvest() so mutations/persistent-regrow/quest
- *  progress all happen exactly as if the player had tapped it themselves. Returns the rooms that
- *  actually changed, so the caller knows which ones to broadcast. */
+/** Every equipped Fox (any evolution stage) auto-harvests some of its owner's ready-to-collect
+ *  plantings on its own independent 60s cooldown, the same petProcAt bookkeeping and
+ *  equip-timing protection tickDragonInstaGrow uses. Harvest count scales with evolution stage —
+ *  base Fox harvests 1, Empowered 2, Tenacious 3 (one extra per merge) — picking whichever
+ *  plantings have been sitting ready longest. Just calls the real harvest() so
+ *  mutations/persistent-regrow/quest progress all happen exactly as if the player had tapped it
+ *  themselves. Returns the rooms that actually changed, so the caller knows which ones to
+ *  broadcast. */
 export function tickFoxAutoHarvest(): RoomState[] {
   const now = Date.now();
   const changed: RoomState[] = [];
@@ -494,7 +496,8 @@ export function tickFoxAutoHarvest(): RoomState[] {
     for (const player of room.players) {
       for (const key of player.petsEquipped) {
         const { petId } = parseSlotKey(key);
-        if (evolutionInfo(petId).baseId !== "fox") continue;
+        const { baseId, stage } = evolutionInfo(petId);
+        if (baseId !== "fox") continue;
         const nextAt = player.petProcAt[key];
         if (nextAt === undefined) {
           player.petProcAt[key] = now + FOX_PROC_INTERVAL_MS;
@@ -502,8 +505,12 @@ export function tickFoxAutoHarvest(): RoomState[] {
         }
         if (now < nextAt) continue;
         player.petProcAt[key] = now + FOX_PROC_INTERVAL_MS;
-        const target = player.plantings.filter((p) => now >= p.readyAt).sort((a, b) => a.readyAt - b.readyAt)[0];
-        if (target) {
+        const harvestCount = stage + 1;
+        const targets = player.plantings
+          .filter((p) => now >= p.readyAt)
+          .sort((a, b) => a.readyAt - b.readyAt)
+          .slice(0, harvestCount);
+        for (const target of targets) {
           harvest(room, player, target.id);
           roomChanged = true;
         }
