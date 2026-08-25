@@ -24,6 +24,9 @@ import PetIcon from "./PetIcon";
 
 const BULK_EGG_COUNT = 10;
 const BULK_EGG_DISCOUNT = 0.1;
+/** How long to wait for a purchase's ack before assuming the connection dropped mid-request and
+ *  giving up rather than leaving the UI stuck disabled forever. */
+const ACK_TIMEOUT_MS = 10_000;
 
 function formatPct(v: number): string {
   return `${Math.round(v * 1000) / 10}%`;
@@ -95,7 +98,22 @@ export default function PetShopView({ player }: { player: PlayerState }) {
   function handleOpenEgg(eggId: string) {
     setError(null);
     setOpening(eggId);
+    // If the connection drops between the emit and the server's response, this ack callback
+    // would otherwise never fire — leaving "opening" stuck forever and the Open button
+    // permanently disabled, even though the purchase may well have already gone through
+    // server-side (diamonds/coins already spent, invisible until a refresh). This timeout is
+    // the fallback so the UI always recovers and says so.
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      setOpening(null);
+      setError("Lost connection while opening the egg — check your inventory before trying again.");
+    }, ACK_TIMEOUT_MS);
     socket.emit("buy_pet_egg", { eggId }, (res: PetEggAck) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
       setOpening(null);
       if (!res.ok || !res.petId || !res.size || res.count === undefined) {
         setError(res.error ?? "Could not open egg.");
@@ -109,7 +127,17 @@ export default function PetShopView({ player }: { player: PlayerState }) {
   function handleOpenEggBulk(eggId: string) {
     setError(null);
     setOpening(eggId);
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      setOpening(null);
+      setError("Lost connection while opening the eggs — check your inventory before trying again.");
+    }, ACK_TIMEOUT_MS);
     socket.emit("buy_pet_egg_bulk", { eggId }, (res: PetEggBulkAck) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
       setOpening(null);
       if (!res.ok || !res.results) {
         setError(res.error ?? "Could not open eggs.");

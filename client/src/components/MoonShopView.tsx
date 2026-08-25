@@ -24,12 +24,17 @@ const SPIN_MIN_STEPS = 18;
 const BULK_COUNT = 10;
 const BULK_DISCOUNT = 0.1;
 const BULK_COST = Math.round(MOON_PACK_COST * BULK_COUNT * (1 - BULK_DISCOUNT));
+/** If the connection drops between the emit and the server's response, hasAck() would otherwise
+ *  never turn true — spinning forever even though the purchase may well have already gone
+ *  through server-side (coins already spent, invisible until this gives up and says so). */
+const ACK_TIMEOUT_MS = 10_000;
 
 function delay(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
 type Phase = "idle" | "spinning" | "revealed";
+type SpinResult = "ok" | "superseded" | "timeout";
 
 export default function MoonShopView({ player }: { player: PlayerState }) {
   const growMult = growSpeedMultiplier(player);
@@ -43,15 +48,17 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
   const affordable = player.coins >= MOON_PACK_COST;
   const bulkAffordable = player.coins >= BULK_COST;
 
-  async function runSpin(runId: number, hasAck: () => boolean) {
+  async function runSpin(runId: number, hasAck: () => boolean): Promise<SpinResult> {
     let step = 0;
+    const deadline = Date.now() + ACK_TIMEOUT_MS;
     while (true) {
-      if (runId !== spinRunId.current) return false;
+      if (runId !== spinRunId.current) return "superseded";
       setSpinCropId(SPIN_ORDER[step % SPIN_ORDER.length]);
       const t = Math.min(1, step / SPIN_MIN_STEPS);
       await delay(55 + t * t * 210);
       step++;
-      if (step >= SPIN_MIN_STEPS && hasAck()) return true;
+      if (step >= SPIN_MIN_STEPS && hasAck()) return "ok";
+      if (Date.now() > deadline) return "timeout";
     }
   }
 
@@ -70,8 +77,14 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
     // Cycle through the crop icons with a slot-machine deceleration curve. Keeps spinning
     // past the minimum if the server hasn't answered yet, so it never looks stuck or reveals
     // before the real (server-authoritative) result is known.
-    if (!(await runSpin(runId, () => !!box.ack))) return;
+    const spinResult = await runSpin(runId, () => !!box.ack);
+    if (spinResult === "superseded") return;
     if (runId !== spinRunId.current) return;
+    if (spinResult === "timeout") {
+      setPhase("idle");
+      setError("Lost connection while opening the pack — check your coin count before trying again.");
+      return;
+    }
 
     const res = box.ack;
     if (!res || !res.ok || !res.result) {
@@ -99,8 +112,14 @@ export default function MoonShopView({ player }: { player: PlayerState }) {
       box.ack = res;
     });
 
-    if (!(await runSpin(runId, () => !!box.ack))) return;
+    const spinResult = await runSpin(runId, () => !!box.ack);
+    if (spinResult === "superseded") return;
     if (runId !== spinRunId.current) return;
+    if (spinResult === "timeout") {
+      setPhase("idle");
+      setError("Lost connection while opening the packs — check your coin count before trying again.");
+      return;
+    }
 
     const res = box.ack;
     if (!res || !res.ok || !res.results) {
