@@ -20,11 +20,15 @@ export interface SolarCrop {
   diamondReward?: number;
 }
 
+// Mirrors server/src/solarData.ts — Solar Packs cost 1 diamond a pull (effectively 1,000,000
+// coins) regardless of which tier the pull lands on, so even the coin-paying crops (everything
+// below Mythic, which pays Diamonds directly) are priced at least 15% above Moon Blossom's
+// 20,000 sell price to not feel like a bad deal.
 export const SOLAR_CROPS: SolarCrop[] = [
-  { id: "solstice_peach", name: "Solstice Peach", emoji: "🍑", tier: "common", growSeconds: 40, sellPrice: 150, footprint: { w: 1, h: 1 } },
-  { id: "radiant_lemon", name: "Radiant Lemon", emoji: "🍋", tier: "uncommon", growSeconds: 55, sellPrice: 400, footprint: { w: 1, h: 1 } },
-  { id: "blazing_pineapple", name: "Blazing Pineapple", emoji: "🍍", tier: "rare", growSeconds: 75, sellPrice: 900, footprint: { w: 1, h: 1 }, persistent: true },
-  { id: "corona_orange", name: "Corona Orange", emoji: "🍊", tier: "epic", growSeconds: 100, sellPrice: 2200, footprint: { w: 2, h: 1 }, variableFootprint: true, persistent: true },
+  { id: "solstice_peach", name: "Solstice Peach", emoji: "🍑", tier: "common", growSeconds: 40, sellPrice: 23000, footprint: { w: 1, h: 1 } },
+  { id: "radiant_lemon", name: "Radiant Lemon", emoji: "🍋", tier: "uncommon", growSeconds: 55, sellPrice: 55000, footprint: { w: 1, h: 1 } },
+  { id: "blazing_pineapple", name: "Blazing Pineapple", emoji: "🍍", tier: "rare", growSeconds: 75, sellPrice: 120000, footprint: { w: 1, h: 1 }, persistent: true },
+  { id: "corona_orange", name: "Corona Orange", emoji: "🍊", tier: "epic", growSeconds: 100, sellPrice: 300000, footprint: { w: 2, h: 1 }, variableFootprint: true, persistent: true },
   { id: "phoenix_sunflower", name: "Phoenix Sunflower", emoji: "🌻", tier: "mythic", growSeconds: 140, sellPrice: 6000, footprint: { w: 2, h: 1 }, variableFootprint: true, persistent: true, diamondReward: 1 },
   { id: "sun_blossom", name: "Sun Blossom", emoji: "☀️", tier: "legendary", growSeconds: 200, sellPrice: 20000, footprint: { w: 2, h: 2 }, persistent: true, diamondReward: 2 },
 ];

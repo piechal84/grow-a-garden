@@ -20,11 +20,17 @@ export interface SolarCrop {
   diamondReward?: number;
 }
 
+// Solar Packs cost 1 diamond a pull (SOLAR_PACK_COST below) — effectively DIAMOND_BUY_RATE
+// (1,000,000) coins if bought outright, regardless of which tier the pull happens to land on.
+// That acquisition cost is completely disconnected from crop tier, unlike the coin-priced Moon
+// Pack (500 coins) — so even the coin-paying Solar crops (everything below Mythic, which pays
+// Diamonds directly) need a base sell price well above their Moon-crop counterparts to not feel
+// like a bad deal. Each is priced at least 15% above Moon Blossom's 20,000 sell price.
 export const SOLAR_CROPS: SolarCrop[] = [
-  { id: "solstice_peach", name: "Solstice Peach", emoji: "🍑", tier: "common", growSeconds: 40, sellPrice: 150, footprint: { w: 1, h: 1 } },
-  { id: "radiant_lemon", name: "Radiant Lemon", emoji: "🍋", tier: "uncommon", growSeconds: 55, sellPrice: 400, footprint: { w: 1, h: 1 } },
-  { id: "blazing_pineapple", name: "Blazing Pineapple", emoji: "🍍", tier: "rare", growSeconds: 75, sellPrice: 900, footprint: { w: 1, h: 1 }, persistent: true },
-  { id: "corona_orange", name: "Corona Orange", emoji: "🍊", tier: "epic", growSeconds: 100, sellPrice: 2200, footprint: { w: 2, h: 1 }, variableFootprint: true, persistent: true },
+  { id: "solstice_peach", name: "Solstice Peach", emoji: "🍑", tier: "common", growSeconds: 40, sellPrice: 23000, footprint: { w: 1, h: 1 } },
+  { id: "radiant_lemon", name: "Radiant Lemon", emoji: "🍋", tier: "uncommon", growSeconds: 55, sellPrice: 55000, footprint: { w: 1, h: 1 } },
+  { id: "blazing_pineapple", name: "Blazing Pineapple", emoji: "🍍", tier: "rare", growSeconds: 75, sellPrice: 120000, footprint: { w: 1, h: 1 }, persistent: true },
+  { id: "corona_orange", name: "Corona Orange", emoji: "🍊", tier: "epic", growSeconds: 100, sellPrice: 300000, footprint: { w: 2, h: 1 }, variableFootprint: true, persistent: true },
   { id: "phoenix_sunflower", name: "Phoenix Sunflower", emoji: "🌻", tier: "mythic", growSeconds: 140, sellPrice: 6000, footprint: { w: 2, h: 1 }, variableFootprint: true, persistent: true, diamondReward: 1 },
   { id: "sun_blossom", name: "Sun Blossom", emoji: "☀️", tier: "legendary", growSeconds: 200, sellPrice: 20000, footprint: { w: 2, h: 2 }, persistent: true, diamondReward: 2 },
 ];
