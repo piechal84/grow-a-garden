@@ -31,7 +31,8 @@ export type GearEffect =
   | { type: "expandGarden"; value: number }
   | { type: "unlockReclaim" }
   | { type: "unlockMove" }
-  | { type: "unlockMerge" };
+  | { type: "unlockMerge" }
+  | { type: "unlockKitsuneShrine" };
 
 export interface GearPrice {
   coins: number;
@@ -130,6 +131,17 @@ export const GEAR: GearItem[] = [
     maxOwned: 2,
     effect: { type: "unlockMerge" },
   },
+  {
+    id: "kelka_kitsune_shrine",
+    name: "Kelka Kitsune Shrine",
+    emoji: "🐺",
+    description:
+      "Plant on a 3x3 clearing to craft the Historic-tier Kitsune from a New Fox Egg (Pet Shop) and a Giant Moon/Sun Blossom. Own up to 1.",
+    cost: 0,
+    repeatable: false,
+    levelCosts: [{ coins: 0, diamonds: 5 }],
+    effect: { type: "unlockKitsuneShrine" },
+  },
 ];
 
 export const GEAR_BY_ID: Record<string, GearItem> = Object.fromEntries(GEAR.map((g) => [g.id, g]));
@@ -184,6 +196,10 @@ export const CROP_TIER_LABELS = [
   "Legendary",
   "Divine",
   "Celestial",
+  /** Historic sits above Celestial — reserved for pets that can't be hatched/rolled at all, only
+   *  crafted through a unique one-off path (the Kitsune, via the Kelka Kitsune Shrine). Shown
+   *  with a fancy banner instead of the usual small tier badge — see PetTierBadge. */
+  "Historic",
 ];
 
 export const CROP_TIER_COLORS = [
@@ -195,4 +211,5 @@ export const CROP_TIER_COLORS = [
   "#f2b23a",
   "#ffd54a",
   "#4fd8e0",
+  "#c0293a",
 ];

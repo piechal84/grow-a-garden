@@ -8,10 +8,12 @@ import { effectiveWorkBetween, MUTATIONS, type MutationId } from "../weather";
 import { CELL_SIZE, plotOrigin } from "../world";
 import GrowthPlant from "./GrowthPlant";
 import IncubatorStructure from "./IncubatorStructure";
+import KitsuneShrineStructure from "./KitsuneShrineStructure";
 import PlantPickerModal from "./PlantPickerModal";
 import RoamingPets from "./RoamingPets";
 
 const INCUBATOR_SIZE = 3;
+const KITSUNE_SHRINE_SIZE = 3;
 
 /** True if two footprints share an edge (not just a corner) — mirrors the server's aura check. */
 function isOrthogonallyAdjacent(a: Planting, b: Planting): boolean {
@@ -60,7 +62,9 @@ export default function PlotView({
   roomCreatedAt: number;
 }) {
   const [pickerCell, setPickerCell] = useState<{ x: number; y: number } | null>(null);
-  const [activeTool, setActiveTool] = useState<"reclaim" | "move" | "place_incubator" | null>(null);
+  const [activeTool, setActiveTool] = useState<"reclaim" | "move" | "place_incubator" | "place_kitsune_shrine" | null>(
+    null,
+  );
   const [movingId, setMovingId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
   const origin = plotOrigin(player.slotIndex);
@@ -74,6 +78,11 @@ export default function PlotView({
   for (const inc of player.incubators) {
     for (let cx = inc.x; cx < inc.x + INCUBATOR_SIZE; cx++) {
       for (let cy = inc.y; cy < inc.y + INCUBATOR_SIZE; cy++) occupied.add(`${cx},${cy}`);
+    }
+  }
+  for (const shrine of player.kitsuneShrines) {
+    for (let cx = shrine.x; cx < shrine.x + KITSUNE_SHRINE_SIZE; cx++) {
+      for (let cy = shrine.y; cy < shrine.y + KITSUNE_SHRINE_SIZE; cy++) occupied.add(`${cx},${cy}`);
     }
   }
 
@@ -92,6 +101,8 @@ export default function PlotView({
       };
       if (player.incubators.some((inc) => inc.id === id)) {
         socket.emit("move_incubator", { incubatorId: id, x, y }, onSettled);
+      } else if (player.kitsuneShrines.some((s) => s.id === id)) {
+        socket.emit("move_kitsune_shrine", { shrineId: id, x, y }, onSettled);
       } else {
         socket.emit("move_planting", { plantingId: id, x, y }, onSettled);
       }
@@ -99,6 +110,17 @@ export default function PlotView({
     }
     if (activeTool === "place_incubator") {
       socket.emit("place_incubator", { x, y }, (res) => {
+        if (res.ok) {
+          setActiveTool(null);
+          setMoveError(null);
+        } else {
+          setMoveError(res.error ?? "Won't fit there.");
+        }
+      });
+      return;
+    }
+    if (activeTool === "place_kitsune_shrine") {
+      socket.emit("place_kitsune_shrine", { x, y }, (res) => {
         if (res.ok) {
           setActiveTool(null);
           setMoveError(null);
@@ -127,6 +149,12 @@ export default function PlotView({
     });
   }
 
+  function handleReclaimKitsuneShrine(shrineId: string) {
+    socket.emit("reclaim_kitsune_shrine", { shrineId }, (res) => {
+      setMoveError(res.ok ? null : (res.error ?? "Could not reclaim."));
+    });
+  }
+
   function handleSelectForMove(plantingId: string) {
     setMoveError(null);
     setMovingId(plantingId);
@@ -145,7 +173,7 @@ export default function PlotView({
     if (ready) handleHarvest(planting.id);
   }
 
-  function toggleTool(tool: "reclaim" | "move" | "place_incubator") {
+  function toggleTool(tool: "reclaim" | "move" | "place_incubator" | "place_kitsune_shrine") {
     setMoveError(null);
     setMovingId(null);
     setActiveTool((cur) => (cur === tool ? null : tool));
@@ -155,6 +183,8 @@ export default function PlotView({
   const hasTrowel = (player.gearOwned["trowel"] ?? 0) > 0;
   const incubatorsOwned = player.gearOwned["kelka_incubator"] ?? 0;
   const canPlaceIncubator = incubatorsOwned > player.incubators.length;
+  const kitsuneShrinesOwned = player.gearOwned["kelka_kitsune_shrine"] ?? 0;
+  const canPlaceKitsuneShrine = kitsuneShrinesOwned > player.kitsuneShrines.length;
 
   const emptyCells: { x: number; y: number }[] = [];
   for (let y = 0; y < player.gridHeight; y++) {
@@ -174,7 +204,7 @@ export default function PlotView({
       }}
     >
       <span className="world-plot-name">{player.name}</span>
-      {isOwner && (hasReclaimer || hasTrowel || canPlaceIncubator) && (
+      {isOwner && (hasReclaimer || hasTrowel || canPlaceIncubator || canPlaceKitsuneShrine) && (
         <div className="plot-toolbar" onClick={(e) => e.stopPropagation()}>
           {hasReclaimer && (
             <button
@@ -200,11 +230,19 @@ export default function PlotView({
               🥚 Place Incubator
             </button>
           )}
+          {canPlaceKitsuneShrine && (
+            <button
+              className={`plot-tool-btn ${activeTool === "place_kitsune_shrine" ? "plot-tool-btn-active" : ""}`}
+              onClick={() => toggleTool("place_kitsune_shrine")}
+            >
+              🐺 Place Kitsune Shrine
+            </button>
+          )}
         </div>
       )}
       {isOwner && activeTool === "reclaim" && (
         <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
-          🧲 Tap a crop to reclaim its seed, or an incubator to pick it up
+          🧲 Tap a crop to reclaim its seed, or an incubator/shrine to pick it up
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
             Done
           </button>
@@ -218,9 +256,17 @@ export default function PlotView({
           </button>
         </div>
       )}
+      {isOwner && activeTool === "place_kitsune_shrine" && (
+        <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
+          🐺 Tap an empty 3x3 clearing to plant the Kitsune Shrine
+          <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
+            Cancel
+          </button>
+        </div>
+      )}
       {isOwner && activeTool === "move" && !movingId && (
         <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
-          🛠️ Tap a crop or incubator to move it
+          🛠️ Tap a crop, incubator, or shrine to move it
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
             Done
           </button>
@@ -335,6 +381,21 @@ export default function PlotView({
           onSelectForMove={() => handleSelectForMove(incubator.id)}
           reclaimMode={activeTool === "reclaim"}
           onReclaim={() => handleReclaimIncubator(incubator.id)}
+        />
+      ))}
+
+      {player.kitsuneShrines.map((shrine) => (
+        <KitsuneShrineStructure
+          key={shrine.id}
+          shrine={shrine}
+          player={player}
+          isOwner={isOwner}
+          now={now}
+          moveMode={activeTool === "move"}
+          isMoving={movingId === shrine.id}
+          onSelectForMove={() => handleSelectForMove(shrine.id)}
+          reclaimMode={activeTool === "reclaim"}
+          onReclaim={() => handleReclaimKitsuneShrine(shrine.id)}
         />
       ))}
 

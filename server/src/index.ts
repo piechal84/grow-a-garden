@@ -8,6 +8,7 @@ import { Server } from "socket.io";
 import {
   allPositions,
   buyDiamonds,
+  buyFoxEgg,
   buyGear,
   buyMoonPack,
   buyMoonPackBulk,
@@ -17,6 +18,7 @@ import {
   buySeed,
   buySolarPack,
   buySolarPackBulk,
+  collectKitsuneCraft,
   collectPetMerge,
   createRoom,
   ensurePosition,
@@ -30,16 +32,20 @@ import {
   joinRoom,
   markDisconnected,
   moveIncubator,
+  moveKitsuneShrine,
   movePlanting,
   movePlayer,
   placeIncubator,
+  placeKitsuneShrine,
   plant,
   reclaim,
   reclaimIncubator,
+  reclaimKitsuneShrine,
   rerollQuest,
   sell,
   sellAll,
   sellDiamonds,
+  startKitsuneCraft,
   startPetMerge,
   tickDragonInstaGrow,
   tickFoxAutoHarvest,
@@ -261,6 +267,54 @@ io.on("connection", (socket) => {
     const { room, player } = currentPlayer();
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
     const result = collectPetMerge(player, incubatorId);
+    ack?.({ ok: !result.error, error: result.error, petId: result.petId, size: result.size });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("buy_fox_egg", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = buyFoxEgg(player);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("place_kitsune_shrine", ({ x, y }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = placeKitsuneShrine(player, x, y);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("move_kitsune_shrine", ({ shrineId, x, y }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = moveKitsuneShrine(player, shrineId, x, y);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("reclaim_kitsune_shrine", ({ shrineId }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = reclaimKitsuneShrine(player, shrineId);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("start_kitsune_craft", ({ shrineId, recipe }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = startKitsuneCraft(player, shrineId, recipe);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("collect_kitsune_craft", ({ shrineId }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = collectKitsuneCraft(player, shrineId);
     ack?.({ ok: !result.error, error: result.error, petId: result.petId, size: result.size });
     if (!result.error) broadcast(room);
   });

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CROPS_BY_ID, CROP_TIER_COLORS, CROP_TIER_LABELS, SIZE_COLORS } from "../gameData";
+import { CROPS_BY_ID, SIZE_COLORS } from "../gameData";
 import { MOON_CROPS_BY_ID, MOON_TIER_TO_CROP_TIER } from "../moonData";
 import {
   formatPetEffect,
@@ -17,6 +17,7 @@ import type { PlayerState } from "../types";
 import { MUTATIONS, mutationKey, type MutationId } from "../weather";
 import CropIcon from "./CropIcon";
 import PetIcon from "./PetIcon";
+import PetTierBadge from "./PetTierBadge";
 
 function sortRank(cropId: string): number {
   const normal = CROPS_BY_ID[cropId];
@@ -155,9 +156,7 @@ export default function InventoryView({ player }: { player: PlayerState }) {
                 <span className="pet-effect-label">{formatPetEffect(pet, size)}</span>
                 {special && <span className="pet-special-label">{petSpecialAbilityBadge(petId)}</span>}
                 <div className="inventory-tile-badges">
-                  <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
-                    {CROP_TIER_LABELS[pet.tier]}
-                  </span>
+                  <PetTierBadge tier={pet.tier} />
                   <span className="size-badge" style={{ background: "#5c6b56" }}>
                     {PET_SIZE_LABELS[size]}
                   </span>

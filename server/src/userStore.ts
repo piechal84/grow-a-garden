@@ -5,7 +5,7 @@ import path from "node:path";
 import { STARTING_COINS } from "./gameData.js";
 import { BASE_PET_SLOTS, type PetSize } from "./petData.js";
 import type { Quest } from "./quests.js";
-import type { HarvestedCrop, IncubatorState, Planting } from "./types.js";
+import type { HarvestedCrop, IncubatorState, KitsuneShrineState, Planting } from "./types.js";
 import { BASE_GRID_HEIGHT, PLOT_GRID_WIDTH } from "./world.js";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -37,6 +37,9 @@ export interface SavedProgress {
   incubators: IncubatorState[];
   /** Absent on saves from before the Baby Dragon insta-grow ability existed. */
   petProcAt?: Record<string, number>;
+  /** Absent on saves from before the Kitsune Shrine existed. */
+  foxEggsOwned?: number;
+  kitsuneShrines?: KitsuneShrineState[];
 }
 
 export interface UserRecord {
@@ -73,6 +76,8 @@ function defaultProgress(): SavedProgress {
     petsEquipped: [],
     incubators: [],
     petProcAt: {},
+    foxEggsOwned: 0,
+    kitsuneShrines: [],
   };
 }
 

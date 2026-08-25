@@ -143,6 +143,12 @@ function BabyDragonTopImage({ stage, seed, size }: { stage: number; seed: string
   );
 }
 
+const KITSUNE_IMAGES: Record<string, string> = {
+  kitsune_moon: "/images/pets/kitsune-black-red.png",
+  kitsune_sun: "/images/pets/kitsune-orange-fox.png",
+  kitsune_fused: "/images/pets/kitsune-white-crimson.png",
+};
+
 export default function PetIcon({
   pet,
   size = 28,
@@ -170,6 +176,17 @@ export default function PetIcon({
   }
   if (baseId === "baby_dragon" && variant === "top") {
     return <BabyDragonTopImage stage={stage} seed={seed ?? pet.id} size={size} />;
+  }
+  const kitsuneSrc = KITSUNE_IMAGES[pet.id];
+  if (kitsuneSrc) {
+    return (
+      <img
+        src={kitsuneSrc}
+        alt=""
+        aria-hidden="true"
+        style={{ width: size, height: size, objectFit: "contain", display: "block" }}
+      />
+    );
   }
   return (
     <span style={{ fontSize: size, lineHeight: 1 }} role="img" aria-label={pet.name}>

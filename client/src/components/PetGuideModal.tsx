@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
-import { CROP_TIER_COLORS, CROP_TIER_LABELS } from "../gameData";
 import { evolutionInfo, formatPetEffect, PETS, petSpecialAbility, type PetSize } from "../petData";
 import PetIcon from "./PetIcon";
+import PetTierBadge from "./PetTierBadge";
 
 const GUIDE_SIZE: PetSize = "normal";
 
@@ -35,9 +35,7 @@ export default function PetGuideModal({ onClose }: { onClose: () => void }) {
                 <div className="shop-row-info">
                   <div className="shop-row-name">
                     {pet.name}
-                    <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
-                      {CROP_TIER_LABELS[pet.tier]}
-                    </span>
+                    <PetTierBadge tier={pet.tier} />
                   </div>
                   <div className="shop-row-stats">
                     <span className="pet-effect-label">{formatPetEffect(pet, GUIDE_SIZE)}</span>

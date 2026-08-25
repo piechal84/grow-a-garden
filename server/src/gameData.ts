@@ -33,7 +33,8 @@ export type GearEffect =
   | { type: "expandGarden"; value: number }
   | { type: "unlockReclaim" }
   | { type: "unlockMove" }
-  | { type: "unlockMerge" };
+  | { type: "unlockMerge" }
+  | { type: "unlockKitsuneShrine" };
 
 export interface GearPrice {
   coins: number;
@@ -131,6 +132,17 @@ export const GEAR: GearItem[] = [
     repeatable: true,
     maxOwned: 2,
     effect: { type: "unlockMerge" },
+  },
+  {
+    id: "kelka_kitsune_shrine",
+    name: "Kelka Kitsune Shrine",
+    emoji: "🐺",
+    description:
+      "Plant on a 3x3 clearing to craft the Historic-tier Kitsune from a New Fox Egg (Pet Shop) and a Giant Moon/Sun Blossom. Own up to 1.",
+    cost: 0,
+    repeatable: false,
+    levelCosts: [{ coins: 0, diamonds: 5 }],
+    effect: { type: "unlockKitsuneShrine" },
   },
 ];
 

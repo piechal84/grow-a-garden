@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CROP_TIER_COLORS, CROP_TIER_LABELS } from "../gameData";
 import {
   formatPetEffect,
+  HISTORIC_TIER,
   MAX_PET_SLOTS,
   nextPetSlotCost,
   parseSlotKey,
@@ -21,12 +22,17 @@ import { socket } from "../socket";
 import GrowSpeedBanner from "./GrowSpeedBanner";
 import PetGuideModal from "./PetGuideModal";
 import PetIcon from "./PetIcon";
+import PetTierBadge from "./PetTierBadge";
 
 const BULK_EGG_COUNT = 10;
 const BULK_EGG_DISCOUNT = 0.1;
 /** How long to wait for a purchase's ack before assuming the connection dropped mid-request and
  *  giving up rather than leaving the UI stuck disabled forever. */
 const ACK_TIMEOUT_MS = 10_000;
+const FOX_EGG_COST_DIAMONDS = 10;
+/** Not a real PET_EGGS entry — just an `opening` sentinel key for the New Fox Egg's own
+ *  purchase button, reusing the same busy/disabled pattern as the gacha eggs below it. */
+const FOX_EGG_KEY = "fox_egg";
 
 function formatPct(v: number): string {
   return `${Math.round(v * 1000) / 10}%`;
@@ -145,6 +151,27 @@ export default function PetShopView({ player }: { player: PlayerState }) {
       }
       setLastHatch(null);
       setBulkResults(res.results);
+    });
+  }
+
+  /** Unlike the gacha eggs above, this always yields exactly one New Fox Egg — no roll, no
+   *  reveal — so it only needs the same connection-drop safety net, not the spin/hatch flow. */
+  function handleBuyFoxEgg() {
+    setError(null);
+    setOpening(FOX_EGG_KEY);
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      setOpening(null);
+      setError("Lost connection while buying the egg — check your diamond count before trying again.");
+    }, ACK_TIMEOUT_MS);
+    socket.emit("buy_fox_egg", (res) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      setOpening(null);
+      if (!res.ok) setError(res.error ?? "Could not buy egg.");
     });
   }
 
@@ -288,9 +315,7 @@ export default function PetShopView({ player }: { player: PlayerState }) {
               <span className="pet-effect-label">{formatPetEffect(pet, size)}</span>
               {special && <span className="pet-special-label">{petSpecialAbilityBadge(petId)}</span>}
               <div className="inventory-tile-badges">
-                <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
-                  {CROP_TIER_LABELS[pet.tier]}
-                </span>
+                <PetTierBadge tier={pet.tier} />
                 <span className="size-badge" style={{ background: "#5c6b56" }}>
                   {PET_SIZE_LABELS[size]}
                 </span>
@@ -349,9 +374,7 @@ export default function PetShopView({ player }: { player: PlayerState }) {
                 <span className="pet-effect-label">{formatPetEffect(pet, size)}</span>
                 {special && <span className="pet-special-label">{petSpecialAbilityBadge(petId)}</span>}
                 <div className="inventory-tile-badges">
-                  <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
-                    {CROP_TIER_LABELS[pet.tier]}
-                  </span>
+                  <PetTierBadge tier={pet.tier} />
                   <span className="size-badge" style={{ background: "#5c6b56" }}>
                     {PET_SIZE_LABELS[size]}
                   </span>
@@ -408,9 +431,7 @@ export default function PetShopView({ player }: { player: PlayerState }) {
                     <PetIcon pet={pet} size={26} />
                     <span className="pet-effect-label">{formatPetEffect(pet, r.size)}</span>
                     <div className="inventory-tile-badges">
-                      <span className="size-badge" style={{ background: CROP_TIER_COLORS[pet.tier] }}>
-                        {CROP_TIER_LABELS[pet.tier]}
-                      </span>
+                      <PetTierBadge tier={pet.tier} />
                     </div>
                   </div>
                 );
@@ -462,6 +483,38 @@ export default function PetShopView({ player }: { player: PlayerState }) {
             </div>
           );
         })}
+      </div>
+
+      <h3 className="inventory-section-title">
+        🦊 New Fox Egg <PetTierBadge tier={HISTORIC_TIER} />
+      </h3>
+      <p className="shop-sub">
+        Not a hatch — always exactly one egg. Fuse it at a Kelka Kitsune Shrine (Gear Shop, plant on a 3x3 clearing)
+        with a Giant Moon Blossom, a Giant Sun Blossom, or both, to craft the Historic-tier Kitsune. Its passive
+        doubles, triples, or quadruples the diamond value of crops sold for diamonds (Sun Blossom, Phoenix
+        Sunflower) depending on the recipe.
+      </p>
+      <div className="shop-list">
+        <div className="shop-row">
+          <div className="shop-row-icon">
+            <span style={{ fontSize: 30 }}>🥚</span>
+          </div>
+          <div className="shop-row-info">
+            <div className="shop-row-name">New Fox Egg</div>
+            <div className="shop-row-stats">
+              <span>You have {player.foxEggsOwned}</span>
+            </div>
+          </div>
+          <div className="shop-row-actions">
+            <button
+              className="btn btn-primary"
+              disabled={player.diamonds < FOX_EGG_COST_DIAMONDS || opening === FOX_EGG_KEY}
+              onClick={handleBuyFoxEgg}
+            >
+              {opening === FOX_EGG_KEY ? "Buying…" : `Buy (💎${FOX_EGG_COST_DIAMONDS})`}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

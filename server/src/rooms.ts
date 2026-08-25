@@ -53,7 +53,15 @@ import {
   type Quest,
   type QuestType,
 } from "./quests.js";
-import type { HarvestedCrop, IncubatorState, PlayerState, Planting, RoomState } from "./types.js";
+import type {
+  HarvestedCrop,
+  IncubatorState,
+  KitsuneRecipe,
+  KitsuneShrineState,
+  PlayerState,
+  Planting,
+  RoomState,
+} from "./types.js";
 import { findUserById, type SavedProgress } from "./userStore.js";
 import {
   computeReadyAt,
@@ -121,6 +129,8 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     petsEquipped: saved?.petsEquipped ?? defaultEquippedSlots(saved?.petsOwned ?? {}, saved?.petSlots ?? BASE_PET_SLOTS),
     incubators: saved?.incubators ?? [],
     petProcAt: saved?.petProcAt ?? {},
+    foxEggsOwned: saved?.foxEggsOwned ?? 0,
+    kitsuneShrines: saved?.kitsuneShrines ?? [],
   };
   sanitizePetState(player);
   ensureQuestsFresh(player, Date.now());
@@ -410,6 +420,16 @@ function sellMultiplier(player: PlayerState): number {
   return 1 + bonus;
 }
 
+/** Kitsune only — no gear source, pets only. Applies to crops that pay out in diamonds directly
+ *  (Sun Blossom, Phoenix Sunflower) rather than the normal coin sellMultiplier path. */
+function diamondSellMultiplier(player: PlayerState): number {
+  let bonus = 0;
+  for (const { pet, size } of activePets(player)) {
+    if (pet && pet.effect.type === "diamondSellBonus") bonus += pet.effect.value * PET_SIZE_MULTIPLIER[size];
+  }
+  return 1 + bonus;
+}
+
 /** Only Bunny/Owl (and their evolutions) carry this effect — no gear source, pets only. */
 function incubatorSpeedMultiplier(player: PlayerState): number {
   let reduction = 0;
@@ -658,6 +678,7 @@ export function buyPetSlot(player: PlayerState): { error?: string } {
 }
 
 const INCUBATOR_SIZE = 3;
+const KITSUNE_SHRINE_SIZE = 3;
 const EMPOWER_DURATION_MS = 10 * 60 * 1000;
 const TENACIOUS_DURATION_MS = 60 * 60 * 1000;
 
@@ -670,6 +691,10 @@ function canPlaceAt(player: PlayerState, x: number, y: number, w: number, h: num
   for (const inc of player.incubators) {
     if (inc.id === ignoreId) continue;
     if (x < inc.x + INCUBATOR_SIZE && x + w > inc.x && y < inc.y + INCUBATOR_SIZE && y + h > inc.y) return false;
+  }
+  for (const shrine of player.kitsuneShrines) {
+    if (shrine.id === ignoreId) continue;
+    if (x < shrine.x + KITSUNE_SHRINE_SIZE && x + w > shrine.x && y < shrine.y + KITSUNE_SHRINE_SIZE && y + h > shrine.y) return false;
   }
   return true;
 }
@@ -713,6 +738,102 @@ export function collectPetMerge(player: PlayerState, incubatorId: string): { err
   addOwnedPet(player, resultId, size, 1);
   incubator.merge = null;
   return { petId: resultId, size };
+}
+
+const FOX_EGG_COST_DIAMONDS = 10;
+
+/** The New Fox Egg is a deterministic Pet Shop purchase, not a gacha roll — it only ever exists
+ *  to be fed into a Kelka Kitsune Shrine (see startKitsuneCraft), so it's tracked as a plain
+ *  counter rather than going through the usual petsOwned/hatch machinery. */
+export function buyFoxEgg(player: PlayerState): { error?: string } {
+  if (player.diamonds < FOX_EGG_COST_DIAMONDS) return { error: "Not enough diamonds." };
+  player.diamonds -= FOX_EGG_COST_DIAMONDS;
+  player.foxEggsOwned += 1;
+  return {};
+}
+
+export function placeKitsuneShrine(player: PlayerState, x: number, y: number): { error?: string } {
+  const owned = player.gearOwned["kelka_kitsune_shrine"] ?? 0;
+  if (owned <= 0) return { error: "You need the Kelka Kitsune Shrine from the Gear Shop first." };
+  if (player.kitsuneShrines.length >= owned) return { error: "You've already placed your Kitsune Shrine." };
+  if (!canPlaceAt(player, x, y, KITSUNE_SHRINE_SIZE, KITSUNE_SHRINE_SIZE)) return { error: "Won't fit there." };
+  player.kitsuneShrines.push({ id: nanoid(8), x, y, craft: null });
+  return {};
+}
+
+/** Removes one Giant-size copy of the given crop from inventory if present; returns whether it
+ *  found one (and thus whether anything changed). */
+function consumeGiantCrop(player: PlayerState, cropId: string): boolean {
+  const idx = player.cropInventory.findIndex((c) => c.cropId === cropId && c.sizeLabel === "Giant");
+  if (idx === -1) return false;
+  player.cropInventory.splice(idx, 1);
+  return true;
+}
+
+const KITSUNE_RESULT_BY_RECIPE: Record<KitsuneRecipe, string> = {
+  moon: "kitsune_moon",
+  sun: "kitsune_sun",
+  both: "kitsune_fused",
+};
+
+/** Fuses a New Fox Egg with a Giant Moon Blossom ("moon"), a Giant Sun Blossom ("sun"), or both
+ *  ("both") into the Historic-tier Kitsune — the only way to obtain it, since it's not in any
+ *  egg's hatch pool. Mirrors startPetMerge's timing: the "both" recipe (rarest result) takes the
+ *  full Tenacious duration, the single-blossom recipes take the shorter Empowered duration, both
+ *  sped up by the same incubator-speed pets as a normal merge. */
+export function startKitsuneCraft(player: PlayerState, shrineId: string, recipe: KitsuneRecipe): { error?: string } {
+  const shrine = player.kitsuneShrines.find((s) => s.id === shrineId);
+  if (!shrine) return { error: "Kitsune Shrine not found." };
+  if (shrine.craft) return { error: "This shrine is already crafting." };
+  if (player.foxEggsOwned < 1) return { error: "You need a New Fox Egg from the Pet Shop first." };
+  const needsMoon = recipe === "moon" || recipe === "both";
+  const needsSun = recipe === "sun" || recipe === "both";
+  if (needsMoon && !player.cropInventory.some((c) => c.cropId === "moon_blossom" && c.sizeLabel === "Giant")) {
+    return { error: "You need a Giant Moon Blossom in your inventory." };
+  }
+  if (needsSun && !player.cropInventory.some((c) => c.cropId === "sun_blossom" && c.sizeLabel === "Giant")) {
+    return { error: "You need a Giant Sun Blossom in your inventory." };
+  }
+  player.foxEggsOwned -= 1;
+  if (needsMoon) consumeGiantCrop(player, "moon_blossom");
+  if (needsSun) consumeGiantCrop(player, "sun_blossom");
+  const baseDurationMs = recipe === "both" ? TENACIOUS_DURATION_MS : EMPOWER_DURATION_MS;
+  const durationMs = baseDurationMs * incubatorSpeedMultiplier(player);
+  const now = Date.now();
+  shrine.craft = { recipe, startedAt: now, readyAt: now + durationMs };
+  return {};
+}
+
+export function collectKitsuneCraft(player: PlayerState, shrineId: string): { error?: string; petId?: string; size?: PetSize } {
+  const shrine = player.kitsuneShrines.find((s) => s.id === shrineId);
+  if (!shrine) return { error: "Kitsune Shrine not found." };
+  if (!shrine.craft) return { error: "Nothing crafting in this shrine." };
+  if (Date.now() < shrine.craft.readyAt) return { error: "Not ready yet." };
+  const resultId = KITSUNE_RESULT_BY_RECIPE[shrine.craft.recipe];
+  addOwnedPet(player, resultId, "normal", 1);
+  shrine.craft = null;
+  return { petId: resultId, size: "normal" };
+}
+
+export function moveKitsuneShrine(player: PlayerState, shrineId: string, x: number, y: number): { error?: string } {
+  const owned = player.gearOwned["trowel"] ?? 0;
+  if (owned <= 0) return { error: "You need the Trowel from the Gear Shop first." };
+  const shrine = player.kitsuneShrines.find((s) => s.id === shrineId);
+  if (!shrine) return { error: "Kitsune Shrine not found." };
+  if (!canPlaceAt(player, x, y, KITSUNE_SHRINE_SIZE, KITSUNE_SHRINE_SIZE, shrine.id)) return { error: "Won't fit there." };
+  shrine.x = x;
+  shrine.y = y;
+  return {};
+}
+
+export function reclaimKitsuneShrine(player: PlayerState, shrineId: string): { error?: string } {
+  const owned = player.gearOwned["reclaimer"] ?? 0;
+  if (owned <= 0) return { error: "You need the Reclaimer tool from the Gear Shop first." };
+  const idx = player.kitsuneShrines.findIndex((s) => s.id === shrineId);
+  if (idx === -1) return { error: "Kitsune Shrine not found." };
+  if (player.kitsuneShrines[idx].craft) return { error: "Finish or collect the craft in progress first." };
+  player.kitsuneShrines.splice(idx, 1);
+  return {};
 }
 
 /** True if two footprints share an edge (not just a corner) — "the squares next to it". */
@@ -898,12 +1019,13 @@ export function sell(
   if (qty > matching.length) return { error: "You don't have that many." };
   const toSell = matching.slice(0, qty);
   const mult = sellMultiplier(player);
+  const diamondMult = diamondSellMultiplier(player);
   const diamondReward = (crop as { diamondReward?: number }).diamondReward;
   let earned = 0;
   let diamonds = 0;
   for (const item of toSell) {
     if (diamondReward) {
-      diamonds += diamondReward;
+      diamonds += Math.round(diamondReward * diamondMult);
       continue;
     }
     let mutationMult = 1;
@@ -923,6 +1045,7 @@ export function sell(
 export function sellAll(player: PlayerState): { error?: string; earned?: number; diamonds?: number; count?: number } {
   if (player.cropInventory.length === 0) return { error: "Nothing to sell." };
   const mult = sellMultiplier(player);
+  const diamondMult = diamondSellMultiplier(player);
   let earned = 0;
   let diamonds = 0;
   for (const item of player.cropInventory) {
@@ -930,7 +1053,7 @@ export function sellAll(player: PlayerState): { error?: string; earned?: number;
     if (!crop) continue;
     const diamondReward = (crop as { diamondReward?: number }).diamondReward;
     if (diamondReward) {
-      diamonds += diamondReward;
+      diamonds += Math.round(diamondReward * diamondMult);
       continue;
     }
     let mutationMult = 1;
@@ -998,6 +1121,8 @@ export function extractProgress(player: PlayerState): SavedProgress {
     petsEquipped: player.petsEquipped,
     incubators: player.incubators,
     petProcAt: player.petProcAt,
+    foxEggsOwned: player.foxEggsOwned,
+    kitsuneShrines: player.kitsuneShrines,
   };
 }
 

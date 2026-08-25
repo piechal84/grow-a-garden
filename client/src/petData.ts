@@ -13,7 +13,11 @@ export type PetEffect =
    *  1: base 1, Empowered 2, Tenacious 3) is hardcoded server-side by stage, not scaled by
    *  `value`. The field only exists so Fox's Empowered/Tenacious forms still fit the
    *  Pet/BasePet shape uniformly. */
-  | { type: "autoHarvest"; value: number };
+  | { type: "autoHarvest"; value: number }
+  /** Kitsune only (see KITSUNE_PETS) — multiplies the diamond payout of crops sold for diamonds
+   *  (Sun Blossom, Phoenix Sunflower). Additive with itself like every other effect, so `1 +
+   *  value` is the actual multiplier: 1.0 doubles, 2.0 triples, 3.0 quadruples. */
+  | { type: "diamondSellBonus"; value: number };
 
 export interface Pet {
   id: string;
@@ -64,14 +68,53 @@ function evolve(base: BasePet, stage: number): Pet {
   };
 }
 
-/** Every base pet plus its Empowered and Tenacious forms — a full lookup table, so any pet ID
- *  (hatched or merged) resolves the same way everywhere. */
-export const PETS: Pet[] = BASE_PETS.flatMap((base) =>
-  Array.from({ length: MAX_EVOLUTION_STAGE + 1 }, (_, stage) => evolve(base, stage)),
-);
+/** Historic sits above Celestial (7) — reserved for pets that can never be hatched/rolled from an
+ *  egg, only crafted through a unique one-off path. The Kitsune is the only one so far. Shown
+ *  with a fancy banner instead of the usual small tier badge — see PetTierBadge. */
+export const HISTORIC_TIER = 8;
+
+/** The Kitsune: Historic-tier, obtainable only via the Kelka Kitsune Shrine (a New Fox Egg fused
+ *  with a Giant Moon Blossom, a Giant Sun Blossom, or both — see startKitsuneCraft in rooms.ts).
+ *  Not part of BASE_PETS/evolve() — it doesn't hatch from eggs and has no further Empowered/
+ *  Tenacious merge path, so it's listed here as 3 already-final, independent forms instead. */
+export const KITSUNE_PETS: Pet[] = [
+  {
+    id: "kitsune_moon",
+    name: "Black & Red Kitsune",
+    emoji: "🦊",
+    tier: HISTORIC_TIER,
+    effect: { type: "diamondSellBonus", value: 1 },
+  },
+  {
+    id: "kitsune_sun",
+    name: "Fox Kitsune",
+    emoji: "🦊",
+    tier: HISTORIC_TIER,
+    effect: { type: "diamondSellBonus", value: 2 },
+  },
+  {
+    id: "kitsune_fused",
+    name: "White & Crimson Kitsune",
+    emoji: "🦊",
+    tier: HISTORIC_TIER,
+    effect: { type: "diamondSellBonus", value: 3 },
+  },
+];
+
+/** Every base pet plus its Empowered and Tenacious forms, plus the standalone Kitsune forms — a
+ *  full lookup table, so any pet ID (hatched, merged, or crafted) resolves the same way
+ *  everywhere. */
+export const PETS: Pet[] = [
+  ...BASE_PETS.flatMap((base) => Array.from({ length: MAX_EVOLUTION_STAGE + 1 }, (_, stage) => evolve(base, stage))),
+  ...KITSUNE_PETS,
+];
 export const PETS_BY_ID: Record<string, Pet> = Object.fromEntries(PETS.map((p) => [p.id, p]));
 
-/** Which evolution stage a pet ID represents, and the base species it belongs to. */
+const BASE_PET_IDS = new Set(BASE_PETS.map((b) => b.id));
+
+/** Which evolution stage a pet ID represents, and the base species it belongs to. Species outside
+ *  the normal hatch ladder (Kitsune) always report stage 0 with no further evolution — see
+ *  nextEvolutionId. */
 export function evolutionInfo(petId: string): { baseId: string; stage: number } {
   for (let stage = MAX_EVOLUTION_STAGE; stage >= 1; stage--) {
     if (petId.endsWith(EVOLUTION_SUFFIX[stage])) {
@@ -81,9 +124,13 @@ export function evolutionInfo(petId: string): { baseId: string; stage: number } 
   return { baseId: petId, stage: 0 };
 }
 
-/** The pet ID one merge tier up, or undefined if already at max evolution. */
+/** The pet ID one merge tier up, or undefined if already at max evolution — or if this species
+ *  isn't part of the normal hatch-and-merge ladder at all (e.g. Kitsune), which must return
+ *  undefined here rather than a plausible-looking but nonexistent ID, or the Incubator's merge
+ *  picker would offer it as fodder and produce garbage on confirm. */
 export function nextEvolutionId(petId: string): string | undefined {
   const { baseId, stage } = evolutionInfo(petId);
+  if (!BASE_PET_IDS.has(baseId)) return undefined;
   if (stage >= MAX_EVOLUTION_STAGE) return undefined;
   return `${baseId}${EVOLUTION_SUFFIX[stage + 1]}`;
 }
@@ -249,6 +296,7 @@ export const PET_EFFECT_LABELS: Record<PetEffect["type"], string> = {
   sellBonus: "Sell Price",
   incubatorSpeed: "Incubator Speed",
   autoHarvest: "Auto Harvest",
+  diamondSellBonus: "Diamond Crop Value",
 };
 
 /** Human-readable effect label for a pet at a given size, shown anywhere a pet is listed so its
@@ -279,6 +327,15 @@ export function petSpecialAbility(petId: string): string | undefined {
   if (baseId === "fox") {
     return "While equipped: auto-harvests a ready crop every 60 seconds — one extra crop per merge (1 base, 2 Empowered, 3 Tenacious). Each equipped Fox has its own independent timer.";
   }
+  if (petId === "kitsune_moon") {
+    return "Historic tier, crafted only at the Kelka Kitsune Shrine. Doubles the diamond sell value of crops (Sun Blossom, Phoenix Sunflower).";
+  }
+  if (petId === "kitsune_sun") {
+    return "Historic tier, crafted only at the Kelka Kitsune Shrine. Triples the diamond sell value of crops (Sun Blossom, Phoenix Sunflower).";
+  }
+  if (petId === "kitsune_fused") {
+    return "Historic tier, crafted only at the Kelka Kitsune Shrine — the rarest recipe. Quadruples the diamond sell value of crops (Sun Blossom, Phoenix Sunflower).";
+  }
   return undefined;
 }
 
@@ -288,6 +345,7 @@ export function petSpecialAbilityBadge(petId: string): string | undefined {
   if (baseId === "unicorn") return "🌈 Rain bonus";
   if (baseId === "baby_dragon") return "⚡ Insta-grow";
   if (baseId === "fox") return "🌾 Auto-harvest";
+  if (petId === "kitsune_moon" || petId === "kitsune_sun" || petId === "kitsune_fused") return "💎 Diamond boost";
   return undefined;
 }
 

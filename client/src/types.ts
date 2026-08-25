@@ -44,6 +44,21 @@ export interface IncubatorState {
   merge: IncubatorMerge | null;
 }
 
+export type KitsuneRecipe = "moon" | "sun" | "both";
+
+export interface KitsuneCraft {
+  recipe: KitsuneRecipe;
+  startedAt: number;
+  readyAt: number;
+}
+
+export interface KitsuneShrineState {
+  id: string;
+  x: number;
+  y: number;
+  craft: KitsuneCraft | null;
+}
+
 export interface PlayerState {
   id: string;
   name: string;
@@ -78,6 +93,11 @@ export interface PlayerState {
   petsEquipped: string[];
   /** Kelka Egg Incubators planted on this player's plot (up to gearOwned.kelka_incubator, max 2). */
   incubators: IncubatorState[];
+  /** New Fox Eggs bought from the Pet Shop for diamonds — not a gacha roll, just a deterministic
+   *  crafting ingredient consumed by a Kelka Kitsune Shrine (see startKitsuneCraft). */
+  foxEggsOwned: number;
+  /** Kelka Kitsune Shrines planted on this player's plot (max 1, gated by gearOwned.kelka_kitsune_shrine). */
+  kitsuneShrines: KitsuneShrineState[];
   /** Next timestamp (ms) each equipped pet with its own independent-cooldown ability (Baby
    *  Dragon's insta-grow, Fox's auto-harvest) can proc again — server bookkeeping, not used
    *  directly by the client. */
@@ -188,6 +208,12 @@ export interface ClientToServerEvents {
   place_incubator: (payload: { x: number; y: number }, ack?: (res: ActionAck) => void) => void;
   start_pet_merge: (payload: { incubatorId: string; petId: string; size: PetSize }, ack?: (res: ActionAck) => void) => void;
   collect_pet_merge: (payload: { incubatorId: string }, ack?: (res: PetEggAck) => void) => void;
+  buy_fox_egg: (ack?: (res: ActionAck) => void) => void;
+  place_kitsune_shrine: (payload: { x: number; y: number }, ack?: (res: ActionAck) => void) => void;
+  move_kitsune_shrine: (payload: { shrineId: string; x: number; y: number }, ack?: (res: ActionAck) => void) => void;
+  reclaim_kitsune_shrine: (payload: { shrineId: string }, ack?: (res: ActionAck) => void) => void;
+  start_kitsune_craft: (payload: { shrineId: string; recipe: KitsuneRecipe }, ack?: (res: ActionAck) => void) => void;
+  collect_kitsune_craft: (payload: { shrineId: string }, ack?: (res: PetEggAck) => void) => void;
   buy_moon_pack: (ack?: (res: MoonPackAck) => void) => void;
   buy_moon_pack_bulk: (ack?: (res: MoonPackBulkAck) => void) => void;
   buy_solar_pack: (ack?: (res: SolarPackAck) => void) => void;
