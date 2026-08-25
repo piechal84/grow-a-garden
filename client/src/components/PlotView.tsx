@@ -14,6 +14,9 @@ import PlantPickerModal from "./PlantPickerModal";
 import RoamingPets from "./RoamingPets";
 
 const INCUBATOR_SIZE = 3;
+/** Must match HARVEST_ALL_COST_COINS / GROW_ALL_COST_DIAMONDS in server/src/rooms.ts. */
+const HARVEST_ALL_COST_COINS = 1000;
+const GROW_ALL_COST_DIAMONDS = 10;
 const KITSUNE_SHRINE_SIZE = 3;
 
 /** True if two footprints share an edge (not just a corner) — mirrors the server's aura check. */
@@ -139,6 +142,20 @@ export default function PlotView({
     socket.emit("harvest", { plantingId });
   }
 
+  function handleHarvestAll() {
+    setMoveError(null);
+    socket.emit("harvest_all", (res) => {
+      if (!res.ok) setMoveError(res.error ?? "Could not harvest all.");
+    });
+  }
+
+  function handleGrowAll() {
+    setMoveError(null);
+    socket.emit("grow_all", (res) => {
+      if (!res.ok) setMoveError(res.error ?? "Could not grow all.");
+    });
+  }
+
   function handleReclaim(plantingId: string) {
     socket.emit("reclaim_planting", { plantingId });
     setMoveError(null);
@@ -186,6 +203,10 @@ export default function PlotView({
   const canPlaceIncubator = incubatorsOwned > player.incubators.length;
   const kitsuneShrinesOwned = player.gearOwned["kelka_kitsune_shrine"] ?? 0;
   const canPlaceKitsuneShrine = kitsuneShrinesOwned > player.kitsuneShrines.length;
+  const readyCount = player.plantings.filter((p) => now >= p.readyAt).length;
+  const growingCount = player.plantings.filter((p) => now < p.readyAt).length;
+  const canHarvestAll = readyCount > 0 && player.coins >= HARVEST_ALL_COST_COINS;
+  const canGrowAll = growingCount > 0 && player.diamonds >= GROW_ALL_COST_DIAMONDS;
 
   const emptyCells: { x: number; y: number }[] = [];
   for (let y = 0; y < player.gridHeight; y++) {
@@ -205,8 +226,36 @@ export default function PlotView({
       }}
     >
       <span className="world-plot-name">{player.name}</span>
-      {isOwner && (hasReclaimer || hasTrowel || canPlaceIncubator || canPlaceKitsuneShrine) && (
+      {isOwner && (
         <div className="plot-toolbar" onClick={(e) => e.stopPropagation()}>
+          <button
+            className="plot-tool-btn"
+            disabled={!canHarvestAll}
+            title={
+              readyCount === 0
+                ? "Nothing ready to harvest"
+                : player.coins < HARVEST_ALL_COST_COINS
+                  ? "Not enough coins"
+                  : `Harvest all ${readyCount} ready crops`
+            }
+            onClick={handleHarvestAll}
+          >
+            🌾 Harvest All (🪙{HARVEST_ALL_COST_COINS})
+          </button>
+          <button
+            className="plot-tool-btn"
+            disabled={!canGrowAll}
+            title={
+              growingCount === 0
+                ? "Nothing growing right now"
+                : player.diamonds < GROW_ALL_COST_DIAMONDS
+                  ? "Not enough diamonds"
+                  : `Instantly finish growing all ${growingCount} crops`
+            }
+            onClick={handleGrowAll}
+          >
+            ⚡ Grow All (💎{GROW_ALL_COST_DIAMONDS})
+          </button>
           {hasReclaimer && (
             <button
               className={`plot-tool-btn ${activeTool === "reclaim" ? "plot-tool-btn-active" : ""}`}

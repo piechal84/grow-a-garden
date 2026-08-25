@@ -28,7 +28,9 @@ import {
   extractProgress,
   findRoomByPlayer,
   getRoom,
+  growAll,
   harvest,
+  harvestAll,
   joinRoom,
   markDisconnected,
   moveIncubator,
@@ -150,6 +152,22 @@ io.on("connection", (socket) => {
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
     const result = harvest(room, player, plantingId);
     ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("harvest_all", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = harvestAll(room, player);
+    ack?.({ ok: !result.error, error: result.error, count: result.count });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("grow_all", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = growAll(player);
+    ack?.({ ok: !result.error, error: result.error, count: result.count });
     if (!result.error) broadcast(room);
   });
 

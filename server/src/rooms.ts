@@ -954,6 +954,36 @@ export function harvest(room: RoomState, player: PlayerState, plantingId: string
   return {};
 }
 
+const HARVEST_ALL_COST_COINS = 1000;
+const GROW_ALL_COST_DIAMONDS = 10;
+
+/** Pays a flat coin fee to harvest every currently-ready planting at once — reuses harvest()
+ *  per planting so persistent crops replant themselves exactly as they would from a manual tap.
+ *  The ready-planting IDs are snapshotted up front so splicing consumable crops out of
+ *  player.plantings mid-loop can't skip or double-process anything. */
+export function harvestAll(room: RoomState, player: PlayerState): { error?: string; count?: number } {
+  const readyIds = player.plantings.filter((p) => Date.now() >= p.readyAt).map((p) => p.id);
+  if (readyIds.length === 0) return { error: "Nothing ready to harvest." };
+  if (player.coins < HARVEST_ALL_COST_COINS) return { error: "Not enough coins." };
+  player.coins -= HARVEST_ALL_COST_COINS;
+  for (const id of readyIds) harvest(room, player, id);
+  return { count: readyIds.length };
+}
+
+/** Pays a flat diamond fee to instantly finish growing every currently-growing planting at
+ *  once — the same effect Baby Dragon's insta-grow has on a single crop (readyAt = now), just
+ *  applied to everything and paid for directly. Doesn't harvest them — still needs a tap (or
+ *  Harvest All) afterward like any other readied crop. */
+export function growAll(player: PlayerState): { error?: string; count?: number } {
+  const now = Date.now();
+  const growing = player.plantings.filter((p) => now < p.readyAt);
+  if (growing.length === 0) return { error: "Nothing growing right now." };
+  if (player.diamonds < GROW_ALL_COST_DIAMONDS) return { error: "Not enough diamonds." };
+  player.diamonds -= GROW_ALL_COST_DIAMONDS;
+  for (const p of growing) p.readyAt = now;
+  return { count: growing.length };
+}
+
 export function reclaim(player: PlayerState, plantingId: string): { error?: string } {
   const owned = player.gearOwned["reclaimer"] ?? 0;
   if (owned <= 0) return { error: "You need the Reclaimer tool from the Gear Shop first." };

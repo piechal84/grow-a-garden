@@ -125,6 +125,8 @@ export interface ClientToServerEvents {
   buy_seed: (payload: { cropId: string; quantity: number }, ack?: (res: ActionAck) => void) => void;
   plant: (payload: { x: number; y: number; cropId: string }, ack?: (res: ActionAck) => void) => void;
   harvest: (payload: { plantingId: string }, ack?: (res: ActionAck) => void) => void;
+  harvest_all: (ack?: (res: CountAck) => void) => void;
+  grow_all: (ack?: (res: CountAck) => void) => void;
   reclaim_planting: (payload: { plantingId: string }, ack?: (res: ActionAck) => void) => void;
   reclaim_incubator: (payload: { incubatorId: string }, ack?: (res: ActionAck) => void) => void;
   move_planting: (payload: { plantingId: string; x: number; y: number }, ack?: (res: ActionAck) => void) => void;
@@ -192,6 +194,10 @@ export interface JoinAck {
 export interface ActionAck {
   ok: boolean;
   error?: string;
+}
+
+export interface CountAck extends ActionAck {
+  count?: number;
 }
 
 export interface SellAllAck extends ActionAck {
