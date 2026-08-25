@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { growSpeedMultiplier } from "../derived";
+import { diamondSellMultiplier, growSpeedMultiplier } from "../derived";
 import { CROP_TIER_COLORS, CROP_TIER_LABELS, PERSISTENT_REGROW_MULTIPLIER } from "../gameData";
 import { SOLAR_CROPS, SOLAR_PACK_COST, SOLAR_PACK_ODDS, SOLAR_TIER_TO_CROP_TIER, type SolarTier } from "../solarData";
 import type { PlayerState, SolarPackAck, SolarPackBulkAck, SolarPackResult } from "../types";
@@ -38,6 +38,7 @@ type SpinResult = "ok" | "superseded" | "timeout";
 
 export default function SolarShopView({ player }: { player: PlayerState }) {
   const growMult = growSpeedMultiplier(player);
+  const diamondMult = diamondSellMultiplier(player);
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<SolarPackResult | null>(null);
   const [bulkResults, setBulkResults] = useState<SolarPackResult[] | null>(null);
@@ -237,7 +238,11 @@ export default function SolarShopView({ player }: { player: PlayerState }) {
                 </div>
                 <div className="shop-row-stats">
                   <span>⏱ {effectiveGrow}s to grow</span>
-                  <span>{crop.diamondReward ? `💎 sells for ${crop.diamondReward}` : `💰 sells ${crop.sellPrice}`}</span>
+                  <span>
+                    {crop.diamondReward
+                      ? `💎 sells for ${Math.round(crop.diamondReward * diamondMult)}`
+                      : `💰 sells ${crop.sellPrice}`}
+                  </span>
                   <span>📐 {crop.variableFootprint ? "2x1 or 1x2 (random)" : `${crop.footprint.w}x${crop.footprint.h}`}</span>
                 </div>
               </div>

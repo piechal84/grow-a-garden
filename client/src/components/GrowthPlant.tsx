@@ -1,6 +1,7 @@
 import type { BlossomColor } from "../moonData";
 import { CELL_SIZE } from "../world";
 import CropIcon, { type IconCrop } from "./CropIcon";
+import { WetDrips } from "./MutationEffects";
 
 const SEED_END = 12;
 const SPROUT_END = 35;
@@ -25,6 +26,7 @@ export default function GrowthPlant({
   glowColor,
   auraTier,
   rainbow,
+  wet,
   blossomColor,
 }: {
   crop: IconCrop;
@@ -37,6 +39,9 @@ export default function GrowthPlant({
   /** The Unicorn pet's rain-only mutation — swaps the flat mutation glow for a spinning
    *  multi-color ring so it's unmistakable at a glance. */
   rainbow?: boolean;
+  /** Wet mutation — droplets forming and falling off the plant instead of the flat halo the
+   *  other mutations still use (Charged gets its own separate full-slot effect in PlotView). */
+  wet?: boolean;
   /** Moon Blossom only — the cosmetic color rolled for this planting. */
   blossomColor?: BlossomColor;
 }) {
@@ -95,6 +100,7 @@ export default function GrowthPlant({
         style={{ scale: String(scale), ["--mutation-glow" as string]: glowColor }}
       >
         <CropIcon crop={crop} size={CROP_ICON_SIZE} blossomColor={blossomColor} />
+        {wet && <WetDrips />}
       </div>
     </div>
   );

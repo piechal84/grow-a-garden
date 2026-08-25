@@ -9,6 +9,7 @@ import { CELL_SIZE, plotOrigin } from "../world";
 import GrowthPlant from "./GrowthPlant";
 import IncubatorStructure from "./IncubatorStructure";
 import KitsuneShrineStructure from "./KitsuneShrineStructure";
+import { ChargedSlotEffect } from "./MutationEffects";
 import PlantPickerModal from "./PlantPickerModal";
 import RoamingPets from "./RoamingPets";
 
@@ -303,8 +304,14 @@ export default function PlotView({
         const pct = totalWork > 0 ? Math.min(100, Math.max(0, (doneWork / totalWork) * 100)) : 100;
         const secondsLeft = Math.max(0, Math.ceil((planting.readyAt - now) / 1000));
         const displayMutations = previewMutations(planting, player.plantings);
-        const glowColor = displayMutations.length > 0 ? MUTATIONS[displayMutations[0]].color : undefined;
         const rainbow = displayMutations.includes("rainbow");
+        const charged = displayMutations.includes("charged");
+        const wet = displayMutations.includes("wet");
+        // Charged and Wet (unless paired with Rainbow) get their own dedicated effects below
+        // instead of the flat colored halo every other mutation still uses — so they shouldn't
+        // also contribute a color to it, or the halo would show through underneath them.
+        const haloMutations = displayMutations.filter((m) => m !== "charged" && (m !== "wet" || rainbow));
+        const glowColor = haloMutations.length > 0 ? MUTATIONS[haloMutations[0]].color : undefined;
         const timerFontSize = Math.round(Math.min(planting.w, planting.h) * CELL_SIZE * 0.4);
         const auraTier = auraTierFor(planting.cropId);
         const isMoving = movingId === planting.id;
@@ -338,8 +345,10 @@ export default function PlotView({
               glowColor={glowColor}
               auraTier={auraTier}
               rainbow={rainbow}
+              wet={wet}
               blossomColor={planting.blossomColor}
             />
+            {pct >= 70 && charged && <ChargedSlotEffect />}
             {crop.persistent && <span className="tree-badge" title="Regrows after harvest — never consumed">🌳</span>}
             {pct >= 70 && displayMutations.length > 0 && (
               <span

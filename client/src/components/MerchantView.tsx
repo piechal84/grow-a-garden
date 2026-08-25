@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CROPS_BY_ID, SIZE_COLORS, SIZE_ORDER } from "../gameData";
-import { sellMultiplier } from "../derived";
+import { diamondSellMultiplier, sellMultiplier } from "../derived";
 import { MOON_CROPS_BY_ID, MOON_TIER_TO_CROP_TIER } from "../moonData";
 import { getAnyCropDef as getCropDef, SOLAR_CROPS_BY_ID, SOLAR_TIER_TO_CROP_TIER } from "../solarData";
 import type { PlayerState } from "../types";
@@ -30,6 +30,7 @@ interface Group {
 export default function MerchantView({ player }: { player: PlayerState }) {
   const [error, setError] = useState<string | null>(null);
   const sellMult = sellMultiplier(player);
+  const diamondMult = diamondSellMultiplier(player);
 
   const groups = new Map<string, Group>();
   for (const item of player.cropInventory) {
@@ -41,7 +42,7 @@ export default function MerchantView({ player }: { player: PlayerState }) {
     const isDiamond = !!diamondReward;
     let unitPrice: number;
     if (isDiamond) {
-      unitPrice = diamondReward!;
+      unitPrice = Math.round(diamondReward! * diamondMult);
     } else {
       let mutationMult = 1;
       for (const m of item.mutations) mutationMult *= MUTATIONS[m].priceMultiplier;

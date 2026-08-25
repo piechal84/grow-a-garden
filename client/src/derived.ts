@@ -71,6 +71,17 @@ export function sellMultiplier(player: PlayerState): number {
   return 1 + bonus;
 }
 
+/** Mirrors the server's diamondSellMultiplier (rooms.ts) — Kitsune only, no gear source. Applies
+ *  to crops that pay out in diamonds directly (Sun Blossom, Phoenix Sunflower) rather than the
+ *  coin sellMultiplier path above. */
+export function diamondSellMultiplier(player: PlayerState): number {
+  let bonus = 0;
+  for (const { pet, size } of activePets(player)) {
+    if (pet && pet.effect.type === "diamondSellBonus") bonus += pet.effect.value * PET_SIZE_MULTIPLIER[size];
+  }
+  return 1 + bonus;
+}
+
 export function isUnlocked(player: PlayerState, unlockAt: number): boolean {
   return player.coins >= unlockAt || player.lifetimeCoins >= unlockAt;
 }
