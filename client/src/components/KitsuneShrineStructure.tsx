@@ -63,6 +63,7 @@ export default function KitsuneShrineStructure({
   onSelectForMove,
   reclaimMode,
   onReclaim,
+  zoom,
 }: {
   shrine: KitsuneShrineState;
   player: PlayerState;
@@ -73,6 +74,10 @@ export default function KitsuneShrineStructure({
   onSelectForMove?: () => void;
   reclaimMode?: boolean;
   onReclaim?: () => void;
+  /** The world canvas's own CSS scale (see WorldView.tsx) — the error banner below lives inside
+   *  that same scaled subtree, so it needs an inverse transform to stay readable at low zoom
+   *  (the recipe picker modal itself is portaled to <body> and unaffected). */
+  zoom: number;
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const [submittingRecipe, setSubmittingRecipe] = useState<KitsuneRecipe | null>(null);
@@ -150,7 +155,11 @@ export default function KitsuneShrineStructure({
       {craft && ready && <span className="incubator-collect-label">Tap to collect!</span>}
       {!craft && <span className="incubator-collect-label">Fuse Kitsune</span>}
       {error && (
-        <div className="plot-move-error" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="plot-move-error"
+          style={{ transform: `scale(${1 / zoom})`, transformOrigin: "center top" }}
+          onClick={(e) => e.stopPropagation()}
+        >
           {error}
         </div>
       )}

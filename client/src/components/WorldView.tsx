@@ -439,6 +439,7 @@ export default function WorldView({
                 isOwner={player.id === meId}
                 now={now}
                 roomCreatedAt={room.createdAt}
+                zoom={zoom}
               />
             </div>
           );

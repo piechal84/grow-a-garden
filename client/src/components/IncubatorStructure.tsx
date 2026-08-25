@@ -32,6 +32,7 @@ export default function IncubatorStructure({
   onSelectForMove,
   reclaimMode,
   onReclaim,
+  zoom,
 }: {
   incubator: IncubatorState;
   player: PlayerState;
@@ -46,6 +47,10 @@ export default function IncubatorStructure({
    *  its 3x3 footprint) instead of opening the merge picker / collecting. */
   reclaimMode?: boolean;
   onReclaim?: () => void;
+  /** The world canvas's own CSS scale (see WorldView.tsx) — the error banner below lives inside
+   *  that same scaled subtree, so it needs an inverse transform to stay readable at low zoom
+   *  (the merge picker modal itself is portaled to <body> and unaffected). */
+  zoom: number;
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const [selected, setSelected] = useState<Selection | null>(null);
@@ -136,7 +141,11 @@ export default function IncubatorStructure({
       {merge && ready && <span className="incubator-collect-label">Tap to collect!</span>}
       {!merge && <span className="incubator-collect-label">Merge 4 pets</span>}
       {error && (
-        <div className="plot-move-error" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="plot-move-error"
+          style={{ transform: `scale(${1 / zoom})`, transformOrigin: "center top" }}
+          onClick={(e) => e.stopPropagation()}
+        >
           {error}
         </div>
       )}

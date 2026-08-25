@@ -71,11 +71,18 @@ export default function PlotView({
   isOwner,
   now,
   roomCreatedAt,
+  zoom,
 }: {
   player: PlayerState;
   isOwner: boolean;
   now: number;
   roomCreatedAt: number;
+  /** The world canvas's own CSS scale (see WorldView.tsx) — the toolbar/banners below live
+   *  inside that same scaled subtree, so at any zoom below 100% they'd otherwise shrink right
+   *  along with the plants and plot cells, becoming illegibly tiny. Each gets an inverse
+   *  transform (scale(1/zoom)) so they always render at their true, readable size no matter how
+   *  far the player has zoomed out. */
+  zoom: number;
 }) {
   const [pickerCell, setPickerCell] = useState<{ x: number; y: number } | null>(null);
   const [activeTool, setActiveTool] = useState<"reclaim" | "move" | "place_incubator" | "place_kitsune_shrine" | null>(
@@ -84,6 +91,9 @@ export default function PlotView({
   const [movingId, setMovingId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
   const origin = plotOrigin(player.slotIndex);
+  const uiCounterScale = { transform: `scale(${1 / zoom})` };
+  const uiCounterScaleTop = { ...uiCounterScale, transformOrigin: "center top" };
+  const uiCounterScaleBottom = { ...uiCounterScale, transformOrigin: "center bottom" };
 
   const occupied = new Set<string>();
   for (const p of player.plantings) {
@@ -239,7 +249,7 @@ export default function PlotView({
     >
       <span className="world-plot-name">{player.name}</span>
       {isOwner && (
-        <div className="plot-toolbar" onClick={(e) => e.stopPropagation()}>
+        <div className="plot-toolbar" style={uiCounterScaleBottom} onClick={(e) => e.stopPropagation()}>
           <button
             className="plot-tool-btn"
             style={{ borderColor: TOOL_ACCENTS.harvestAll }}
@@ -309,7 +319,7 @@ export default function PlotView({
         </div>
       )}
       {isOwner && activeTool === "reclaim" && (
-        <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
+        <div className="plot-move-banner" style={uiCounterScaleTop} onClick={(e) => e.stopPropagation()}>
           🧲 Tap a crop to reclaim its seed, or an incubator/shrine to pick it up
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
             Done
@@ -317,7 +327,7 @@ export default function PlotView({
         </div>
       )}
       {isOwner && activeTool === "place_incubator" && (
-        <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
+        <div className="plot-move-banner" style={uiCounterScaleTop} onClick={(e) => e.stopPropagation()}>
           🥚 Tap an empty 3x3 clearing to plant the incubator
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
             Cancel
@@ -325,7 +335,7 @@ export default function PlotView({
         </div>
       )}
       {isOwner && activeTool === "place_kitsune_shrine" && (
-        <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
+        <div className="plot-move-banner" style={uiCounterScaleTop} onClick={(e) => e.stopPropagation()}>
           🐺 Tap an empty 3x3 clearing to plant the Kitsune Shrine
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
             Cancel
@@ -333,7 +343,7 @@ export default function PlotView({
         </div>
       )}
       {isOwner && activeTool === "move" && !movingId && (
-        <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
+        <div className="plot-move-banner" style={uiCounterScaleTop} onClick={(e) => e.stopPropagation()}>
           🛠️ Tap a crop, incubator, or shrine to move it
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
             Done
@@ -341,7 +351,7 @@ export default function PlotView({
         </div>
       )}
       {isOwner && activeTool === "move" && movingId && (
-        <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
+        <div className="plot-move-banner" style={uiCounterScaleTop} onClick={(e) => e.stopPropagation()}>
           🛠️ Choose a new spot
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setMovingId(null)}>
             Cancel
@@ -349,7 +359,7 @@ export default function PlotView({
         </div>
       )}
       {isOwner && moveError && (
-        <div className="plot-move-error" onClick={(e) => e.stopPropagation()}>
+        <div className="plot-move-error" style={uiCounterScaleTop} onClick={(e) => e.stopPropagation()}>
           {moveError}
         </div>
       )}
@@ -457,6 +467,7 @@ export default function PlotView({
           onSelectForMove={() => handleSelectForMove(incubator.id)}
           reclaimMode={activeTool === "reclaim"}
           onReclaim={() => handleReclaimIncubator(incubator.id)}
+          zoom={zoom}
         />
       ))}
 
@@ -472,6 +483,7 @@ export default function PlotView({
           onSelectForMove={() => handleSelectForMove(shrine.id)}
           reclaimMode={activeTool === "reclaim"}
           onReclaim={() => handleReclaimKitsuneShrine(shrine.id)}
+          zoom={zoom}
         />
       ))}
 
