@@ -1022,25 +1022,32 @@ button {
 /* Reclaim/Move controls live in a toolbar above the plot — not on the tiny crop tiles
    themselves — so they're easy to hit on tablets/phones without misclicking a neighbor. */
 .plot-toolbar {
+  /* bottom:100% (not a fixed negative top) so the toolbar always sits flush above the plot
+     regardless of how many rows it wraps to — a fixed offset only fit the original 3-4 tools
+     and started overlapping/crowding once Harvest All and Grow All were added. The +30px clears
+     .world-plot-name (the player's name tag, pinned at top:-22px on the plot itself) so a
+     single-row toolbar doesn't sit on top of it. */
   position: absolute;
-  top: -74px;
+  bottom: calc(100% + 30px);
   left: 0;
   right: 0;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   z-index: 6;
 }
 
 .plot-tool-btn {
-  border: 1.5px solid var(--border);
+  border: 2px solid var(--border);
   background: #fff;
   color: var(--ink);
   font-weight: 700;
   font-size: 12px;
-  padding: 7px 14px;
+  padding: 6px 12px;
   border-radius: 999px;
   cursor: pointer;
+  white-space: nowrap;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
