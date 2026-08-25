@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { socket } from "./socket";
 import type { JoinAck, RoomState } from "./types";
 import type { Position } from "./world";
-import Lobby from "./components/Lobby";
+import Lobby, { ROOM_KEY } from "./components/Lobby";
 import GameShell from "./components/GameShell";
 
 export default function App() {
@@ -67,11 +67,30 @@ export default function App() {
     setInitialPositions(positions);
   }
 
+  /** Returns to the lobby to join/create a different room over the same live connection —
+   *  detaches from the current room server-side first (leave_room) and clears the remembered
+   *  room code, or Lobby's auto-rejoin would silently take them straight back to it. */
+  function handleChangeRoom() {
+    socket.emit("leave_room");
+    localStorage.removeItem(ROOM_KEY);
+    setRoom(null);
+    setPlayerId(null);
+    setSessionError(null);
+  }
+
   const me = room?.players.find((p) => p.id === playerId);
 
   if (!room || !playerId || !me) {
     return <Lobby connected={connected} onJoined={handleJoined} initialError={sessionError} />;
   }
 
-  return <GameShell room={room} meId={playerId} connected={connected} initialPositions={initialPositions} />;
+  return (
+    <GameShell
+      room={room}
+      meId={playerId}
+      connected={connected}
+      initialPositions={initialPositions}
+      onChangeRoom={handleChangeRoom}
+    />
+  );
 }

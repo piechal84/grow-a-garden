@@ -80,6 +80,10 @@ export interface PlayerState {
   weeklyQuestBucket: number;
   dailyRerollCount: number;
   weeklyRerollCount: number;
+  /** How many times all 3 daily quests have been replaced at once today (separate from the
+   *  single-quest dailyRerollCount above) — capped at DAILY_FULL_REFRESH_COSTS.length, resets
+   *  alongside dailyQuestBucket. */
+  dailyFullRefreshCount: number;
   /** Units currently purchasable per crop — refilled/rolled every 2-minute real-world bucket. */
   seedStock: Record<string, number>;
   seedStockBucket: number;
@@ -125,6 +129,10 @@ export interface ClientToServerEvents {
     payload: { roomCode?: string; playerName: string; clientId: string },
     ack: (res: JoinAck) => void,
   ) => void;
+  /** Proactively detaches from the current room (marks the player disconnected there, same as a
+   *  real socket drop) and clears socket.data.clientId, so the client can return to the lobby and
+   *  join/create a different room over the same live connection. */
+  leave_room: (ack?: (res: ActionAck) => void) => void;
   buy_seed: (payload: { cropId: string; quantity: number }, ack?: (res: ActionAck) => void) => void;
   plant: (payload: { x: number; y: number; cropId: string }, ack?: (res: ActionAck) => void) => void;
   harvest: (payload: { plantingId: string }, ack?: (res: ActionAck) => void) => void;
@@ -167,6 +175,7 @@ export interface ClientToServerEvents {
     payload: { questSet: "daily" | "weekly"; questId: string },
     ack?: (res: ActionAck) => void,
   ) => void;
+  refresh_daily_quests: (ack?: (res: ActionAck) => void) => void;
 }
 
 export interface ServerToClientEvents {

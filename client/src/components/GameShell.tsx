@@ -10,11 +10,13 @@ export default function GameShell({
   meId,
   connected,
   initialPositions,
+  onChangeRoom,
 }: {
   room: RoomState;
   meId: string;
   connected: boolean;
   initialPositions: Record<string, Position>;
+  onChangeRoom: () => void;
 }) {
   const [now, setNow] = useState(Date.now());
   const [copied, setCopied] = useState(false);
@@ -66,6 +68,15 @@ export default function GameShell({
           <span className="game-title">🌱 Grow a Garden</span>
           <button className="room-code-badge" onClick={copyCode} title="Copy room code">
             Room {room.code} {copied ? "✓" : "⧉"}
+          </button>
+          <button
+            className="room-code-badge"
+            onClick={() => {
+              if (window.confirm("Leave this room and return to the lobby?")) onChangeRoom();
+            }}
+            title="Leave this room and join or create a different one"
+          >
+            🔀 Change Room
           </button>
         </div>
         <div className="game-header-right">

@@ -17,6 +17,18 @@ const INCUBATOR_SIZE = 3;
 /** Must match HARVEST_ALL_COST_COINS / GROW_ALL_COST_KELKA_CRYSTALS in server/src/rooms.ts. */
 const HARVEST_ALL_COST_COINS = 1000;
 const GROW_ALL_COST_KELKA_CRYSTALS = 3;
+
+/** Every other pill button in the app (shop dock, NPC stalls) gets a bold per-action colored
+ *  border via inline style — plot-tool-btn's plain neutral-gray border made these look like flat
+ *  washed-out white blobs by comparison. Matches that same pattern here. */
+const TOOL_ACCENTS = {
+  harvestAll: "#5fb87a",
+  growAll: "#7a6ee0",
+  reclaim: "#3f8fe0",
+  move: "#e0982a",
+  placeIncubator: "#c27a3f",
+  placeKitsuneShrine: "#c0293a",
+} as const;
 const KITSUNE_SHRINE_SIZE = 3;
 
 /** True if two footprints share an edge (not just a corner) — mirrors the server's aura check. */
@@ -230,6 +242,7 @@ export default function PlotView({
         <div className="plot-toolbar" onClick={(e) => e.stopPropagation()}>
           <button
             className="plot-tool-btn"
+            style={{ borderColor: TOOL_ACCENTS.harvestAll }}
             disabled={!canHarvestAll}
             title={
               readyCount === 0
@@ -244,6 +257,7 @@ export default function PlotView({
           </button>
           <button
             className="plot-tool-btn"
+            style={{ borderColor: TOOL_ACCENTS.growAll }}
             disabled={!canGrowAll}
             title={
               growingCount === 0
@@ -259,6 +273,7 @@ export default function PlotView({
           {hasReclaimer && (
             <button
               className={`plot-tool-btn ${activeTool === "reclaim" ? "plot-tool-btn-active" : ""}`}
+              style={activeTool === "reclaim" ? undefined : { borderColor: TOOL_ACCENTS.reclaim }}
               onClick={() => toggleTool("reclaim")}
             >
               🧲 Reclaim
@@ -267,6 +282,7 @@ export default function PlotView({
           {hasTrowel && (
             <button
               className={`plot-tool-btn ${activeTool === "move" ? "plot-tool-btn-active" : ""}`}
+              style={activeTool === "move" ? undefined : { borderColor: TOOL_ACCENTS.move }}
               onClick={() => toggleTool("move")}
             >
               🛠️ Move
@@ -275,6 +291,7 @@ export default function PlotView({
           {canPlaceIncubator && (
             <button
               className={`plot-tool-btn ${activeTool === "place_incubator" ? "plot-tool-btn-active" : ""}`}
+              style={activeTool === "place_incubator" ? undefined : { borderColor: TOOL_ACCENTS.placeIncubator }}
               onClick={() => toggleTool("place_incubator")}
             >
               🥚 Place Incubator
@@ -283,6 +300,7 @@ export default function PlotView({
           {canPlaceKitsuneShrine && (
             <button
               className={`plot-tool-btn ${activeTool === "place_kitsune_shrine" ? "plot-tool-btn-active" : ""}`}
+              style={activeTool === "place_kitsune_shrine" ? undefined : { borderColor: TOOL_ACCENTS.placeKitsuneShrine }}
               onClick={() => toggleTool("place_kitsune_shrine")}
             >
               🐺 Place Kitsune Shrine

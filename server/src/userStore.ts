@@ -42,6 +42,8 @@ export interface SavedProgress {
   kitsuneShrines?: KitsuneShrineState[];
   /** Absent on saves from before Kelka Crystals existed. */
   kelkaCrystals?: number;
+  /** Absent on saves from before the full-daily-refresh option existed. */
+  dailyFullRefreshCount?: number;
 }
 
 export interface UserRecord {
@@ -69,6 +71,7 @@ function defaultProgress(): SavedProgress {
     weeklyQuestBucket: -1,
     dailyRerollCount: 0,
     weeklyRerollCount: 0,
+    dailyFullRefreshCount: 0,
     seedStock: {},
     seedStockBucket: -1,
     diamonds: 0,

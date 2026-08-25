@@ -60,6 +60,15 @@ export const DAILY_REROLL_STEP = 20;
 export const WEEKLY_REROLL_BASE_COST = 100;
 export const WEEKLY_REROLL_STEP = 75;
 
+/** Separate from the single-quest reroll above — this replaces all 3 daily quests with a fresh
+ *  set at once, capped at 3 uses per real-world day (resets alongside the daily quest bucket).
+ *  Index 0 = cost of the 1st refresh used today, index 2 = cost of the 3rd (last) one. */
+export const DAILY_FULL_REFRESH_COSTS: { coins: number; diamonds: number }[] = [
+  { coins: 50_000, diamonds: 0 },
+  { coins: 200_000, diamonds: 0 },
+  { coins: 0, diamonds: 1 },
+];
+
 let questIdCounter = 0;
 function nextQuestId(): string {
   questIdCounter += 1;

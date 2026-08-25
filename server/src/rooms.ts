@@ -39,6 +39,7 @@ import {
 } from "./solarData.js";
 import {
   dayBucket,
+  DAILY_FULL_REFRESH_COSTS,
   DAILY_QUEST_POOL,
   DAILY_REROLL_BASE_COST,
   DAILY_REROLL_STEP,
@@ -118,6 +119,7 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     weeklyQuestBucket: saved?.weeklyQuestBucket ?? -1,
     dailyRerollCount: saved?.dailyRerollCount ?? 0,
     weeklyRerollCount: saved?.weeklyRerollCount ?? 0,
+    dailyFullRefreshCount: saved?.dailyFullRefreshCount ?? 0,
     seedStock: saved?.seedStock ?? {},
     seedStockBucket: saved?.seedStockBucket ?? -1,
     diamonds: saved?.diamonds ?? 0,
@@ -204,6 +206,7 @@ export function ensureQuestsFresh(player: PlayerState, now: number) {
     player.dailyQuests = rollDailyQuests();
     player.dailyQuestBucket = dBucket;
     player.dailyRerollCount = 0;
+    player.dailyFullRefreshCount = 0;
   }
   const wBucket = weekBucket(now);
   if (player.weeklyQuestBucket !== wBucket) {
@@ -268,6 +271,23 @@ export function rerollQuest(
   quests[idx] = templateToQuest(usable[Math.floor(Math.random() * usable.length)]);
   if (questSet === "daily") player.dailyRerollCount += 1;
   else player.weeklyRerollCount += 1;
+  return {};
+}
+
+/** Replaces all 3 daily quests with a fresh set at once — separate from rerollQuest's
+ *  single-quest swap above, capped at DAILY_FULL_REFRESH_COSTS.length uses per real-world day
+ *  (resets alongside the daily bucket in ensureQuestsFresh) with an escalating cost per use. */
+export function refreshDailyQuests(player: PlayerState): { error?: string } {
+  if (player.dailyFullRefreshCount >= DAILY_FULL_REFRESH_COSTS.length) {
+    return { error: "You've used all your daily quest refreshes for today." };
+  }
+  const cost = DAILY_FULL_REFRESH_COSTS[player.dailyFullRefreshCount];
+  if (player.coins < cost.coins) return { error: "Not enough coins." };
+  if (player.diamonds < cost.diamonds) return { error: "Not enough diamonds." };
+  player.coins -= cost.coins;
+  player.diamonds -= cost.diamonds;
+  player.dailyFullRefreshCount += 1;
+  player.dailyQuests = rollDailyQuests();
   return {};
 }
 
@@ -1170,6 +1190,7 @@ export function extractProgress(player: PlayerState): SavedProgress {
     weeklyQuestBucket: player.weeklyQuestBucket,
     dailyRerollCount: player.dailyRerollCount,
     weeklyRerollCount: player.weeklyRerollCount,
+    dailyFullRefreshCount: player.dailyFullRefreshCount,
     seedStock: player.seedStock,
     seedStockBucket: player.seedStockBucket,
     diamonds: player.diamonds,

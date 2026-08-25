@@ -43,6 +43,7 @@ import {
   reclaim,
   reclaimIncubator,
   reclaimKitsuneShrine,
+  refreshDailyQuests,
   rerollQuest,
   sell,
   sellAll,
@@ -130,6 +131,17 @@ io.on("connection", (socket) => {
     }
     return { room, player };
   }
+
+  socket.on("leave_room", (ack) => {
+    const { room } = currentPlayer();
+    if (!room) return ack?.({ ok: false, error: "Not in a room." });
+    const clientId = socket.data.clientId as string;
+    const changedRoom = markDisconnected(clientId);
+    socket.leave(room.code);
+    socket.data.clientId = undefined;
+    ack?.({ ok: true });
+    if (changedRoom) broadcast(changedRoom);
+  });
 
   socket.on("buy_seed", ({ cropId, quantity }, ack) => {
     const { room, player } = currentPlayer();
@@ -397,6 +409,14 @@ io.on("connection", (socket) => {
     const { room, player } = currentPlayer();
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
     const result = rerollQuest(player, questSet, questId);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("refresh_daily_quests", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = refreshDailyQuests(player);
     ack?.({ ok: !result.error, error: result.error });
     if (!result.error) broadcast(room);
   });

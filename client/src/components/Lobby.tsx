@@ -13,7 +13,7 @@ const REMEMBER_KEY = "grow-garden-remembered-user";
  *  empty and reaching for "Start a New Room" out of habit silently abandons the old room and
  *  rebuilds an account's player from whatever was last persisted to disk, discarding any more
  *  recent progress that was still only live in the abandoned room. */
-const ROOM_KEY = "grow-garden-room";
+export const ROOM_KEY = "grow-garden-room";
 
 type Mode = "guest" | "account";
 

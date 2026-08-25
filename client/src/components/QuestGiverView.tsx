@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  DAILY_FULL_REFRESH_COSTS,
   DAILY_REROLL_BASE_COST,
   DAILY_REROLL_STEP,
   questEmoji,
@@ -10,6 +11,10 @@ import {
 } from "../quests";
 import type { PlayerState } from "../types";
 import { socket } from "../socket";
+
+function formatFullRefreshCost(cost: { coins: number; diamonds: number }): string {
+  return cost.diamonds > 0 ? `💎${cost.diamonds}` : `🪙${cost.coins.toLocaleString()}`;
+}
 
 function QuestRow({
   quest,
@@ -65,6 +70,18 @@ export default function QuestGiverView({ player }: { player: PlayerState }) {
     });
   }
 
+  function handleRefreshAll() {
+    setError(null);
+    socket.emit("refresh_daily_quests", (res) => {
+      if (!res.ok) setError(res.error ?? "Could not refresh quests.");
+    });
+  }
+
+  const refreshesUsed = player.dailyFullRefreshCount;
+  const refreshMaxed = refreshesUsed >= DAILY_FULL_REFRESH_COSTS.length;
+  const nextRefreshCost = refreshMaxed ? undefined : DAILY_FULL_REFRESH_COSTS[refreshesUsed];
+  const canAffordRefresh = !!nextRefreshCost && player.coins >= nextRefreshCost.coins && player.diamonds >= nextRefreshCost.diamonds;
+
   return (
     <div className="shop-view">
       <h2>📜 Quest Giver</h2>
@@ -74,6 +91,19 @@ export default function QuestGiverView({ player }: { player: PlayerState }) {
       {error && <p className="lobby-error">{error}</p>}
 
       <h3 className="moon-section-title">Daily Quests</h3>
+      <div className="restock-banner">
+        <span>
+          🔄 Refresh all 3 at once: <strong>{refreshesUsed}/{DAILY_FULL_REFRESH_COSTS.length}</strong> used today
+        </span>
+        <button
+          className="btn btn-secondary"
+          disabled={refreshMaxed || !canAffordRefresh}
+          onClick={handleRefreshAll}
+          title={refreshMaxed ? "You've used all 3 refreshes today" : "Replace all 3 daily quests with a fresh set"}
+        >
+          🔄 Refresh All {refreshMaxed ? "(maxed today)" : `(${formatFullRefreshCost(nextRefreshCost!)})`}
+        </button>
+      </div>
       <div className="shop-list">
         {player.dailyQuests.map((q) => (
           <QuestRow
