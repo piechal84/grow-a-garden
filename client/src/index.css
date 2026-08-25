@@ -358,6 +358,16 @@ button {
   border-radius: 999px;
 }
 
+.kelka-crystal-display {
+  font-weight: 800;
+  font-size: 16px;
+  background: #eef0fc;
+  border: 1px solid #c3caf0;
+  color: #4a4ec2;
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
 .game-body {
   flex: 1;
   display: flex;

@@ -16,11 +16,14 @@ function QuestRow({
   rerollTargetCost,
   affordable,
   onReroll,
+  isDaily,
 }: {
   quest: Quest;
   rerollTargetCost: number;
   affordable: boolean;
   onReroll: () => void;
+  /** Only daily quests grant a Gear on completion — see grantQuestReward in server/src/rooms.ts. */
+  isDaily: boolean;
 }) {
   const pct = Math.min(100, (quest.progress / quest.target) * 100);
   return (
@@ -43,7 +46,9 @@ function QuestRow({
           {quest.progress}/{quest.target}
         </span>
         <span className="quest-reward">
-          {quest.completed ? "✓ Claimed" : `🪙 ${quest.coinReward}${quest.moonPacks > 0 ? ` + 🎁x${quest.moonPacks}` : ""}`}
+          {quest.completed
+            ? "✓ Claimed"
+            : `🪙 ${quest.coinReward}${quest.moonPacks > 0 ? ` + 🎁x${quest.moonPacks}` : ""}${isDaily ? " + 💠1" : ""}`}
         </span>
       </div>
     </div>
@@ -77,6 +82,7 @@ export default function QuestGiverView({ player }: { player: PlayerState }) {
             rerollTargetCost={rerollCost(DAILY_REROLL_BASE_COST, DAILY_REROLL_STEP, player.dailyRerollCount)}
             affordable={player.coins >= rerollCost(DAILY_REROLL_BASE_COST, DAILY_REROLL_STEP, player.dailyRerollCount)}
             onReroll={() => handleReroll("daily", q.id)}
+            isDaily
           />
         ))}
       </div>
@@ -92,6 +98,7 @@ export default function QuestGiverView({ player }: { player: PlayerState }) {
               player.coins >= rerollCost(WEEKLY_REROLL_BASE_COST, WEEKLY_REROLL_STEP, player.weeklyRerollCount)
             }
             onReroll={() => handleReroll("weekly", q.id)}
+            isDaily={false}
           />
         ))}
       </div>

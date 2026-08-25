@@ -40,6 +40,8 @@ export interface SavedProgress {
   /** Absent on saves from before the Kitsune Shrine existed. */
   foxEggsOwned?: number;
   kitsuneShrines?: KitsuneShrineState[];
+  /** Absent on saves from before Kelka Crystals existed. */
+  kelkaCrystals?: number;
 }
 
 export interface UserRecord {
@@ -78,6 +80,7 @@ function defaultProgress(): SavedProgress {
     petProcAt: {},
     foxEggsOwned: 0,
     kitsuneShrines: [],
+    kelkaCrystals: 0,
   };
 }
 

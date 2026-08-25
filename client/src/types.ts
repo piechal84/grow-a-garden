@@ -83,6 +83,9 @@ export interface PlayerState {
   seedStock: Record<string, number>;
   seedStockBucket: number;
   diamonds: number;
+  /** Quest-only currency — 1 per completed daily quest (never weekly), stackable. Not earnable
+   *  with coins or diamonds, so it directly rate-limits anything gated behind it (Grow All). */
+  kelkaCrystals: number;
   persistentUnlocked: Record<string, boolean>;
   /** Pets hatched/merged, keyed by pet ID -> size -> how many copies owned. Duplicates stack —
    *  4 identical (pet, size) copies can be merged into the next evolution via an Incubator. */

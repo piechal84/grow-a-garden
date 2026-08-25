@@ -96,6 +96,9 @@ export default function GameShell({
           </span>
           <span className="coin-display">🪙 {me.coins}</span>
           <span className="diamond-display">💎 {me.diamonds}</span>
+          <span className="kelka-crystal-display" title="Kelka Crystals — earned from daily quests, spent on Grow All">
+            💠 {me.kelkaCrystals}
+          </span>
         </div>
       </header>
 

@@ -14,9 +14,9 @@ import PlantPickerModal from "./PlantPickerModal";
 import RoamingPets from "./RoamingPets";
 
 const INCUBATOR_SIZE = 3;
-/** Must match HARVEST_ALL_COST_COINS / GROW_ALL_COST_DIAMONDS in server/src/rooms.ts. */
+/** Must match HARVEST_ALL_COST_COINS / GROW_ALL_COST_KELKA_CRYSTALS in server/src/rooms.ts. */
 const HARVEST_ALL_COST_COINS = 1000;
-const GROW_ALL_COST_DIAMONDS = 10;
+const GROW_ALL_COST_KELKA_CRYSTALS = 3;
 const KITSUNE_SHRINE_SIZE = 3;
 
 /** True if two footprints share an edge (not just a corner) — mirrors the server's aura check. */
@@ -206,7 +206,7 @@ export default function PlotView({
   const readyCount = player.plantings.filter((p) => now >= p.readyAt).length;
   const growingCount = player.plantings.filter((p) => now < p.readyAt).length;
   const canHarvestAll = readyCount > 0 && player.coins >= HARVEST_ALL_COST_COINS;
-  const canGrowAll = growingCount > 0 && player.diamonds >= GROW_ALL_COST_DIAMONDS;
+  const canGrowAll = growingCount > 0 && player.kelkaCrystals >= GROW_ALL_COST_KELKA_CRYSTALS;
 
   const emptyCells: { x: number; y: number }[] = [];
   for (let y = 0; y < player.gridHeight; y++) {
@@ -248,13 +248,13 @@ export default function PlotView({
             title={
               growingCount === 0
                 ? "Nothing growing right now"
-                : player.diamonds < GROW_ALL_COST_DIAMONDS
-                  ? "Not enough diamonds"
+                : player.kelkaCrystals < GROW_ALL_COST_KELKA_CRYSTALS
+                  ? "Not enough Kelka Crystals — earn them from daily quests"
                   : `Instantly finish growing all ${growingCount} crops`
             }
             onClick={handleGrowAll}
           >
-            ⚡ Grow All (💎{GROW_ALL_COST_DIAMONDS})
+            ⚡ Grow All (💠{GROW_ALL_COST_KELKA_CRYSTALS})
           </button>
           {hasReclaimer && (
             <button

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CROP_TIER_COLORS, CROP_TIER_LABELS, CROPS, PERSISTENT_REGROW_MULTIPLIER, SEED_STOCK_CYCLE_MS } from "../gameData";
+import { CROP_TIER_COLORS, CROP_TIER_LABELS, CROPS, SEED_STOCK_CYCLE_MS } from "../gameData";
 import { growSpeedMultiplier, isUnlocked, sellMultiplier } from "../derived";
 import type { PlayerState } from "../types";
 import { socket } from "../socket";
@@ -48,8 +48,10 @@ export default function SeedShopView({ player, now }: { player: PlayerState; now
         {CROPS.map((crop) => {
           const unlocked = isUnlocked(player, crop.unlockAt);
           const owned = player.seedInventory[crop.id] ?? 0;
-          const regrowsSlower = !!crop.persistent && !!player.persistentUnlocked[crop.id];
-          const effectiveGrow = Math.round(crop.growSeconds * growMult * (regrowsSlower ? PERSISTENT_REGROW_MULTIPLIER : 1));
+          // Basic Seed Shop crops always grow at the advertised speed, reclaimed or not — see
+          // isBasicShopCrop in server/src/rooms.ts. Only Moon/Solar crops still slow down after
+          // their first regrow (see MoonShopView/SolarShopView).
+          const effectiveGrow = Math.round(crop.growSeconds * growMult);
           const effectiveSell = Math.round(crop.sellPrice * sellMult);
           const stock = player.seedStock[crop.id] ?? 0;
           const isRareTier = crop.tier >= 4;
@@ -71,14 +73,6 @@ export default function SeedShopView({ player, now }: { player: PlayerState; now
                   {crop.persistent && (
                     <span className="tree-tag" title="Regrows after harvest — never consumed">
                       🌳 Persistent
-                    </span>
-                  )}
-                  {regrowsSlower && (
-                    <span
-                      className="tree-tag"
-                      title={`You've harvested this before, so it (and any new one you plant) now regrows at ${PERSISTENT_REGROW_MULTIPLIER}x the normal time — a one-time seed cost would otherwise print money forever.`}
-                    >
-                      🐌 Regrows {PERSISTENT_REGROW_MULTIPLIER}x slower
                     </span>
                   )}
                   {owned > 0 && <span className="owned-badge">own {owned}</span>}

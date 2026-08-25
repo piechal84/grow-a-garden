@@ -121,6 +121,7 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     seedStock: saved?.seedStock ?? {},
     seedStockBucket: saved?.seedStockBucket ?? -1,
     diamonds: saved?.diamonds ?? 0,
+    kelkaCrystals: saved?.kelkaCrystals ?? 0,
     persistentUnlocked: saved?.persistentUnlocked ?? {},
     petsOwned: saved?.petsOwned ?? {},
     petSlots: saved?.petSlots ?? BASE_PET_SLOTS,
@@ -212,22 +213,35 @@ export function ensureQuestsFresh(player: PlayerState, now: number) {
   }
 }
 
-function grantQuestReward(player: PlayerState, quest: Quest) {
+/** Kelka Crystals (Grow All's currency) are daily-only and never come from weekly quests —
+ *  weekly quests are already worth much more in coins/Moon Packs, and Kelka Crystals need to
+ *  stay scarce enough to actually rate-limit Grow All rather than becoming another reward to
+ *  stockpile. */
+function grantQuestReward(player: PlayerState, quest: Quest, isDaily: boolean) {
   player.coins += quest.coinReward;
   player.lifetimeCoins += quest.coinReward;
   for (let i = 0; i < quest.moonPacks; i++) {
     const result = rollMoonPack();
     player.seedInventory[result.cropId] = (player.seedInventory[result.cropId] ?? 0) + 1;
   }
+  if (isDaily) player.kelkaCrystals += 1;
 }
 
 function advanceQuests(player: PlayerState, type: QuestType, amount: number) {
-  for (const quest of [...player.dailyQuests, ...player.weeklyQuests]) {
+  for (const quest of player.dailyQuests) {
     if (quest.completed || quest.type !== type) continue;
     quest.progress = Math.min(quest.target, quest.progress + amount);
     if (quest.progress >= quest.target) {
       quest.completed = true;
-      grantQuestReward(player, quest);
+      grantQuestReward(player, quest, true);
+    }
+  }
+  for (const quest of player.weeklyQuests) {
+    if (quest.completed || quest.type !== type) continue;
+    quest.progress = Math.min(quest.target, quest.progress + amount);
+    if (quest.progress >= quest.target) {
+      quest.completed = true;
+      grantQuestReward(player, quest, false);
     }
   }
 }
@@ -882,6 +896,14 @@ export function buySeed(player: PlayerState, cropId: string, quantity: number): 
   return {};
 }
 
+/** Basic Seed Shop crops (as opposed to Moon/Solar shop crops) are exempt from the
+ *  persistent-regrow slowdown below — new players kept getting hit with it just from reclaiming
+ *  and replanting normally, which read as an unadvertised, unfairly harsh growth penalty. Moon
+ *  and Solar crops keep the exact same penalty as before. */
+function isBasicShopCrop(cropId: string): boolean {
+  return !!CROPS_BY_ID[cropId];
+}
+
 export function plant(room: RoomState, player: PlayerState, x: number, y: number, cropId: string): { error?: string } {
   const crop = getCropDef(cropId);
   if (!crop) return { error: "Unknown crop." };
@@ -894,8 +916,9 @@ export function plant(room: RoomState, player: PlayerState, x: number, y: number
   const tier = rollSizeTier();
   // Once a player has harvested this crop's persistent form before, every future planting of it
   // grows at the slow persistent-regrow rate from the start — otherwise reclaiming a regrowing
-  // tree and replanting the recovered seed would re-roll the fast first grow indefinitely.
-  const alreadyUnlocked = !!crop.persistent && !!player.persistentUnlocked[cropId];
+  // tree and replanting the recovered seed would re-roll the fast first grow indefinitely. Basic
+  // Seed Shop crops are exempt (see isBasicShopCrop) — always the advertised speed, reclaimed or not.
+  const alreadyUnlocked = !!crop.persistent && !!player.persistentUnlocked[cropId] && !isBasicShopCrop(cropId);
   const requiredMs = crop.growSeconds * 1000 * growSpeedMultiplier(player) * (alreadyUnlocked ? PERSISTENT_REGROW_MULTIPLIER : 1);
   const planting: Planting = {
     id: nanoid(8),
@@ -936,11 +959,13 @@ export function harvest(room: RoomState, player: PlayerState, plantingId: string
   if (crop?.persistent) {
     // Persistent crops are trees/vines: they stay planted and immediately start regrowing
     // a fresh fruit (new size/mutation roll) instead of being consumed — at 10x the normal
-    // grow time, since otherwise a one-time seed cost prints money forever.
+    // grow time, since otherwise a one-time seed cost prints money forever. Basic Seed Shop
+    // crops are exempt (see isBasicShopCrop) — they always regrow at the advertised speed.
     player.persistentUnlocked[planting.cropId] = true;
     const now = Date.now();
     const tier = rollSizeTier();
-    const requiredMs = crop.growSeconds * 1000 * growSpeedMultiplier(player) * PERSISTENT_REGROW_MULTIPLIER;
+    const regrowMult = isBasicShopCrop(planting.cropId) ? 1 : PERSISTENT_REGROW_MULTIPLIER;
+    const requiredMs = crop.growSeconds * 1000 * growSpeedMultiplier(player) * regrowMult;
     planting.plantedAt = now;
     planting.readyAt = computeReadyAt(room.createdAt, now, requiredMs);
     planting.sizeLabel = tier.label;
@@ -955,7 +980,10 @@ export function harvest(room: RoomState, player: PlayerState, plantingId: string
 }
 
 const HARVEST_ALL_COST_COINS = 1000;
-const GROW_ALL_COST_DIAMONDS = 10;
+/** Kelka Crystals instead of diamonds — diamonds are earnable fast enough (selling Solar crops)
+ *  that Grow All was trivially spammable; Kelka Crystals only come from daily quests (1 each, 3
+ *  dailies/day), which directly caps how often the whole plot can be insta-grown. */
+const GROW_ALL_COST_KELKA_CRYSTALS = 3;
 
 /** Pays a flat coin fee to harvest every currently-ready planting at once — reuses harvest()
  *  per planting so persistent crops replant themselves exactly as they would from a manual tap.
@@ -970,16 +998,16 @@ export function harvestAll(room: RoomState, player: PlayerState): { error?: stri
   return { count: readyIds.length };
 }
 
-/** Pays a flat diamond fee to instantly finish growing every currently-growing planting at
+/** Pays a flat Kelka Crystal fee to instantly finish growing every currently-growing planting at
  *  once — the same effect Baby Dragon's insta-grow has on a single crop (readyAt = now), just
- *  applied to everything and paid for directly. Doesn't harvest them — still needs a tap (or
- *  Harvest All) afterward like any other readied crop. */
+ *  applied to everything. Doesn't harvest them — still needs a tap (or Harvest All) afterward
+ *  like any other readied crop. */
 export function growAll(player: PlayerState): { error?: string; count?: number } {
   const now = Date.now();
   const growing = player.plantings.filter((p) => now < p.readyAt);
   if (growing.length === 0) return { error: "Nothing growing right now." };
-  if (player.diamonds < GROW_ALL_COST_DIAMONDS) return { error: "Not enough diamonds." };
-  player.diamonds -= GROW_ALL_COST_DIAMONDS;
+  if (player.kelkaCrystals < GROW_ALL_COST_KELKA_CRYSTALS) return { error: "Not enough Kelka Crystals." };
+  player.kelkaCrystals -= GROW_ALL_COST_KELKA_CRYSTALS;
   for (const p of growing) p.readyAt = now;
   return { count: growing.length };
 }
@@ -1145,6 +1173,7 @@ export function extractProgress(player: PlayerState): SavedProgress {
     seedStock: player.seedStock,
     seedStockBucket: player.seedStockBucket,
     diamonds: player.diamonds,
+    kelkaCrystals: player.kelkaCrystals,
     persistentUnlocked: player.persistentUnlocked,
     petsOwned: player.petsOwned,
     petSlots: player.petSlots,
