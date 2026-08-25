@@ -364,7 +364,6 @@ httpServer.listen(PORT, () => {
 // debounced-but-not-yet-written save so a deploy can never eat someone's last few actions.
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.on(signal, () => {
-    flushProgress();
-    process.exit(0);
+    flushProgress().finally(() => process.exit(0));
   });
 }

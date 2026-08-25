@@ -126,14 +126,19 @@ export async function initUserStore(): Promise<void> {
 const PERSIST_DEBOUNCE_MS = 2000;
 let persistTimer: NodeJS.Timeout | null = null;
 
-function doPersist() {
+function doPersist(): Promise<void> {
   const list = Array.from(usersByName.values());
   if (redis) {
-    redis.set("users", list).catch((err) => console.error("Failed to save accounts to Redis:", err));
-    return;
+    return redis
+      .set("users", list)
+      .then(() => undefined)
+      .catch((err) => console.error("Failed to save accounts to Redis:", err));
   }
-  writeFile(USERS_FILE, JSON.stringify(list, null, 2), "utf-8", (err) => {
-    if (err) console.error("Failed to save accounts to disk:", err);
+  return new Promise((resolve) => {
+    writeFile(USERS_FILE, JSON.stringify(list, null, 2), "utf-8", (err) => {
+      if (err) console.error("Failed to save accounts to disk:", err);
+      resolve();
+    });
   });
 }
 
@@ -141,16 +146,19 @@ function persist() {
   if (persistTimer) return;
   persistTimer = setTimeout(() => {
     persistTimer = null;
-    doPersist();
+    void doPersist();
   }, PERSIST_DEBOUNCE_MS);
 }
 
-/** Call on graceful shutdown (SIGTERM/SIGINT) so a pending debounced save isn't lost. */
-export function flushProgress() {
+/** Call on graceful shutdown (SIGTERM/SIGINT) and await it before exiting — otherwise the
+ *  process can still die mid-write, since writeFile/redis.set are async and exit() doesn't
+ *  wait for pending I/O. Without this, every redeploy is back to being able to drop the most
+ *  recent up-to-2s of debounced progress, the exact thing debouncing traded away. */
+export async function flushProgress(): Promise<void> {
   if (!persistTimer) return;
   clearTimeout(persistTimer);
   persistTimer = null;
-  doPersist();
+  await doPersist();
 }
 
 function hashPassword(password: string, salt: string): string {

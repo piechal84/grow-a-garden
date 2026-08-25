@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { socket } from "../socket";
 import { getClientId } from "../clientId";
 import type { AuthAck, JoinAck } from "../types";
@@ -7,6 +7,13 @@ import type { Position } from "../world";
 const NAME_KEY = "grow-garden-name";
 const USERNAME_KEY = "grow-garden-username";
 const REMEMBER_KEY = "grow-garden-remembered-user";
+/** The room code of whatever room this browser last successfully joined. A plain page reload
+ *  has no in-memory room/socket state left to reconnect with (unlike a dropped-then-restored
+ *  connection, which App.tsx handles separately) — without this, the room code field comes up
+ *  empty and reaching for "Start a New Room" out of habit silently abandons the old room and
+ *  rebuilds an account's player from whatever was last persisted to disk, discarding any more
+ *  recent progress that was still only live in the abandoned room. */
+const ROOM_KEY = "grow-garden-room";
 
 type Mode = "guest" | "account";
 
@@ -43,6 +50,7 @@ export default function Lobby({
   const [roomCode, setRoomCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(initialError ?? null);
+  const autoRejoinTried = useRef(false);
 
   function attemptJoin(codeToJoin?: string) {
     let clientId: string;
@@ -67,12 +75,30 @@ export default function Lobby({
     socket.emit("join_room", { roomCode: codeToJoin, playerName, clientId }, (res: JoinAck) => {
       setBusy(false);
       if (res.ok && res.playerId) {
+        if (res.roomCode) localStorage.setItem(ROOM_KEY, res.roomCode);
         onJoined(res.playerId, res.positions ?? {});
       } else {
+        // Whether this was the auto-rejoin below or a manual attempt, the remembered room is
+        // either gone or wrong — clear it so the lobby doesn't keep quietly retrying a dead room.
+        localStorage.removeItem(ROOM_KEY);
         setError(res.error ?? "Could not join.");
       }
     });
   }
+
+  // Silently rejoin the last room this browser was in, the moment we know who's asking (guest
+  // name or logged-in account) and the socket is connected — so a plain refresh lands back in
+  // the same game instead of an empty "type in a code or start fresh" screen.
+  useEffect(() => {
+    if (autoRejoinTried.current || !connected) return;
+    const rememberedRoom = localStorage.getItem(ROOM_KEY);
+    if (!rememberedRoom) return;
+    const identityReady = mode === "account" ? !!authedUser : !!name.trim();
+    if (!identityReady) return;
+    autoRejoinTried.current = true;
+    attemptJoin(rememberedRoom);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, mode, authedUser, name]);
 
   function handleAuth(kind: "login" | "register", e: FormEvent) {
     e.preventDefault();
