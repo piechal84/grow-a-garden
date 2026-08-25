@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { equippedPetsInfo, evolutionInfo, PET_SIZE_MULTIPLIER, type PetSize } from "../petData";
+import { socket } from "../socket";
 import type { PlayerState } from "../types";
 import { CELL_SIZE } from "../world";
 import PetIcon from "./PetIcon";
@@ -94,6 +95,45 @@ function FireFlare({
   );
 }
 
+interface FireballSpec {
+  id: number;
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  sizePx: number;
+}
+
+const FIREBALL_FLIGHT_MS = 550;
+const FIREBALL_CLEANUP_MS = FIREBALL_FLIGHT_MS + 300;
+const FIREBALL_BASE_SIZE = 16;
+
+/** Flies from `from` to `to` over FIREBALL_FLIGHT_MS via a CSS transition — starts at `from` on
+ *  mount, then flips to `to` on the next frame so the transition actually has something to
+ *  animate (the same two-phase trick .roaming-pet's own wander step relies on). */
+function Fireball({ spec, onDone }: { spec: FireballSpec; onDone: () => void }) {
+  const [pos, setPos] = useState(spec.from);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setPos(spec.to));
+    const timer = window.setTimeout(onDone, FIREBALL_CLEANUP_MS);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <span
+      className="dragon-fireball"
+      style={{
+        transform: `translate(${pos.x}px, ${pos.y}px)`,
+        width: spec.sizePx,
+        height: spec.sizePx,
+        marginLeft: -spec.sizePx / 2,
+        marginTop: -spec.sizePx / 2,
+      }}
+    />
+  );
+}
+
 /** Purely cosmetic — every equipped pet wanders to a new random spot within its owner's plot
  *  every few seconds. Each client picks its own random walk locally (no server sync needed,
  *  same as any other ambient animation), so exact paths can differ between viewers. Phoenix
@@ -110,11 +150,45 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
   const [moving, setMoving] = useState<boolean[]>([]);
   const [facing, setFacing] = useState<number[]>([]);
   const [fireEffects, setFireEffects] = useState<FireEffect[]>([]);
+  const [fireballs, setFireballs] = useState<FireballSpec[]>([]);
   const positionsRef = useRef(positions);
   positionsRef.current = positions;
   const facingRef = useRef(facing);
   facingRef.current = facing;
+  const petsRef = useRef(pets);
+  petsRef.current = pets;
+  const playerRef = useRef(player);
+  playerRef.current = player;
   const effectIdRef = useRef(0);
+  const fireballIdRef = useRef(0);
+
+  // Baby Dragon's insta-grow ability fires from the server on its own timer, independent of any
+  // player action — this just draws the fireball once notified, purely cosmetic (the real result
+  // already landed via the normal state_update). Reads pets/player through refs since this effect
+  // only resubscribes when the player identity changes, not on every render.
+  useEffect(() => {
+    function onDragonInstaGrow(payload: { playerId: string; petId: string; size: PetSize; plantingId: string }) {
+      if (payload.playerId !== playerRef.current.id) return;
+      const idx = petsRef.current.findIndex((p) => p.petId === payload.petId && p.size === payload.size);
+      const from = positionsRef.current[idx];
+      const planting = playerRef.current.plantings.find((p) => p.id === payload.plantingId);
+      if (!from || !planting) return;
+      fireballIdRef.current += 1;
+      setFireballs((cur) => [
+        ...cur,
+        {
+          id: fireballIdRef.current,
+          from,
+          to: { x: (planting.x + planting.w / 2) * CELL_SIZE, y: (planting.y + planting.h / 2) * CELL_SIZE },
+          sizePx: Math.round(FIREBALL_BASE_SIZE * PET_SIZE_MULTIPLIER[payload.size]),
+        },
+      ]);
+    }
+    socket.on("dragon_insta_grow", onDragonInstaGrow);
+    return () => {
+      socket.off("dragon_insta_grow", onDragonInstaGrow);
+    };
+  }, [player.id]);
 
   useEffect(() => {
     setPositions(pets.map(() => ({ x: Math.random() * width, y: Math.random() * height })));
@@ -196,6 +270,9 @@ export default function RoamingPets({ player }: { player: PlayerState }) {
         <span key={fx.id} className="pet-fire-ember" style={{ transform: `translate(${fx.x}px, ${fx.y}px)` }}>
           <FireFlare heading={fx.heading} colors={fx.colors} spreadDeg={fx.spreadDeg} baseLen={fx.baseLen} />
         </span>
+      ))}
+      {fireballs.map((fb) => (
+        <Fireball key={fb.id} spec={fb} onDone={() => setFireballs((cur) => cur.filter((x) => x.id !== fb.id))} />
       ))}
       {pets.map((p, i) => {
         const pos = positions[i] ?? { x: 0, y: 0 };

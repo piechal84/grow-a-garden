@@ -807,6 +807,33 @@ button {
   }
 }
 
+/* Signals a Baby Dragon's insta-grow ability firing — flies from the dragon to the crop it
+   matured. Position comes from an inline `transform: translate()` that changes after mount to
+   trigger the transition below; the flicker uses the standalone `scale` property so it composites
+   with that translate instead of fighting over the single `transform` property. */
+.dragon-fireball {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  z-index: 4;
+  pointer-events: none;
+  background: radial-gradient(circle at 35% 30%, #fff3b0 0%, #ffb23d 40%, #e8341e 75%, transparent 100%);
+  box-shadow: 0 0 10px 3px rgba(232, 52, 30, 0.6);
+  transition: transform 0.55s ease-in;
+  animation: dragon-fireball-flicker 0.15s ease-in-out infinite;
+}
+
+@keyframes dragon-fireball-flicker {
+  0%,
+  100% {
+    scale: 1;
+  }
+  50% {
+    scale: 1.15;
+  }
+}
+
 .stud-incubator {
   background: rgba(139, 90, 55, 0.28);
   border: 2px dashed rgba(224, 152, 42, 0.6);
@@ -1824,6 +1851,29 @@ button {
 
 .shop-view h2 {
   margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pet-guide-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: #eef2eb;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pet-guide-btn:hover {
+  background: #e3ecdd;
 }
 
 .shop-sub {

@@ -36,7 +36,7 @@ export interface SavedProgress {
   petsEquipped?: string[];
   incubators: IncubatorState[];
   /** Absent on saves from before the Baby Dragon insta-grow ability existed. */
-  dragonProcAt?: Record<string, number>;
+  petProcAt?: Record<string, number>;
 }
 
 export interface UserRecord {
@@ -72,7 +72,7 @@ function defaultProgress(): SavedProgress {
     petSlots: BASE_PET_SLOTS,
     petsEquipped: [],
     incubators: [],
-    dragonProcAt: {},
+    petProcAt: {},
   };
 }
 

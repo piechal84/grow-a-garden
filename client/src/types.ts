@@ -78,9 +78,10 @@ export interface PlayerState {
   petsEquipped: string[];
   /** Kelka Egg Incubators planted on this player's plot (up to gearOwned.kelka_incubator, max 2). */
   incubators: IncubatorState[];
-  /** Next timestamp (ms) each equipped Baby Dragon-line pet (keyed by its slotKey) can instantly
-   *  finish a growing crop again — server bookkeeping, not used directly by the client. */
-  dragonProcAt: Record<string, number>;
+  /** Next timestamp (ms) each equipped pet with its own independent-cooldown ability (Baby
+   *  Dragon's insta-grow, Fox's auto-harvest) can proc again — server bookkeeping, not used
+   *  directly by the client. */
+  petProcAt: Record<string, number>;
 }
 
 export interface RoomState {
@@ -212,4 +213,8 @@ export interface ServerToClientEvents {
     startedAt: number;
     duration: number;
   }) => void;
+  /** A Baby Dragon's insta-grow ability just fired — lets the client draw a one-shot fireball
+   *  from the dragon to the planting it matured, purely cosmetic (the state_update already
+   *  carries the real result). */
+  dragon_insta_grow: (payload: { playerId: string; petId: string; size: PetSize; plantingId: string }) => void;
 }

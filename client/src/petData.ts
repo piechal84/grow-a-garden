@@ -8,7 +8,11 @@
 export type PetEffect =
   | { type: "growSpeed"; value: number }
   | { type: "sellBonus"; value: number }
-  | { type: "incubatorSpeed"; value: number };
+  | { type: "incubatorSpeed"; value: number }
+  /** Fox only — the ability itself (harvest 1 ready crop every 60s, always exactly one,
+   *  regardless of evolution/size) is hardcoded server-side, not scaled by `value`. The field
+   *  only exists so Fox's Empowered/Tenacious forms still fit the Pet/BasePet shape uniformly. */
+  | { type: "autoHarvest"; value: number };
 
 export interface Pet {
   id: string;
@@ -31,7 +35,7 @@ interface BasePet {
 const BASE_PETS: BasePet[] = [
   { id: "chick", name: "Chick", emoji: "🐥", tier: 0, effect: { type: "sellBonus", value: 0.03 } },
   { id: "bunny", name: "Bunny", emoji: "🐰", tier: 1, effect: { type: "incubatorSpeed", value: 0.03 } },
-  { id: "fox", name: "Fox", emoji: "🦊", tier: 2, effect: { type: "sellBonus", value: 0.06 } },
+  { id: "fox", name: "Fox", emoji: "🦊", tier: 2, effect: { type: "autoHarvest", value: 1 } },
   { id: "owl", name: "Owl", emoji: "🦉", tier: 3, effect: { type: "incubatorSpeed", value: 0.06 } },
   { id: "panda", name: "Panda", emoji: "🐼", tier: 4, effect: { type: "sellBonus", value: 0.1 } },
   { id: "phoenix_chick", name: "Phoenix Chick", emoji: "🐣", tier: 5, effect: { type: "growSpeed", value: 0.1 } },
@@ -243,11 +247,14 @@ export const PET_EFFECT_LABELS: Record<PetEffect["type"], string> = {
   growSpeed: "Grow Speed",
   sellBonus: "Sell Price",
   incubatorSpeed: "Incubator Speed",
+  autoHarvest: "Auto Harvest",
 };
 
-/** Human-readable "+N% Grow Speed" / "+N% Sell Price" / "+N% Incubator Speed" label for a pet at
- *  a given size, shown anywhere a pet is listed so its power is never a mystery. */
+/** Human-readable effect label for a pet at a given size, shown anywhere a pet is listed so its
+ *  power is never a mystery — "+N% Grow Speed" / "+N% Sell Price" / "+N% Incubator Speed" for the
+ *  percentage-based effects, or a fixed description for Fox's flat "once every 60s" ability. */
 export function formatPetEffect(pet: Pet, size: PetSize): string {
+  if (pet.effect.type === "autoHarvest") return "Harvests 1 ready crop every 60s";
   const pct = Math.round(petEffectValue(pet, size) * 1000) / 10;
   const label = PET_EFFECT_LABELS[pet.effect.type];
   return `+${pct}% ${label}`;

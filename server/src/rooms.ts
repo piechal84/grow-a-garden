@@ -120,7 +120,7 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     // used to auto-contribute (best by tier) so nobody's bonuses silently disappear on upgrade.
     petsEquipped: saved?.petsEquipped ?? defaultEquippedSlots(saved?.petsOwned ?? {}, saved?.petSlots ?? BASE_PET_SLOTS),
     incubators: saved?.incubators ?? [],
-    dragonProcAt: saved?.dragonProcAt ?? {},
+    petProcAt: saved?.petProcAt ?? {},
   };
   sanitizePetState(player);
   ensureQuestsFresh(player, Date.now());
@@ -138,8 +138,8 @@ function sanitizePetState(player: PlayerState) {
     player.petsOwned = {};
   }
   if (!Array.isArray(player.petsEquipped)) player.petsEquipped = [];
-  if (!player.dragonProcAt || typeof player.dragonProcAt !== "object" || Array.isArray(player.dragonProcAt)) {
-    player.dragonProcAt = {};
+  if (!player.petProcAt || typeof player.petProcAt !== "object" || Array.isArray(player.petProcAt)) {
+    player.petProcAt = {};
   }
   for (const [petId, sizes] of Object.entries(player.petsOwned)) {
     if (!sizes || typeof sizes !== "object") {
@@ -440,9 +440,53 @@ const DRAGON_PROC_INTERVAL_MS = 60 * 1000;
  *  independent 60s cooldown — multiple equipped dragons never share a timer, so N dragons
  *  insta-grow N crops every interval. This needs to fire even when the player isn't taking any
  *  action, so it's driven by a fixed server tick (see index.ts) rather than lazily on read like
- *  everything else in this file. Returns the rooms that actually changed, so the caller knows
- *  which ones to broadcast. */
-export function tickDragonInstaGrow(): RoomState[] {
+ *  everything else in this file. Returns one entry per successful proc, so the caller knows both
+ *  which rooms to broadcast and which pet/planting pair to signal a fireball for. */
+export interface DragonProc {
+  roomCode: string;
+  playerId: string;
+  petId: string;
+  size: PetSize;
+  plantingId: string;
+}
+
+export function tickDragonInstaGrow(): DragonProc[] {
+  const now = Date.now();
+  const procs: DragonProc[] = [];
+  for (const room of rooms.values()) {
+    for (const player of room.players) {
+      for (const key of player.petsEquipped) {
+        const { petId, size } = parseSlotKey(key);
+        if (evolutionInfo(petId).baseId !== "baby_dragon") continue;
+        const nextAt = player.petProcAt[key];
+        if (nextAt === undefined) {
+          // First tick since this dragon was equipped — start its cooldown instead of
+          // proc'ing immediately, so equip timing can't be used to grab a free insta-grow.
+          player.petProcAt[key] = now + DRAGON_PROC_INTERVAL_MS;
+          continue;
+        }
+        if (now < nextAt) continue;
+        player.petProcAt[key] = now + DRAGON_PROC_INTERVAL_MS;
+        const target = player.plantings.filter((p) => now < p.readyAt).sort((a, b) => b.readyAt - a.readyAt)[0];
+        if (target) {
+          target.readyAt = now;
+          procs.push({ roomCode: room.code, playerId: player.id, petId, size, plantingId: target.id });
+        }
+      }
+    }
+  }
+  return procs;
+}
+
+const FOX_PROC_INTERVAL_MS = 60 * 1000;
+
+/** Every equipped Fox (any evolution stage) auto-harvests one of its owner's ready-to-collect
+ *  plantings — always exactly one, picking whichever has been sitting ready longest — on its own
+ *  independent 60s cooldown, the same petProcAt bookkeeping and equip-timing protection
+ *  tickDragonInstaGrow uses. Just calls the real harvest() so mutations/persistent-regrow/quest
+ *  progress all happen exactly as if the player had tapped it themselves. Returns the rooms that
+ *  actually changed, so the caller knows which ones to broadcast. */
+export function tickFoxAutoHarvest(): RoomState[] {
   const now = Date.now();
   const changed: RoomState[] = [];
   for (const room of rooms.values()) {
@@ -450,19 +494,17 @@ export function tickDragonInstaGrow(): RoomState[] {
     for (const player of room.players) {
       for (const key of player.petsEquipped) {
         const { petId } = parseSlotKey(key);
-        if (evolutionInfo(petId).baseId !== "baby_dragon") continue;
-        const nextAt = player.dragonProcAt[key];
+        if (evolutionInfo(petId).baseId !== "fox") continue;
+        const nextAt = player.petProcAt[key];
         if (nextAt === undefined) {
-          // First tick since this dragon was equipped — start its cooldown instead of
-          // proc'ing immediately, so equip timing can't be used to grab a free insta-grow.
-          player.dragonProcAt[key] = now + DRAGON_PROC_INTERVAL_MS;
+          player.petProcAt[key] = now + FOX_PROC_INTERVAL_MS;
           continue;
         }
         if (now < nextAt) continue;
-        player.dragonProcAt[key] = now + DRAGON_PROC_INTERVAL_MS;
-        const target = player.plantings.filter((p) => now < p.readyAt).sort((a, b) => b.readyAt - a.readyAt)[0];
+        player.petProcAt[key] = now + FOX_PROC_INTERVAL_MS;
+        const target = player.plantings.filter((p) => now >= p.readyAt).sort((a, b) => a.readyAt - b.readyAt)[0];
         if (target) {
-          target.readyAt = now;
+          harvest(room, player, target.id);
           roomChanged = true;
         }
       }
@@ -537,9 +579,9 @@ export function unequipPet(room: RoomState, player: PlayerState, petId: string, 
   const oldGrowMult = growSpeedMultiplier(player);
   const oldIncubatorMult = incubatorSpeedMultiplier(player);
   player.petsEquipped.splice(idx, 1);
-  // Otherwise a stale (already-elapsed) cooldown would let a re-equipped dragon insta-grow
-  // immediately instead of waiting out a fresh 60s — see tickDragonInstaGrow.
-  delete player.dragonProcAt[key];
+  // Otherwise a stale (already-elapsed) cooldown would let a re-equipped Dragon/Fox proc
+  // immediately instead of waiting out a fresh 60s — see tickDragonInstaGrow/tickFoxAutoHarvest.
+  delete player.petProcAt[key];
   rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
   rebaseIncubatorTimers(player, oldIncubatorMult, incubatorSpeedMultiplier(player));
   return {};
@@ -934,7 +976,7 @@ export function extractProgress(player: PlayerState): SavedProgress {
     petSlots: player.petSlots,
     petsEquipped: player.petsEquipped,
     incubators: player.incubators,
-    dragonProcAt: player.dragonProcAt,
+    petProcAt: player.petProcAt,
   };
 }
 

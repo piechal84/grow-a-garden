@@ -8,7 +8,12 @@
 export type PetEffect =
   | { type: "growSpeed"; value: number }
   | { type: "sellBonus"; value: number }
-  | { type: "incubatorSpeed"; value: number };
+  | { type: "incubatorSpeed"; value: number }
+  /** Fox only — the ability itself (harvest 1 ready crop every 60s, always exactly one,
+   *  regardless of evolution/size) is hardcoded in rooms.ts's tickFoxAutoHarvest, not scaled by
+   *  `value`. The field only exists so Fox's Empowered/Tenacious forms still fit the Pet/BasePet
+   *  shape uniformly. */
+  | { type: "autoHarvest"; value: number };
 
 export interface Pet {
   id: string;
@@ -31,7 +36,7 @@ interface BasePet {
 const BASE_PETS: BasePet[] = [
   { id: "chick", name: "Chick", emoji: "🐥", tier: 0, effect: { type: "sellBonus", value: 0.03 } },
   { id: "bunny", name: "Bunny", emoji: "🐰", tier: 1, effect: { type: "incubatorSpeed", value: 0.03 } },
-  { id: "fox", name: "Fox", emoji: "🦊", tier: 2, effect: { type: "sellBonus", value: 0.06 } },
+  { id: "fox", name: "Fox", emoji: "🦊", tier: 2, effect: { type: "autoHarvest", value: 1 } },
   { id: "owl", name: "Owl", emoji: "🦉", tier: 3, effect: { type: "incubatorSpeed", value: 0.06 } },
   { id: "panda", name: "Panda", emoji: "🐼", tier: 4, effect: { type: "sellBonus", value: 0.1 } },
   { id: "phoenix_chick", name: "Phoenix Chick", emoji: "🐣", tier: 5, effect: { type: "growSpeed", value: 0.1 } },

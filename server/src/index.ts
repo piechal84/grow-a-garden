@@ -25,6 +25,7 @@ import {
   equipPet,
   extractProgress,
   findRoomByPlayer,
+  getRoom,
   harvest,
   joinRoom,
   markDisconnected,
@@ -40,6 +41,7 @@ import {
   sellDiamonds,
   startPetMerge,
   tickDragonInstaGrow,
+  tickFoxAutoHarvest,
   unequipPet,
 } from "./rooms.js";
 import type { ClientToServerEvents, RoomState, ServerToClientEvents } from "./types.js";
@@ -333,13 +335,25 @@ io.on("connection", (socket) => {
   });
 });
 
-// Baby Dragon's insta-grow ability needs to fire on its own 60s cooldown even when a player
-// isn't taking any action, unlike everything else in this game (which is all lazily computed
-// from stored timestamps on read/broadcast) — so it's the one thing driven by a real tick.
-const DRAGON_TICK_MS = 2000;
+// Baby Dragon's insta-grow and Fox's auto-harvest both need to fire on their own 60s cooldowns
+// even when a player isn't taking any action, unlike everything else in this game (which is all
+// lazily computed from stored timestamps on read/broadcast) — so they're the one thing driven by
+// a real tick.
+const PET_ABILITY_TICK_MS = 2000;
 setInterval(() => {
-  for (const room of tickDragonInstaGrow()) broadcast(room);
-}, DRAGON_TICK_MS);
+  const dragonProcs = tickDragonInstaGrow();
+  const foxChangedRooms = tickFoxAutoHarvest();
+  const roomsToBroadcast = new Map<string, RoomState>();
+  for (const proc of dragonProcs) {
+    const room = getRoom(proc.roomCode);
+    if (room) roomsToBroadcast.set(room.code, room);
+  }
+  for (const room of foxChangedRooms) roomsToBroadcast.set(room.code, room);
+  for (const room of roomsToBroadcast.values()) broadcast(room);
+  for (const proc of dragonProcs) {
+    io.to(proc.roomCode).emit("dragon_insta_grow", proc);
+  }
+}, PET_ABILITY_TICK_MS);
 
 await initUserStore();
 httpServer.listen(PORT, () => {

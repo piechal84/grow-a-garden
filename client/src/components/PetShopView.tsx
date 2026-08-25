@@ -19,6 +19,7 @@ import {
 import type { PetEggAck, PetEggBulkAck, PetHatchOutcome, PlayerState } from "../types";
 import { socket } from "../socket";
 import GrowSpeedBanner from "./GrowSpeedBanner";
+import PetGuideModal from "./PetGuideModal";
 import PetIcon from "./PetIcon";
 
 const BULK_EGG_COUNT = 10;
@@ -63,6 +64,7 @@ export default function PetShopView({ player }: { player: PlayerState }) {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [lastHatch, setLastHatch] = useState<HatchMessage | null>(null);
   const [bulkResults, setBulkResults] = useState<PetHatchOutcome[] | null>(null);
+  const [showGuide, setShowGuide] = useState(false);
 
   const equipped = new Set(player.petsEquipped);
   const slotCost = nextPetSlotCost(player.petSlots);
@@ -171,7 +173,18 @@ export default function PetShopView({ player }: { player: PlayerState }) {
 
   return (
     <div className="shop-view">
-      <h2>🐾 Pet Shop</h2>
+      <h2>
+        🐾 Pet Shop
+        <button
+          className="pet-guide-btn"
+          onClick={() => setShowGuide(true)}
+          title="See every pet species and what its ability does"
+          aria-label="Pet guide"
+        >
+          ?
+        </button>
+      </h2>
+      {showGuide && <PetGuideModal onClose={() => setShowGuide(false)} />}
       <p className="shop-sub">
         Hatch pets from eggs — better eggs favor rarer pets. Each pet also hatches Normal, Big, or Giant. Duplicates
         stack: gather 4 identical pets (same pet, same size) and feed them to a planted Kelka Egg Incubator (Gear
