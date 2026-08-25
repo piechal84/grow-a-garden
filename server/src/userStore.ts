@@ -1,6 +1,6 @@
 import { Redis } from "@upstash/redis";
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFile } from "node:fs";
 import path from "node:path";
 import { STARTING_COINS } from "./gameData.js";
 import { BASE_PET_SLOTS, type PetSize } from "./petData.js";
@@ -116,13 +116,41 @@ export async function initUserStore(): Promise<void> {
   }
 }
 
-function persist() {
+// persist() used to write synchronously on every broadcast (i.e. on every action any
+// logged-in player takes) — with the local-file fallback that's a blocking writeFileSync of
+// the WHOLE user table on the single Node event-loop thread, growing with everyone's total
+// saved progress. On a loaded room that stalls state_update delivery to every connected
+// socket for the write's duration, which reads as a frozen/desynced UI on a flaky connection.
+// Debouncing collapses a burst of saves (e.g. several players acting within the same couple
+// of seconds) into one write, and the local-file write is now non-blocking either way.
+const PERSIST_DEBOUNCE_MS = 2000;
+let persistTimer: NodeJS.Timeout | null = null;
+
+function doPersist() {
   const list = Array.from(usersByName.values());
   if (redis) {
     redis.set("users", list).catch((err) => console.error("Failed to save accounts to Redis:", err));
     return;
   }
-  writeFileSync(USERS_FILE, JSON.stringify(list, null, 2), "utf-8");
+  writeFile(USERS_FILE, JSON.stringify(list, null, 2), "utf-8", (err) => {
+    if (err) console.error("Failed to save accounts to disk:", err);
+  });
+}
+
+function persist() {
+  if (persistTimer) return;
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    doPersist();
+  }, PERSIST_DEBOUNCE_MS);
+}
+
+/** Call on graceful shutdown (SIGTERM/SIGINT) so a pending debounced save isn't lost. */
+export function flushProgress() {
+  if (!persistTimer) return;
+  clearTimeout(persistTimer);
+  persistTimer = null;
+  doPersist();
 }
 
 function hashPassword(password: string, salt: string): string {

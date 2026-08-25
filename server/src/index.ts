@@ -45,7 +45,7 @@ import {
   unequipPet,
 } from "./rooms.js";
 import type { ClientToServerEvents, RoomState, ServerToClientEvents } from "./types.js";
-import { initUserStore, login, register, saveProgress } from "./userStore.js";
+import { flushProgress, initUserStore, login, register, saveProgress } from "./userStore.js";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 
@@ -359,3 +359,12 @@ await initUserStore();
 httpServer.listen(PORT, () => {
   console.log(`Grow Garden server listening on http://localhost:${PORT}`);
 });
+
+// Render sends SIGTERM before killing the old instance on every redeploy — flush any
+// debounced-but-not-yet-written save so a deploy can never eat someone's last few actions.
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.on(signal, () => {
+    flushProgress();
+    process.exit(0);
+  });
+}
