@@ -121,6 +121,12 @@ export default function PlotView({
     setMoveError(null);
   }
 
+  function handleReclaimIncubator(incubatorId: string) {
+    socket.emit("reclaim_incubator", { incubatorId }, (res) => {
+      setMoveError(res.ok ? null : (res.error ?? "Could not reclaim."));
+    });
+  }
+
   function handleSelectForMove(plantingId: string) {
     setMoveError(null);
     setMovingId(plantingId);
@@ -198,7 +204,7 @@ export default function PlotView({
       )}
       {isOwner && activeTool === "reclaim" && (
         <div className="plot-move-banner" onClick={(e) => e.stopPropagation()}>
-          🧲 Tap a crop to reclaim its seed
+          🧲 Tap a crop to reclaim its seed, or an incubator to pick it up
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
             Done
           </button>
@@ -327,6 +333,8 @@ export default function PlotView({
           moveMode={activeTool === "move"}
           isMoving={movingId === incubator.id}
           onSelectForMove={() => handleSelectForMove(incubator.id)}
+          reclaimMode={activeTool === "reclaim"}
+          onReclaim={() => handleReclaimIncubator(incubator.id)}
         />
       ))}
 

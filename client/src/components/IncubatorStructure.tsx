@@ -30,6 +30,8 @@ export default function IncubatorStructure({
   moveMode,
   isMoving,
   onSelectForMove,
+  reclaimMode,
+  onReclaim,
 }: {
   incubator: IncubatorState;
   player: PlayerState;
@@ -40,6 +42,10 @@ export default function IncubatorStructure({
   moveMode?: boolean;
   isMoving?: boolean;
   onSelectForMove?: () => void;
+  /** True while the plot's Reclaim tool is active — tapping the incubator picks it up (freeing
+   *  its 3x3 footprint) instead of opening the merge picker / collecting. */
+  reclaimMode?: boolean;
+  onReclaim?: () => void;
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const [selected, setSelected] = useState<Selection | null>(null);
@@ -53,6 +59,10 @@ export default function IncubatorStructure({
   function handleClick(e: React.MouseEvent) {
     e.stopPropagation();
     if (!isOwner) return;
+    if (reclaimMode) {
+      onReclaim?.();
+      return;
+    }
     if (moveMode) {
       onSelectForMove?.();
       return;
@@ -98,7 +108,7 @@ export default function IncubatorStructure({
   return (
     <div
       className={`stud stud-incubator ${ready ? "incubator-ready" : ""} ${isMoving ? "stud-moving" : ""} ${
-        isOwner && moveMode ? "stud-tool-target" : ""
+        isOwner && (moveMode || reclaimMode) ? "stud-tool-target" : ""
       }`}
       style={{
         left: incubator.x * CELL_SIZE,
@@ -107,7 +117,19 @@ export default function IncubatorStructure({
         height: 3 * CELL_SIZE,
       }}
       onClick={handleClick}
-      title={moveMode ? (isMoving ? "Selected — pick a new spot" : "Tap to move") : !merge ? "Tap to merge 4 identical pets" : ready ? "Tap to collect" : "Merging…"}
+      title={
+        reclaimMode
+          ? "Tap to reclaim"
+          : moveMode
+            ? isMoving
+              ? "Selected — pick a new spot"
+              : "Tap to move"
+            : !merge
+              ? "Tap to merge 4 identical pets"
+              : ready
+                ? "Tap to collect"
+                : "Merging…"
+      }
     >
       <span className="incubator-emoji">{ready && targetPet ? <PetIcon pet={targetPet} size={30} /> : "🥚"}</span>
       {merge && !ready && <span className="incubator-timer">{formatDuration(merge.readyAt - now)}</span>}

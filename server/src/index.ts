@@ -35,6 +35,7 @@ import {
   placeIncubator,
   plant,
   reclaim,
+  reclaimIncubator,
   rerollQuest,
   sell,
   sellAll,
@@ -150,6 +151,14 @@ io.on("connection", (socket) => {
     const { room, player } = currentPlayer();
     if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
     const result = reclaim(player, plantingId);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("reclaim_incubator", ({ incubatorId }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = reclaimIncubator(player, incubatorId);
     ack?.({ ok: !result.error, error: result.error });
     if (!result.error) broadcast(room);
   });

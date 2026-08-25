@@ -844,6 +844,20 @@ export function reclaim(player: PlayerState, plantingId: string): { error?: stri
   return {};
 }
 
+/** Picks up a placed incubator, freeing its 3x3 footprint. Doesn't touch gearOwned["kelka_incubator"]
+ *  (the count you've bought) — only how many are currently placed — so it can immediately be
+ *  placed again elsewhere via placeIncubator, same relationship movePlanting/reclaim have with a
+ *  planting's seed. Blocked mid-merge so the 4 pets already spent on it can't be stranded. */
+export function reclaimIncubator(player: PlayerState, incubatorId: string): { error?: string } {
+  const owned = player.gearOwned["reclaimer"] ?? 0;
+  if (owned <= 0) return { error: "You need the Reclaimer tool from the Gear Shop first." };
+  const idx = player.incubators.findIndex((i) => i.id === incubatorId);
+  if (idx === -1) return { error: "Incubator not found." };
+  if (player.incubators[idx].merge) return { error: "Finish or collect the merge in progress first." };
+  player.incubators.splice(idx, 1);
+  return {};
+}
+
 export function movePlanting(player: PlayerState, plantingId: string, x: number, y: number): { error?: string } {
   const owned = player.gearOwned["trowel"] ?? 0;
   if (owned <= 0) return { error: "You need the Trowel from the Gear Shop first." };

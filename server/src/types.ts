@@ -106,6 +106,7 @@ export interface ClientToServerEvents {
   plant: (payload: { x: number; y: number; cropId: string }, ack?: (res: ActionAck) => void) => void;
   harvest: (payload: { plantingId: string }, ack?: (res: ActionAck) => void) => void;
   reclaim_planting: (payload: { plantingId: string }, ack?: (res: ActionAck) => void) => void;
+  reclaim_incubator: (payload: { incubatorId: string }, ack?: (res: ActionAck) => void) => void;
   move_planting: (payload: { plantingId: string; x: number; y: number }, ack?: (res: ActionAck) => void) => void;
   move_incubator: (payload: { incubatorId: string; x: number; y: number }, ack?: (res: ActionAck) => void) => void;
   sell: (
