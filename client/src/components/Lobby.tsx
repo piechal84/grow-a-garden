@@ -25,9 +25,14 @@ function loadRememberedUser(): { userId: string; username: string } | null {
 export default function Lobby({
   connected,
   onJoined,
+  initialError,
 }: {
   connected: boolean;
   onJoined: (playerId: string, positions: Record<string, Position>) => void;
+  /** Seeds the error banner when App bounces back here after a reconnect couldn't restore the
+   *  old session (e.g. the server itself restarted) — explains why they landed back at the
+   *  lobby instead of leaving them guessing. */
+  initialError?: string | null;
 }) {
   const [mode, setMode] = useState<Mode>(() => (loadRememberedUser() ? "account" : "guest"));
   const [name, setName] = useState(() => localStorage.getItem(NAME_KEY) ?? "");
@@ -37,7 +42,7 @@ export default function Lobby({
   const [authedUser, setAuthedUser] = useState<{ userId: string; username: string } | null>(loadRememberedUser);
   const [roomCode, setRoomCode] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
 
   function attemptJoin(codeToJoin?: string) {
     let clientId: string;
