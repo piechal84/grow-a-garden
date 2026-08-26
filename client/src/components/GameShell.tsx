@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { isMuted, setMuted } from "../sound";
 import type { RoomState } from "../types";
 import type { Position } from "../world";
+import HarvestCursorFollower from "./HarvestCursorFollower";
 import PlayerSidebar from "./PlayerSidebar";
 import WorldView from "./WorldView";
 
@@ -63,6 +64,7 @@ export default function GameShell({
 
   return (
     <div className="game-shell" ref={shellRef}>
+      <HarvestCursorFollower />
       <header className="game-header">
         <div className="game-header-left">
           <span className="game-title">🌱 Grow a Garden</span>
