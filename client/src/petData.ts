@@ -74,7 +74,7 @@ function evolve(base: BasePet, stage: number): Pet {
 export const HISTORIC_TIER = 8;
 
 /** The Kitsune: Historic-tier, obtainable only via the Kelka Kitsune Shrine (a New Fox Egg fused
- *  with a Giant Moon Blossom, a Giant Sun Blossom, or both — see startKitsuneCraft in rooms.ts).
+ *  with a Giant Moon Blossom, a Giant Sun Blossom, or both — see startKitsuneCraft in towns.ts).
  *  Not part of BASE_PETS/evolve() — it doesn't hatch from eggs and has no further Empowered/
  *  Tenacious merge path, so it's listed here as 3 already-final, independent forms instead. */
 export const KITSUNE_PETS: Pet[] = [

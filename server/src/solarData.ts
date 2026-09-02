@@ -40,7 +40,7 @@ export const SOLAR_CROPS_BY_ID: Record<string, SolarCrop> = Object.fromEntries(S
 
 export const SOLAR_TIER_ORDER: SolarTier[] = ["common", "uncommon", "rare", "epic", "mythic", "legendary"];
 
-/** Diamonds, not coins — Diamonds only come from the Premium Shop (see rooms.ts buyDiamonds). */
+/** Diamonds, not coins — Diamonds only come from the Premium Shop (see towns.ts buyDiamonds). */
 export const SOLAR_PACK_COST = 1;
 
 interface PackWeight {

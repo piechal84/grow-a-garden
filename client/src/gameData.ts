@@ -160,9 +160,9 @@ export const GEAR: GearItem[] = [
 
 export const GEAR_BY_ID: Record<string, GearItem> = Object.fromEntries(GEAR.map((g) => [g.id, g]));
 
-export const MAX_PLAYERS_PER_ROOM = 6;
+export const MAX_PLAYERS_PER_TOWN = 4;
 
-/** Must match server/src/rooms.ts's STOCK_CYCLE_MS — how often seed shop stock rolls over. */
+/** Must match server/src/towns.ts's STOCK_CYCLE_MS — how often seed shop stock rolls over. */
 export const SEED_STOCK_CYCLE_MS = 2 * 60 * 1000;
 
 /** Mirrors server/src/gameData.ts — multiplier applied to a persistent crop's regrow time once

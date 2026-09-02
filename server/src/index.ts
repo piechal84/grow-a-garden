@@ -22,18 +22,18 @@ import {
   collectKitsuneCraft,
   collectPetMerge,
   collectVikingResearch,
-  createRoom,
+  createTown,
   ensurePosition,
   ensureQuestsFresh,
   ensureStockFresh,
   equipPet,
   extractProgress,
-  findRoomByPlayer,
-  getRoom,
+  findTownByPlayer,
+  getTown,
   growAll,
   harvest,
   harvestAll,
-  joinRoom,
+  joinTown,
   markDisconnected,
   moveIncubator,
   moveKitsuneShrine,
@@ -60,8 +60,8 @@ import {
   tickFoxAutoHarvest,
   unequipPet,
   upgradeYggdrasilSlots,
-} from "./rooms.js";
-import type { ClientToServerEvents, RoomState, ServerToClientEvents } from "./types.js";
+} from "./towns.js";
+import type { ClientToServerEvents, TownState, ServerToClientEvents } from "./types.js";
 import { flushProgress, initUserStore, login, register, saveProgress } from "./userStore.js";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
@@ -84,9 +84,9 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: { origin: "*" },
 });
 
-function broadcast(room: RoomState) {
-  io.to(room.code).emit("state_update", room);
-  for (const player of room.players) {
+function broadcast(town: TownState) {
+  io.to(town.code).emit("state_update", town);
+  for (const player of town.players) {
     if (player.accountUsername) saveProgress(player.id, extractProgress(player));
   }
 }
@@ -104,152 +104,152 @@ io.on("connection", (socket) => {
     ack({ ok: true, userId: result.user.id, username: result.user.username });
   });
 
-  socket.on("join_room", ({ roomCode, playerName, clientId }, ack) => {
+  socket.on("join_town", ({ townCode, playerName, clientId }, ack) => {
     const name = playerName.trim().slice(0, 20);
     if (!name) return ack({ ok: false, error: "Enter a name." });
     if (!clientId) return ack({ ok: false, error: "Missing client id." });
 
-    let room: RoomState;
-    if (roomCode) {
-      const result = joinRoom(roomCode, clientId, name);
-      if (result.error || !result.room) return ack({ ok: false, error: result.error ?? "Could not join room." });
-      room = result.room;
+    let town: TownState;
+    if (townCode) {
+      const result = joinTown(townCode, clientId, name);
+      if (result.error || !result.town) return ack({ ok: false, error: result.error ?? "Could not join town." });
+      town = result.town;
     } else {
-      room = createRoom(clientId, name);
+      town = createTown(clientId, name);
     }
 
     socket.data.clientId = clientId;
-    socket.join(room.code);
-    const player = room.players.find((p) => p.id === clientId)!;
-    const spawn = ensurePosition(room, player);
-    ack({ ok: true, roomCode: room.code, playerId: clientId, positions: allPositions(room) });
-    broadcast(room);
-    io.to(room.code).emit("player_spawned", { playerId: clientId, x: spawn.x, y: spawn.y });
+    socket.join(town.code);
+    const player = town.players.find((p) => p.id === clientId)!;
+    const spawn = ensurePosition(town, player);
+    ack({ ok: true, townCode: town.code, playerId: clientId, positions: allPositions(town) });
+    broadcast(town);
+    io.to(town.code).emit("player_spawned", { playerId: clientId, x: spawn.x, y: spawn.y });
   });
 
   function currentPlayer() {
     const clientId = socket.data.clientId as string | undefined;
-    if (!clientId) return { room: undefined, player: undefined };
-    const room = findRoomByPlayer(clientId);
-    const player = room?.players.find((p) => p.id === clientId);
+    if (!clientId) return { town: undefined, player: undefined };
+    const town = findTownByPlayer(clientId);
+    const player = town?.players.find((p) => p.id === clientId);
     if (player) {
       ensureQuestsFresh(player, Date.now());
       ensureStockFresh(player, Date.now());
     }
-    return { room, player };
+    return { town, player };
   }
 
-  socket.on("leave_room", (ack) => {
-    const { room } = currentPlayer();
-    if (!room) return ack?.({ ok: false, error: "Not in a room." });
+  socket.on("leave_town", (ack) => {
+    const { town } = currentPlayer();
+    if (!town) return ack?.({ ok: false, error: "Not in a town." });
     const clientId = socket.data.clientId as string;
-    const changedRoom = markDisconnected(clientId);
-    socket.leave(room.code);
+    const changedTown = markDisconnected(clientId);
+    socket.leave(town.code);
     socket.data.clientId = undefined;
     ack?.({ ok: true });
-    if (changedRoom) broadcast(changedRoom);
+    if (changedTown) broadcast(changedTown);
   });
 
   socket.on("buy_seed", ({ cropId, quantity }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = buySeed(player, cropId, quantity);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("plant", ({ x, y, cropId }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = plant(room, player, x, y, cropId);
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
+    const result = plant(town, player, x, y, cropId);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("harvest", ({ plantingId }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = harvest(room, player, plantingId);
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
+    const result = harvest(town, player, plantingId);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("harvest_all", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = harvestAll(room, player);
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
+    const result = harvestAll(town, player);
     ack?.({ ok: !result.error, error: result.error, count: result.count });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("grow_all", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = growAll(player);
     ack?.({ ok: !result.error, error: result.error, count: result.count });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("reclaim_planting", ({ plantingId }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = reclaim(player, plantingId);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("reclaim_incubator", ({ incubatorId }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = reclaimIncubator(player, incubatorId);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("move_planting", ({ plantingId, x, y }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = movePlanting(player, plantingId, x, y);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("move_incubator", ({ incubatorId, x, y }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = moveIncubator(player, incubatorId, x, y);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("sell", ({ cropId, sizeLabel, mutations, quantity }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = sell(player, cropId, sizeLabel, mutations, quantity);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("sell_all", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = sellAll(player);
     ack?.({ ok: !result.error, error: result.error, earned: result.earned, diamonds: result.diamonds, count: result.count });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("buy_gear", ({ gearId }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = buyGear(room, player, gearId);
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
+    const result = buyGear(town, player, gearId);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("buy_pet_egg", ({ eggId }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = buyPetEgg(room, player, eggId);
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
+    const result = buyPetEgg(town, player, eggId);
     ack?.({
       ok: !result.error,
       error: result.error,
@@ -257,245 +257,245 @@ io.on("connection", (socket) => {
       size: result.size,
       count: result.count,
     });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("buy_pet_egg_bulk", ({ eggId }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = buyPetEggBulk(room, player, eggId);
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
+    const result = buyPetEggBulk(town, player, eggId);
     ack?.({ ok: !result.error, error: result.error, results: result.results, cost: result.cost });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("equip_pet", ({ petId, size }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = equipPet(room, player, petId, size);
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
+    const result = equipPet(town, player, petId, size);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("unequip_pet", ({ petId, size }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const result = unequipPet(room, player, petId, size);
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
+    const result = unequipPet(town, player, petId, size);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("place_incubator", ({ x, y }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = placeIncubator(player, x, y);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("start_pet_merge", ({ incubatorId, petId, size }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = startPetMerge(player, incubatorId, petId, size);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("collect_pet_merge", ({ incubatorId }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = collectPetMerge(player, incubatorId);
     ack?.({ ok: !result.error, error: result.error, petId: result.petId, size: result.size });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("buy_fox_egg", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = buyFoxEgg(player);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("place_kitsune_shrine", ({ x, y }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = placeKitsuneShrine(player, x, y);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("move_kitsune_shrine", ({ shrineId, x, y }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = moveKitsuneShrine(player, shrineId, x, y);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("reclaim_kitsune_shrine", ({ shrineId }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = reclaimKitsuneShrine(player, shrineId);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("start_kitsune_craft", ({ shrineId, recipe }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = startKitsuneCraft(player, shrineId, recipe);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("collect_kitsune_craft", ({ shrineId }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = collectKitsuneCraft(player, shrineId);
     ack?.({ ok: !result.error, error: result.error, petId: result.petId, size: result.size });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("buy_pet_slot", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = buyPetSlot(player);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("buy_moon_pack", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const outcome = buyMoonPack(room, player);
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
+    const outcome = buyMoonPack(town, player);
     ack?.({ ok: !outcome.error, error: outcome.error, result: outcome.result });
-    if (!outcome.error) broadcast(room);
+    if (!outcome.error) broadcast(town);
   });
 
   socket.on("buy_moon_pack_bulk", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const outcome = buyMoonPackBulk(room, player);
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
+    const outcome = buyMoonPackBulk(town, player);
     ack?.({ ok: !outcome.error, error: outcome.error, results: outcome.results, cost: outcome.cost });
-    if (!outcome.error) broadcast(room);
+    if (!outcome.error) broadcast(town);
   });
 
   socket.on("buy_solar_pack", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const outcome = buySolarPack(room, player);
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
+    const outcome = buySolarPack(town, player);
     ack?.({ ok: !outcome.error, error: outcome.error, result: outcome.result });
-    if (!outcome.error) broadcast(room);
+    if (!outcome.error) broadcast(town);
   });
 
   socket.on("buy_solar_pack_bulk", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
-    const outcome = buySolarPackBulk(room, player);
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
+    const outcome = buySolarPackBulk(town, player);
     ack?.({ ok: !outcome.error, error: outcome.error, results: outcome.results, cost: outcome.cost });
-    if (!outcome.error) broadcast(room);
+    if (!outcome.error) broadcast(town);
   });
 
   socket.on("place_yggdrasil", ({ x, y }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = placeYggdrasil(player, x, y);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("move_yggdrasil", ({ x, y }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = moveYggdrasil(player, x, y);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("reclaim_yggdrasil", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = reclaimYggdrasil(player);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("upgrade_yggdrasil", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = upgradeYggdrasilSlots(player);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("start_viking_research", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = startVikingResearch(player);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("collect_viking_research", ({ researchId }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = collectVikingResearch(player, researchId);
     ack?.({ ok: !result.error, error: result.error, result: result.result });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("collect_all_viking_research", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = collectAllVikingResearch(player);
     ack?.({ ok: !result.error, error: result.error, results: result.results });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("buy_diamonds", ({ quantity }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const outcome = buyDiamonds(player, quantity);
     ack?.({ ok: !outcome.error, error: outcome.error });
-    if (!outcome.error) broadcast(room);
+    if (!outcome.error) broadcast(town);
   });
 
   socket.on("sell_diamonds", ({ quantity }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const outcome = sellDiamonds(player, quantity);
     ack?.({ ok: !outcome.error, error: outcome.error });
-    if (!outcome.error) broadcast(room);
+    if (!outcome.error) broadcast(town);
   });
 
   socket.on("reroll_quest", ({ questSet, questId }, ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = rerollQuest(player, questSet, questId);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("refresh_daily_quests", (ack) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = refreshDailyQuests(player);
     ack?.({ ok: !result.error, error: result.error });
-    if (!result.error) broadcast(room);
+    if (!result.error) broadcast(town);
   });
 
   socket.on("move", ({ x, y }) => {
-    const { room, player } = currentPlayer();
-    if (!room || !player) return;
-    const { from, to, duration } = movePlayer(room, player.id, x, y);
-    io.to(room.code).emit("player_moved", { playerId: player.id, from, to, startedAt: Date.now(), duration });
+    const { town, player } = currentPlayer();
+    if (!town || !player) return;
+    const { from, to, duration } = movePlayer(town, player.id, x, y);
+    io.to(town.code).emit("player_moved", { playerId: player.id, from, to, startedAt: Date.now(), duration });
   });
 
   socket.on("disconnect", () => {
     const clientId = socket.data.clientId as string | undefined;
     if (!clientId) return;
-    const room = markDisconnected(clientId);
-    if (room) broadcast(room);
+    const town = markDisconnected(clientId);
+    if (town) broadcast(town);
   });
 });
 
@@ -506,16 +506,16 @@ io.on("connection", (socket) => {
 const PET_ABILITY_TICK_MS = 2000;
 setInterval(() => {
   const dragonProcs = tickDragonInstaGrow();
-  const foxChangedRooms = tickFoxAutoHarvest();
-  const roomsToBroadcast = new Map<string, RoomState>();
+  const foxChangedTowns = tickFoxAutoHarvest();
+  const townsToBroadcast = new Map<string, TownState>();
   for (const proc of dragonProcs) {
-    const room = getRoom(proc.roomCode);
-    if (room) roomsToBroadcast.set(room.code, room);
+    const town = getTown(proc.townCode);
+    if (town) townsToBroadcast.set(town.code, town);
   }
-  for (const room of foxChangedRooms) roomsToBroadcast.set(room.code, room);
-  for (const room of roomsToBroadcast.values()) broadcast(room);
+  for (const town of foxChangedTowns) townsToBroadcast.set(town.code, town);
+  for (const town of townsToBroadcast.values()) broadcast(town);
   for (const proc of dragonProcs) {
-    io.to(proc.roomCode).emit("dragon_insta_grow", proc);
+    io.to(proc.townCode).emit("dragon_insta_grow", proc);
   }
 }, PET_ABILITY_TICK_MS);
 

@@ -27,7 +27,7 @@ function QuestRow({
   rerollTargetCost: number;
   affordable: boolean;
   onReroll: () => void;
-  /** Only daily quests grant a Gear on completion — see grantQuestReward in server/src/rooms.ts. */
+  /** Only daily quests grant a Gear on completion — see grantQuestReward in server/src/towns.ts. */
   isDaily: boolean;
 }) {
   const pct = Math.min(100, (quest.progress / quest.target) * 100);

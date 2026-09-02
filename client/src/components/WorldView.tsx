@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { MAX_PLAYERS_PER_ROOM } from "../gameData";
+import { MAX_PLAYERS_PER_TOWN } from "../gameData";
 import { equippedPetsInfo, type Pet, type PetSize } from "../petData";
 import { socket } from "../socket";
-import type { RoomState } from "../types";
+import type { TownState } from "../types";
 import { getActiveWeather, getFeaturedShop, phaseInfo } from "../weather";
 import {
   BASE_GRID_HEIGHT,
@@ -52,7 +52,7 @@ const MOVE_KEYS = new Set(["w", "a", "s", "d", "arrowup", "arrowdown", "arrowlef
 const PET_BADGE_SCALE: Record<PetSize, number> = { normal: 1, big: 1.2, giant: 1.45 };
 
 /** Shows the player's best equipped pet as a small companion badge next to their avatar, scaled
- *  up a bit for Big/Giant hatches — visible to every player in the room, not just its owner. */
+ *  up a bit for Big/Giant hatches — visible to every player in the town, not just its owner. */
 function topPetCompanion(petsEquipped: string[]): { pet: Pet; scale: number } | undefined {
   const [best] = equippedPetsInfo(petsEquipped);
   if (!best) return undefined;
@@ -70,12 +70,12 @@ const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 1.4;
 
 export default function WorldView({
-  room,
+  town,
   meId,
   now,
   initialPositions,
 }: {
-  room: RoomState;
+  town: TownState;
   meId: string;
   now: number;
   initialPositions: Record<string, Position>;
@@ -88,7 +88,7 @@ export default function WorldView({
   const [zoom, setZoom] = useState(1);
   const initialPositionsRef = useRef(initialPositions);
 
-  const me = room.players.find((p) => p.id === meId);
+  const me = town.players.find((p) => p.id === meId);
 
   function fitZoomToViewport(): number {
     if (!viewportRef.current) return 1;
@@ -97,7 +97,7 @@ export default function WorldView({
     return Math.max(MIN_ZOOM, Math.min(1, Math.min(fitW, fitH)) - 0.02);
   }
 
-  /** Picks the zoom to open the room at: shrinks (same as fitZoomToViewport) on a small screen so
+  /** Picks the zoom to open the town at: shrinks (same as fitZoomToViewport) on a small screen so
    *  the whole world isn't cut off, but on a wide screen zooms IN to fill the available width
    *  instead of leaving the default 100% mostly empty on either side — capped at MAX_ZOOM so it
    *  doesn't blow up on an ultra-wide monitor. Only width-based for the fill case (some vertical
@@ -275,11 +275,11 @@ export default function WorldView({
     setOpenShop(kind);
   }
 
-  const { isDay } = phaseInfo(room.createdAt, now);
-  const { temperature, sky } = getActiveWeather(room.createdAt, now);
-  const featuredShop = getFeaturedShop(room.createdAt, now);
+  const { isDay } = phaseInfo(town.createdAt, now);
+  const { temperature, sky } = getActiveWeather(town.createdAt, now);
+  const featuredShop = getFeaturedShop(town.createdAt, now);
 
-  const plantWorldPositions: Position[] = room.players.flatMap((p) => {
+  const plantWorldPositions: Position[] = town.players.flatMap((p) => {
     const origin = plotOrigin(p.slotIndex);
     return p.plantings.map((planting) => ({
       x: origin.x + (planting.x + planting.w / 2) * CELL_SIZE,
@@ -365,7 +365,7 @@ export default function WorldView({
 
   return (
     <div className="world-scroll">
-      <WeatherBar roomCreatedAt={room.createdAt} now={now} />
+      <WeatherBar townCreatedAt={town.createdAt} now={now} />
       <MutationToasts player={me} />
       <div className="zoom-controls">
         <button className="zoom-btn" onClick={handleFitAll} title="See all gardens">
@@ -433,8 +433,8 @@ export default function WorldView({
         <NPCStall kind="premium" onClick={() => handleNpcClick("premium")} />
         <NPCStall kind="pets" onClick={() => handleNpcClick("pets")} />
 
-        {Array.from({ length: MAX_PLAYERS_PER_ROOM }, (_, slot) => {
-          const player = room.players.find((p) => p.slotIndex === slot);
+        {Array.from({ length: MAX_PLAYERS_PER_TOWN }, (_, slot) => {
+          const player = town.players.find((p) => p.slotIndex === slot);
           const origin = plotOrigin(slot);
           if (!player) {
             return (
@@ -458,14 +458,14 @@ export default function WorldView({
                 player={player}
                 isOwner={player.id === meId}
                 now={now}
-                roomCreatedAt={room.createdAt}
+                townCreatedAt={town.createdAt}
                 zoom={zoom}
               />
             </div>
           );
         })}
 
-        {room.players.map((p) => {
+        {town.players.map((p) => {
           const petCompanion = topPetCompanion(p.petsEquipped);
           return (
             <div

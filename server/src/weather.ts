@@ -1,6 +1,6 @@
 /**
- * Day/night cycle and weather are both deterministic functions of (roomCreatedAt, now) — the
- * server and every client independently compute the identical result from the RoomState they
+ * Day/night cycle and weather are both deterministic functions of (townCreatedAt, now) — the
+ * server and every client independently compute the identical result from the TownState they
  * already have, with no extra sync traffic needed.
  */
 
@@ -14,24 +14,24 @@ function mod(a: number, n: number): number {
   return ((a % n) + n) % n;
 }
 
-export function isDayAt(roomCreatedAt: number, t: number): boolean {
-  return mod(t - roomCreatedAt, CYCLE_MS) < DAY_MS;
+export function isDayAt(townCreatedAt: number, t: number): boolean {
+  return mod(t - townCreatedAt, CYCLE_MS) < DAY_MS;
 }
 
-export function phaseInfo(roomCreatedAt: number, t: number): { isDay: boolean; msRemaining: number } {
-  const pos = mod(t - roomCreatedAt, CYCLE_MS);
+export function phaseInfo(townCreatedAt: number, t: number): { isDay: boolean; msRemaining: number } {
+  const pos = mod(t - townCreatedAt, CYCLE_MS);
   if (pos < DAY_MS) return { isDay: true, msRemaining: DAY_MS - pos };
   return { isDay: false, msRemaining: CYCLE_MS - pos };
 }
 
 /** Real-world timestamp at which `requiredMs` of day(2x)/night(1x)-adjusted growth work completes. */
-export function computeReadyAt(roomCreatedAt: number, from: number, requiredMs: number): number {
+export function computeReadyAt(townCreatedAt: number, from: number, requiredMs: number): number {
   let remaining = requiredMs;
   let t = from;
   let guard = 0;
   while (remaining > 1e-6 && guard < 1000) {
     guard++;
-    const { isDay, msRemaining } = phaseInfo(roomCreatedAt, t);
+    const { isDay, msRemaining } = phaseInfo(townCreatedAt, t);
     const speed = isDay ? DAY_SPEED : NIGHT_SPEED;
     const availableWork = msRemaining * speed;
     if (availableWork >= remaining) {
@@ -46,14 +46,14 @@ export function computeReadyAt(roomCreatedAt: number, from: number, requiredMs: 
 }
 
 /** Effective (day/night-adjusted) growth work accumulated in real time between `from` and `to`. */
-export function effectiveWorkBetween(roomCreatedAt: number, from: number, to: number): number {
+export function effectiveWorkBetween(townCreatedAt: number, from: number, to: number): number {
   if (to <= from) return 0;
   let total = 0;
   let t = from;
   let guard = 0;
   while (t < to && guard < 1000) {
     guard++;
-    const { isDay, msRemaining } = phaseInfo(roomCreatedAt, t);
+    const { isDay, msRemaining } = phaseInfo(townCreatedAt, t);
     const speed = isDay ? DAY_SPEED : NIGHT_SPEED;
     const segEnd = Math.min(to, t + msRemaining);
     total += (segEnd - t) * speed;
@@ -79,7 +79,7 @@ export const MUTATIONS: Record<MutationId, Mutation> = {
   frozen: { id: "frozen", label: "Frozen", emoji: "❄️", priceMultiplier: 1.8, color: "#5fc9e0" },
   wet: { id: "wet", label: "Wet", emoji: "💧", priceMultiplier: 1.3, color: "#3f8fe0" },
   charged: { id: "charged", label: "Charged", emoji: "⚡", priceMultiplier: 2.2, color: "#f2d43a" },
-  // Not weather-rolled — granted only while a crop sits next to a Moon Blossom (see rooms.ts).
+  // Not weather-rolled — granted only while a crop sits next to a Moon Blossom (see towns.ts).
   lunar: { id: "lunar", label: "Lunar", emoji: "🌙", priceMultiplier: 1.2, color: "#b18cf0" },
   // Not a plain weather roll either — only possible while it's raining AND an equipped Unicorn
   // pet is active (see rollMutations below).
@@ -133,8 +133,8 @@ export interface ActiveWeather {
   sky: WeatherCondition;
 }
 
-export function getActiveWeather(roomCreatedAt: number, now: number): ActiveWeather {
-  const bucket = Math.floor((now - roomCreatedAt) / WEATHER_CHANGE_MS);
+export function getActiveWeather(townCreatedAt: number, now: number): ActiveWeather {
+  const bucket = Math.floor((now - townCreatedAt) / WEATHER_CHANGE_MS);
   const temperature = pickWeighted(TEMPERATURE_WEATHER, seededRandom(bucket * 7919 + 13));
   const sky = pickWeighted(SKY_WEATHER, seededRandom(bucket * 104729 + 29));
   return { temperature, sky };
@@ -148,9 +148,9 @@ const SHOP_WEIGHTS: { kind: FeaturedShop; weight: number }[] = [
 ];
 
 /** Moon and Solar shops never both feature — each full day/night cycle rolls (deterministically,
- *  from roomCreatedAt+now like everything else here) which one is open next, Moon 80% of cycles. */
-export function getFeaturedShop(roomCreatedAt: number, now: number): FeaturedShop {
-  const bucket = Math.floor((now - roomCreatedAt) / CYCLE_MS);
+ *  from townCreatedAt+now like everything else here) which one is open next, Moon 80% of cycles. */
+export function getFeaturedShop(townCreatedAt: number, now: number): FeaturedShop {
+  const bucket = Math.floor((now - townCreatedAt) / CYCLE_MS);
   return pickWeighted(SHOP_WEIGHTS, seededRandom(bucket * 50021 + 7)).kind;
 }
 
@@ -164,9 +164,9 @@ const RAINBOW_CHANCE = 0.18;
 
 /** Rolls which mutations a freshly-planted seed catches from whatever weather is active right now.
  *  `unicornEquipped` gives rain an extra independent shot at the Unicorn-only Rainbow mutation. */
-export function rollMutations(roomCreatedAt: number, now: number, unicornEquipped: boolean): MutationId[] {
-  const { temperature, sky } = getActiveWeather(roomCreatedAt, now);
-  const chance = MUTATION_BASE_CHANCE * (isDayAt(roomCreatedAt, now) ? 1 : 2);
+export function rollMutations(townCreatedAt: number, now: number, unicornEquipped: boolean): MutationId[] {
+  const { temperature, sky } = getActiveWeather(townCreatedAt, now);
+  const chance = MUTATION_BASE_CHANCE * (isDayAt(townCreatedAt, now) ? 1 : 2);
   const mutations: MutationId[] = [];
   for (const cond of [temperature, sky]) {
     if (cond.mutation && Math.random() < chance) mutations.push(cond.mutation);

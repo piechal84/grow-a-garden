@@ -1,5 +1,5 @@
 /** Mirrors moonData.ts's structure, but sourced from the Yggdrasil's research queue instead of a
- *  paid pack pull — see startVikingResearch/collectVikingResearch in rooms.ts. Historic replaces
+ *  paid pack pull — see startVikingResearch/collectVikingResearch in towns.ts. Historic replaces
  *  Legendary as the top rung, since this is the one place that tier can be grown rather than
  *  crafted (see gameData.ts's Kitsune Shrine for the other). */
 export type VikingTier = "common" | "uncommon" | "rare" | "epic" | "mythic" | "historic";

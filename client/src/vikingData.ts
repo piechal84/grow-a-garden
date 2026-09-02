@@ -57,7 +57,7 @@ export const YGGDRASIL_BUILD_MS = 24 * 60 * 60 * 1000;
 export const YGGDRASIL_RESEARCH_MS = 60 * 60 * 1000;
 export const YGGDRASIL_MAX_SLOTS = 10;
 
-/** Mirrors server/src/rooms.ts's yggdrasilSlotUpgradeCost — cost (Diamonds) to go from
+/** Mirrors server/src/towns.ts's yggdrasilSlotUpgradeCost — cost (Diamonds) to go from
  *  `currentSlots` to `currentSlots + 1`: 1000, 5000, 25000, ... (x5 per step). Used here only to
  *  preview the price; the server is authoritative for the real charge. */
 export function yggdrasilSlotUpgradeCost(currentSlots: number): number | undefined {

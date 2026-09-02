@@ -15,7 +15,7 @@ import RoamingPets from "./RoamingPets";
 import YggdrasilStructure from "./YggdrasilStructure";
 
 const INCUBATOR_SIZE = 3;
-/** Must match HARVEST_ALL_COST_COINS / GROW_ALL_COST_KELKA_CRYSTALS in server/src/rooms.ts. */
+/** Must match HARVEST_ALL_COST_COINS / GROW_ALL_COST_KELKA_CRYSTALS in server/src/towns.ts. */
 const HARVEST_ALL_COST_COINS = 1000;
 const GROW_ALL_COST_KELKA_CRYSTALS = 3;
 
@@ -73,13 +73,13 @@ export default function PlotView({
   player,
   isOwner,
   now,
-  roomCreatedAt,
+  townCreatedAt,
   zoom,
 }: {
   player: PlayerState;
   isOwner: boolean;
   now: number;
-  roomCreatedAt: number;
+  townCreatedAt: number;
   /** The world canvas's own CSS scale (see WorldView.tsx) — the toolbar/banners below live
    *  inside that same scaled subtree, so at any zoom below 100% they'd otherwise shrink right
    *  along with the plants and plot cells, becoming illegibly tiny. Each gets an inverse
@@ -422,8 +422,8 @@ export default function PlotView({
         const crop = getCropDef(planting.cropId);
         if (!crop) return null;
         const ready = now >= planting.readyAt;
-        const totalWork = effectiveWorkBetween(roomCreatedAt, planting.plantedAt, planting.readyAt);
-        const doneWork = effectiveWorkBetween(roomCreatedAt, planting.plantedAt, now);
+        const totalWork = effectiveWorkBetween(townCreatedAt, planting.plantedAt, planting.readyAt);
+        const doneWork = effectiveWorkBetween(townCreatedAt, planting.plantedAt, now);
         const pct = totalWork > 0 ? Math.min(100, Math.max(0, (doneWork / totalWork) * 100)) : 100;
         const secondsLeft = Math.max(0, Math.ceil((planting.readyAt - now) / 1000));
         const displayMutations = previewMutations(planting, player.plantings);

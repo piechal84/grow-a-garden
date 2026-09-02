@@ -93,7 +93,7 @@ button {
   border-color: var(--leaf);
 }
 
-.room-code-input {
+.town-code-input {
   text-transform: uppercase;
   letter-spacing: 2px;
 }
@@ -284,7 +284,7 @@ button {
   font-size: 18px;
 }
 
-.room-code-badge {
+.town-code-badge {
   background: #eef2eb;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -309,7 +309,7 @@ button {
   background: #e3ecdd;
 }
 
-.room-code-badge:hover {
+.town-code-badge:hover {
   background: #e3ecdd;
 }
 

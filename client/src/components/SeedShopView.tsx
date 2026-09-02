@@ -49,7 +49,7 @@ export default function SeedShopView({ player, now }: { player: PlayerState; now
           const unlocked = isUnlocked(player, crop.unlockAt);
           const owned = player.seedInventory[crop.id] ?? 0;
           // Basic Seed Shop crops always grow at the advertised speed, reclaimed or not — see
-          // isBasicShopCrop in server/src/rooms.ts. Only Moon/Solar crops still slow down after
+          // isBasicShopCrop in server/src/towns.ts. Only Moon/Solar crops still slow down after
           // their first regrow (see MoonShopView/SolarShopView).
           const effectiveGrow = Math.round(crop.growSeconds * growMult);
           const effectiveSell = Math.round(crop.sellPrice * sellMult);

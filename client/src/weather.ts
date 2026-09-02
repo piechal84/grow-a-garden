@@ -1,6 +1,6 @@
 /**
- * Day/night cycle and weather are both deterministic functions of (roomCreatedAt, now) — the
- * server and every client independently compute the identical result from the RoomState they
+ * Day/night cycle and weather are both deterministic functions of (townCreatedAt, now) — the
+ * server and every client independently compute the identical result from the TownState they
  * already have, with no extra sync traffic needed. Mirrors server/src/weather.ts.
  */
 
@@ -14,25 +14,25 @@ function mod(a: number, n: number): number {
   return ((a % n) + n) % n;
 }
 
-export function isDayAt(roomCreatedAt: number, t: number): boolean {
-  return mod(t - roomCreatedAt, CYCLE_MS) < DAY_MS;
+export function isDayAt(townCreatedAt: number, t: number): boolean {
+  return mod(t - townCreatedAt, CYCLE_MS) < DAY_MS;
 }
 
-export function phaseInfo(roomCreatedAt: number, t: number): { isDay: boolean; msRemaining: number } {
-  const pos = mod(t - roomCreatedAt, CYCLE_MS);
+export function phaseInfo(townCreatedAt: number, t: number): { isDay: boolean; msRemaining: number } {
+  const pos = mod(t - townCreatedAt, CYCLE_MS);
   if (pos < DAY_MS) return { isDay: true, msRemaining: DAY_MS - pos };
   return { isDay: false, msRemaining: CYCLE_MS - pos };
 }
 
 /** Effective (day/night-adjusted) growth work accumulated in real time between `from` and `to`. */
-export function effectiveWorkBetween(roomCreatedAt: number, from: number, to: number): number {
+export function effectiveWorkBetween(townCreatedAt: number, from: number, to: number): number {
   if (to <= from) return 0;
   let total = 0;
   let t = from;
   let guard = 0;
   while (t < to && guard < 1000) {
     guard++;
-    const { isDay, msRemaining } = phaseInfo(roomCreatedAt, t);
+    const { isDay, msRemaining } = phaseInfo(townCreatedAt, t);
     const speed = isDay ? DAY_SPEED : NIGHT_SPEED;
     const segEnd = Math.min(to, t + msRemaining);
     total += (segEnd - t) * speed;
@@ -106,8 +106,8 @@ export interface ActiveWeather {
   sky: WeatherCondition;
 }
 
-export function getActiveWeather(roomCreatedAt: number, now: number): ActiveWeather {
-  const bucket = Math.floor((now - roomCreatedAt) / WEATHER_CHANGE_MS);
+export function getActiveWeather(townCreatedAt: number, now: number): ActiveWeather {
+  const bucket = Math.floor((now - townCreatedAt) / WEATHER_CHANGE_MS);
   const temperature = pickWeighted(TEMPERATURE_WEATHER, seededRandom(bucket * 7919 + 13));
   const sky = pickWeighted(SKY_WEATHER, seededRandom(bucket * 104729 + 29));
   return { temperature, sky };
@@ -115,8 +115,8 @@ export function getActiveWeather(roomCreatedAt: number, now: number): ActiveWeat
 
 /** Temperature and sky are rolled from the same WEATHER_CHANGE_MS bucket, so they always change
  *  together — one countdown to the next roll covers both. */
-export function msUntilWeatherChange(roomCreatedAt: number, now: number): number {
-  return WEATHER_CHANGE_MS - mod(now - roomCreatedAt, WEATHER_CHANGE_MS);
+export function msUntilWeatherChange(townCreatedAt: number, now: number): number {
+  return WEATHER_CHANGE_MS - mod(now - townCreatedAt, WEATHER_CHANGE_MS);
 }
 
 export type FeaturedShop = "moon" | "solar";
@@ -128,8 +128,8 @@ const SHOP_WEIGHTS: { kind: FeaturedShop; weight: number }[] = [
 
 /** Moon and Solar shops never both feature — each full day/night cycle rolls which one is open
  *  next, Moon 80% of cycles. Mirrors server/src/weather.ts exactly. */
-export function getFeaturedShop(roomCreatedAt: number, now: number): FeaturedShop {
-  const bucket = Math.floor((now - roomCreatedAt) / CYCLE_MS);
+export function getFeaturedShop(townCreatedAt: number, now: number): FeaturedShop {
+  const bucket = Math.floor((now - townCreatedAt) / CYCLE_MS);
   return pickWeighted(SHOP_WEIGHTS, seededRandom(bucket * 50021 + 7)).kind;
 }
 

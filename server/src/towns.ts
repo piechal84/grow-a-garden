@@ -5,7 +5,7 @@ import {
   GEAR_BY_ID,
   GROW_SPEED_FLOOR,
   INCUBATOR_SPEED_FLOOR,
-  MAX_PLAYERS_PER_ROOM,
+  MAX_PLAYERS_PER_TOWN,
   PERSISTENT_REGROW_MULTIPLIER,
   rollSizeTier,
   STARTING_COINS,
@@ -62,7 +62,7 @@ import type {
   KitsuneShrineState,
   PlayerState,
   Planting,
-  RoomState,
+  TownState,
 } from "./types.js";
 import { findUserById, type SavedProgress } from "./userStore.js";
 import {
@@ -84,17 +84,17 @@ import {
   type Position,
 } from "./world.js";
 
-const roomCodeGen = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 4);
+const townCodeGen = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 4);
 
-const rooms = new Map<string, RoomState>();
-const roomPositions = new Map<string, Map<string, Position>>();
+const towns = new Map<string, TownState>();
+const townPositions = new Map<string, Map<string, Position>>();
 
-function nextFreeSlot(room: RoomState): number {
-  const used = new Set(room.players.map((p) => p.slotIndex));
-  for (let i = 0; i < MAX_PLAYERS_PER_ROOM; i++) {
+function nextFreeSlot(town: TownState): number {
+  const used = new Set(town.players.map((p) => p.slotIndex));
+  for (let i = 0; i < MAX_PLAYERS_PER_TOWN; i++) {
     if (!used.has(i)) return i;
   }
-  return room.players.length;
+  return town.players.length;
 }
 
 function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
@@ -293,68 +293,68 @@ export function refreshDailyQuests(player: PlayerState): { error?: string } {
   return {};
 }
 
-export function createRoom(hostId: string, hostName: string): RoomState {
-  let code = roomCodeGen();
-  while (rooms.has(code)) code = roomCodeGen();
-  const room: RoomState = {
+export function createTown(hostId: string, hostName: string): TownState {
+  let code = townCodeGen();
+  while (towns.has(code)) code = townCodeGen();
+  const town: TownState = {
     code,
     hostId,
     players: [makePlayer(hostId, hostName, 0)],
     createdAt: Date.now(),
   };
-  rooms.set(code, room);
-  return room;
+  towns.set(code, town);
+  return town;
 }
 
-export function getRoom(code: string): RoomState | undefined {
-  return rooms.get(code.toUpperCase());
+export function getTown(code: string): TownState | undefined {
+  return towns.get(code.toUpperCase());
 }
 
-export function joinRoom(code: string, clientId: string, playerName: string): { room?: RoomState; error?: string } {
-  const room = rooms.get(code.toUpperCase());
-  if (!room) return { error: "Room not found." };
-  const existing = room.players.find((p) => p.id === clientId);
+export function joinTown(code: string, clientId: string, playerName: string): { town?: TownState; error?: string } {
+  const town = towns.get(code.toUpperCase());
+  if (!town) return { error: "Town not found." };
+  const existing = town.players.find((p) => p.id === clientId);
   if (existing) {
     existing.connected = true;
-    // The room (and this player object) lives in memory for as long as the room is alive —
+    // The town (and this player object) lives in memory for as long as the town is alive —
     // reconnecting (refresh, relogin) reuses it rather than rebuilding via makePlayer, so a
     // fixed-on-load check like this needs to also run here or it never takes effect until the
     // server itself restarts.
     sanitizePetState(existing);
-    return { room };
+    return { town };
   }
-  if (room.players.length >= MAX_PLAYERS_PER_ROOM) return { error: "Room is full (max 6 players)." };
-  if (room.players.some((p) => p.name.toLowerCase() === playerName.toLowerCase())) {
-    return { error: "That name is already taken in this room." };
+  if (town.players.length >= MAX_PLAYERS_PER_TOWN) return { error: `Town is full (max ${MAX_PLAYERS_PER_TOWN} players).` };
+  if (town.players.some((p) => p.name.toLowerCase() === playerName.toLowerCase())) {
+    return { error: "That name is already taken in this town." };
   }
-  room.players.push(makePlayer(clientId, playerName, nextFreeSlot(room)));
-  return { room };
+  town.players.push(makePlayer(clientId, playerName, nextFreeSlot(town)));
+  return { town };
 }
 
-export function markDisconnected(playerId: string): RoomState | undefined {
-  for (const room of rooms.values()) {
-    const player = room.players.find((p) => p.id === playerId);
+export function markDisconnected(playerId: string): TownState | undefined {
+  for (const town of towns.values()) {
+    const player = town.players.find((p) => p.id === playerId);
     if (player) {
       player.connected = false;
-      return room;
+      return town;
     }
   }
   return undefined;
 }
 
-export function findRoomByPlayer(playerId: string): RoomState | undefined {
-  for (const room of rooms.values()) {
-    if (room.players.some((p) => p.id === playerId)) return room;
+export function findTownByPlayer(playerId: string): TownState | undefined {
+  for (const town of towns.values()) {
+    if (town.players.some((p) => p.id === playerId)) return town;
   }
   return undefined;
 }
 
 /** Returns this player's current position, spawning them at their plot if they have none yet. */
-export function ensurePosition(room: RoomState, player: PlayerState): Position {
-  let positions = roomPositions.get(room.code);
+export function ensurePosition(town: TownState, player: PlayerState): Position {
+  let positions = townPositions.get(town.code);
   if (!positions) {
     positions = new Map();
-    roomPositions.set(room.code, positions);
+    townPositions.set(town.code, positions);
   }
   let pos = positions.get(player.id);
   if (!pos) {
@@ -364,8 +364,8 @@ export function ensurePosition(room: RoomState, player: PlayerState): Position {
   return pos;
 }
 
-export function allPositions(room: RoomState): Record<string, Position> {
-  const positions = roomPositions.get(room.code);
+export function allPositions(town: TownState): Record<string, Position> {
+  const positions = townPositions.get(town.code);
   const out: Record<string, Position> = {};
   if (!positions) return out;
   for (const [id, pos] of positions) out[id] = pos;
@@ -373,17 +373,17 @@ export function allPositions(room: RoomState): Record<string, Position> {
 }
 
 export function movePlayer(
-  room: RoomState,
+  town: TownState,
   clientId: string,
   targetX: number,
   targetY: number,
 ): { from: Position; to: Position; duration: number } {
-  let positions = roomPositions.get(room.code);
+  let positions = townPositions.get(town.code);
   if (!positions) {
     positions = new Map();
-    roomPositions.set(room.code, positions);
+    townPositions.set(town.code, positions);
   }
-  const player = room.players.find((p) => p.id === clientId);
+  const player = town.players.find((p) => p.id === clientId);
   const from = positions.get(clientId) ?? (player ? spawnPositionForSlot(player.slotIndex) : { x: targetX, y: targetY });
   const to = clampToWorld({ x: targetX, y: targetY });
   const distance = Math.hypot(to.x - from.x, to.y - from.y);
@@ -429,18 +429,18 @@ function growSpeedMultiplier(player: PlayerState): number {
  *  growSpeed source retroactively speeds up (or slows down) crops already in the ground instead
  *  of only affecting things planted afterward. Called after anything that can change
  *  growSpeedMultiplier: gear purchases and pet equip/unequip/auto-equip-on-hatch. */
-function rebaseGrowTimers(room: RoomState, player: PlayerState, oldMultiplier: number, newMultiplier: number) {
+function rebaseGrowTimers(town: TownState, player: PlayerState, oldMultiplier: number, newMultiplier: number) {
   if (oldMultiplier === newMultiplier || oldMultiplier <= 0) return;
   const now = Date.now();
   const scale = newMultiplier / oldMultiplier;
   for (const planting of player.plantings) {
     if (now >= planting.readyAt) continue;
-    const totalOldWork = effectiveWorkBetween(room.createdAt, planting.plantedAt, planting.readyAt);
+    const totalOldWork = effectiveWorkBetween(town.createdAt, planting.plantedAt, planting.readyAt);
     if (totalOldWork <= 0) continue;
-    const doneWork = effectiveWorkBetween(room.createdAt, planting.plantedAt, now);
+    const doneWork = effectiveWorkBetween(town.createdAt, planting.plantedAt, now);
     const progress = Math.min(1, doneWork / totalOldWork);
     const remainingWork = totalOldWork * scale * (1 - progress);
-    planting.readyAt = computeReadyAt(room.createdAt, now, remainingWork);
+    planting.readyAt = computeReadyAt(town.createdAt, now, remainingWork);
   }
 }
 
@@ -497,9 +497,9 @@ const DRAGON_PROC_INTERVAL_MS = 60 * 1000;
  *  insta-grow N crops every interval. This needs to fire even when the player isn't taking any
  *  action, so it's driven by a fixed server tick (see index.ts) rather than lazily on read like
  *  everything else in this file. Returns one entry per successful proc, so the caller knows both
- *  which rooms to broadcast and which pet/planting pair to signal a fireball for. */
+ *  which towns to broadcast and which pet/planting pair to signal a fireball for. */
 export interface DragonProc {
-  roomCode: string;
+  townCode: string;
   playerId: string;
   petId: string;
   size: PetSize;
@@ -509,8 +509,8 @@ export interface DragonProc {
 export function tickDragonInstaGrow(): DragonProc[] {
   const now = Date.now();
   const procs: DragonProc[] = [];
-  for (const room of rooms.values()) {
-    for (const player of room.players) {
+  for (const town of towns.values()) {
+    for (const player of town.players) {
       for (const key of player.petsEquipped) {
         const { petId, size } = parseSlotKey(key);
         if (evolutionInfo(petId).baseId !== "baby_dragon") continue;
@@ -526,7 +526,7 @@ export function tickDragonInstaGrow(): DragonProc[] {
         const target = player.plantings.filter((p) => now < p.readyAt).sort((a, b) => b.readyAt - a.readyAt)[0];
         if (target) {
           target.readyAt = now;
-          procs.push({ roomCode: room.code, playerId: player.id, petId, size, plantingId: target.id });
+          procs.push({ townCode: town.code, playerId: player.id, petId, size, plantingId: target.id });
         }
       }
     }
@@ -542,14 +542,14 @@ const FOX_PROC_INTERVAL_MS = 60 * 1000;
  *  base Fox harvests 1, Empowered 2, Tenacious 3 (one extra per merge) — picking whichever
  *  plantings have been sitting ready longest. Just calls the real harvest() so
  *  mutations/persistent-regrow/quest progress all happen exactly as if the player had tapped it
- *  themselves. Returns the rooms that actually changed, so the caller knows which ones to
+ *  themselves. Returns the towns that actually changed, so the caller knows which ones to
  *  broadcast. */
-export function tickFoxAutoHarvest(): RoomState[] {
+export function tickFoxAutoHarvest(): TownState[] {
   const now = Date.now();
-  const changed: RoomState[] = [];
-  for (const room of rooms.values()) {
-    let roomChanged = false;
-    for (const player of room.players) {
+  const changed: TownState[] = [];
+  for (const town of towns.values()) {
+    let townChanged = false;
+    for (const player of town.players) {
       for (const key of player.petsEquipped) {
         const { petId } = parseSlotKey(key);
         const { baseId, stage } = evolutionInfo(petId);
@@ -567,12 +567,12 @@ export function tickFoxAutoHarvest(): RoomState[] {
           .sort((a, b) => a.readyAt - b.readyAt)
           .slice(0, harvestCount);
         for (const target of targets) {
-          harvest(room, player, target.id);
-          roomChanged = true;
+          harvest(town, player, target.id);
+          townChanged = true;
         }
       }
     }
-    if (roomChanged) changed.push(room);
+    if (townChanged) changed.push(town);
   }
   return changed;
 }
@@ -622,7 +622,7 @@ function applyHatch(player: PlayerState, hatch: { petId: string; size: PetSize }
   return { petId: hatch.petId, size: hatch.size, count: before + 1 };
 }
 
-export function equipPet(room: RoomState, player: PlayerState, petId: string, size: PetSize): { error?: string } {
+export function equipPet(town: TownState, player: PlayerState, petId: string, size: PetSize): { error?: string } {
   if ((player.petsOwned[petId]?.[size] ?? 0) <= 0) return { error: "You don't own that pet." };
   const key = slotKey(petId, size);
   if (player.petsEquipped.includes(key)) return { error: "Already equipped." };
@@ -630,12 +630,12 @@ export function equipPet(room: RoomState, player: PlayerState, petId: string, si
   const oldGrowMult = growSpeedMultiplier(player);
   const oldIncubatorMult = incubatorSpeedMultiplier(player);
   player.petsEquipped.push(key);
-  rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
+  rebaseGrowTimers(town, player, oldGrowMult, growSpeedMultiplier(player));
   rebaseIncubatorTimers(player, oldIncubatorMult, incubatorSpeedMultiplier(player));
   return {};
 }
 
-export function unequipPet(room: RoomState, player: PlayerState, petId: string, size: PetSize): { error?: string } {
+export function unequipPet(town: TownState, player: PlayerState, petId: string, size: PetSize): { error?: string } {
   const key = slotKey(petId, size);
   const idx = player.petsEquipped.indexOf(key);
   if (idx === -1) return { error: "That pet isn't equipped." };
@@ -645,13 +645,13 @@ export function unequipPet(room: RoomState, player: PlayerState, petId: string, 
   // Otherwise a stale (already-elapsed) cooldown would let a re-equipped Dragon/Fox proc
   // immediately instead of waiting out a fresh 60s — see tickDragonInstaGrow/tickFoxAutoHarvest.
   delete player.petProcAt[key];
-  rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
+  rebaseGrowTimers(town, player, oldGrowMult, growSpeedMultiplier(player));
   rebaseIncubatorTimers(player, oldIncubatorMult, incubatorSpeedMultiplier(player));
   return {};
 }
 
 export function buyPetEgg(
-  room: RoomState,
+  town: TownState,
   player: PlayerState,
   eggId: string,
 ): { error?: string } & Partial<PetHatchOutcome> {
@@ -666,7 +666,7 @@ export function buyPetEgg(
   const oldGrowMult = growSpeedMultiplier(player);
   const oldIncubatorMult = incubatorSpeedMultiplier(player);
   const outcome = applyHatch(player, hatch);
-  rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
+  rebaseGrowTimers(town, player, oldGrowMult, growSpeedMultiplier(player));
   rebaseIncubatorTimers(player, oldIncubatorMult, incubatorSpeedMultiplier(player));
   return outcome;
 }
@@ -682,7 +682,7 @@ export function nextPetEggBulkCost(egg: { cost: { coins: number; diamonds: numbe
 }
 
 export function buyPetEggBulk(
-  room: RoomState,
+  town: TownState,
   player: PlayerState,
   eggId: string,
 ): { error?: string; results?: PetHatchOutcome[]; cost?: { coins: number; diamonds: number } } {
@@ -696,7 +696,7 @@ export function buyPetEggBulk(
   const oldGrowMult = growSpeedMultiplier(player);
   const oldIncubatorMult = incubatorSpeedMultiplier(player);
   const results = Array.from({ length: BULK_EGG_COUNT }, () => applyHatch(player, rollPetEgg(eggId)!));
-  rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
+  rebaseGrowTimers(town, player, oldGrowMult, growSpeedMultiplier(player));
   rebaseIncubatorTimers(player, oldIncubatorMult, incubatorSpeedMultiplier(player));
   return { results, cost };
 }
@@ -1029,7 +1029,7 @@ function isBasicShopCrop(cropId: string): boolean {
   return !!CROPS_BY_ID[cropId];
 }
 
-export function plant(room: RoomState, player: PlayerState, x: number, y: number, cropId: string): { error?: string } {
+export function plant(town: TownState, player: PlayerState, x: number, y: number, cropId: string): { error?: string } {
   const crop = getCropDef(cropId);
   if (!crop) return { error: "Unknown crop." };
   if ((player.seedInventory[cropId] ?? 0) <= 0) return { error: "You don't have that seed." };
@@ -1053,11 +1053,11 @@ export function plant(room: RoomState, player: PlayerState, x: number, y: number
     w,
     h,
     plantedAt: now,
-    readyAt: computeReadyAt(room.createdAt, now, requiredMs),
+    readyAt: computeReadyAt(town.createdAt, now, requiredMs),
     sizeLabel: tier.label,
     sizePriceMultiplier: tier.priceMultiplier,
     sizeVisualScale: tier.visualScale,
-    mutations: rollMutations(room.createdAt, now, hasUnicornEquipped(player)),
+    mutations: rollMutations(town.createdAt, now, hasUnicornEquipped(player)),
     blossomColor: cropId === "moon_blossom" ? rollBlossomColor() : undefined,
   };
   player.plantings.push(planting);
@@ -1065,7 +1065,7 @@ export function plant(room: RoomState, player: PlayerState, x: number, y: number
   return {};
 }
 
-export function harvest(room: RoomState, player: PlayerState, plantingId: string): { error?: string } {
+export function harvest(town: TownState, player: PlayerState, plantingId: string): { error?: string } {
   const idx = player.plantings.findIndex((p) => p.id === plantingId);
   if (idx === -1) return { error: "Nothing planted there." };
   const planting = player.plantings[idx];
@@ -1092,11 +1092,11 @@ export function harvest(room: RoomState, player: PlayerState, plantingId: string
     const regrowMult = isBasicShopCrop(planting.cropId) ? 1 : PERSISTENT_REGROW_MULTIPLIER;
     const requiredMs = crop.growSeconds * 1000 * growSpeedMultiplier(player) * regrowMult;
     planting.plantedAt = now;
-    planting.readyAt = computeReadyAt(room.createdAt, now, requiredMs);
+    planting.readyAt = computeReadyAt(town.createdAt, now, requiredMs);
     planting.sizeLabel = tier.label;
     planting.sizePriceMultiplier = tier.priceMultiplier;
     planting.sizeVisualScale = tier.visualScale;
-    planting.mutations = rollMutations(room.createdAt, now, hasUnicornEquipped(player));
+    planting.mutations = rollMutations(town.createdAt, now, hasUnicornEquipped(player));
     if (planting.cropId === "moon_blossom") planting.blossomColor = rollBlossomColor();
   } else {
     player.plantings.splice(idx, 1);
@@ -1114,12 +1114,12 @@ const GROW_ALL_COST_KELKA_CRYSTALS = 3;
  *  per planting so persistent crops replant themselves exactly as they would from a manual tap.
  *  The ready-planting IDs are snapshotted up front so splicing consumable crops out of
  *  player.plantings mid-loop can't skip or double-process anything. */
-export function harvestAll(room: RoomState, player: PlayerState): { error?: string; count?: number } {
+export function harvestAll(town: TownState, player: PlayerState): { error?: string; count?: number } {
   const readyIds = player.plantings.filter((p) => Date.now() >= p.readyAt).map((p) => p.id);
   if (readyIds.length === 0) return { error: "Nothing ready to harvest." };
   if (player.coins < HARVEST_ALL_COST_COINS) return { error: "Not enough coins." };
   player.coins -= HARVEST_ALL_COST_COINS;
-  for (const id of readyIds) harvest(room, player, id);
+  for (const id of readyIds) harvest(town, player, id);
   return { count: readyIds.length };
 }
 
@@ -1258,7 +1258,7 @@ export function nextGearPrice(gear: GearItem, owned: number): GearPrice {
   return { coins: Math.round(gear.cost * (1 + owned * 0.5)), diamonds: 0 };
 }
 
-export function buyGear(room: RoomState, player: PlayerState, gearId: string): { error?: string } {
+export function buyGear(town: TownState, player: PlayerState, gearId: string): { error?: string } {
   const gear = GEAR_BY_ID[gearId];
   if (!gear) return { error: "Unknown gear." };
   const owned = player.gearOwned[gearId] ?? 0;
@@ -1276,7 +1276,7 @@ export function buyGear(room: RoomState, player: PlayerState, gearId: string): {
   if (gear.effect.type === "expandGarden") {
     player.gridHeight = Math.min(BASE_GRID_HEIGHT + GRID_EXPANSION_MAX, player.gridHeight + gear.effect.value);
   }
-  if (gear.effect.type === "growSpeed") rebaseGrowTimers(room, player, oldGrowMult, growSpeedMultiplier(player));
+  if (gear.effect.type === "growSpeed") rebaseGrowTimers(town, player, oldGrowMult, growSpeedMultiplier(player));
   return {};
 }
 
@@ -1317,8 +1317,8 @@ export function extractProgress(player: PlayerState): SavedProgress {
 const BULK_PACK_COUNT = 10;
 const BULK_PACK_DISCOUNT = 0.1;
 
-export function buyMoonPack(room: RoomState, player: PlayerState): { error?: string; result?: PackResult } {
-  if (getFeaturedShop(room.createdAt, Date.now()) !== "moon") {
+export function buyMoonPack(town: TownState, player: PlayerState): { error?: string; result?: PackResult } {
+  if (getFeaturedShop(town.createdAt, Date.now()) !== "moon") {
     return { error: "The Moon Shop isn't featured right now — check back later." };
   }
   if (player.coins < MOON_PACK_COST) return { error: "Not enough coins." };
@@ -1328,8 +1328,8 @@ export function buyMoonPack(room: RoomState, player: PlayerState): { error?: str
   return { result };
 }
 
-export function buyMoonPackBulk(room: RoomState, player: PlayerState): { error?: string; results?: PackResult[]; cost?: number } {
-  if (getFeaturedShop(room.createdAt, Date.now()) !== "moon") {
+export function buyMoonPackBulk(town: TownState, player: PlayerState): { error?: string; results?: PackResult[]; cost?: number } {
+  if (getFeaturedShop(town.createdAt, Date.now()) !== "moon") {
     return { error: "The Moon Shop isn't featured right now — check back later." };
   }
   const cost = Math.round(MOON_PACK_COST * BULK_PACK_COUNT * (1 - BULK_PACK_DISCOUNT));
@@ -1342,8 +1342,8 @@ export function buyMoonPackBulk(room: RoomState, player: PlayerState): { error?:
   return { results, cost };
 }
 
-export function buySolarPack(room: RoomState, player: PlayerState): { error?: string; result?: SolarPackResult } {
-  if (getFeaturedShop(room.createdAt, Date.now()) !== "solar") {
+export function buySolarPack(town: TownState, player: PlayerState): { error?: string; result?: SolarPackResult } {
+  if (getFeaturedShop(town.createdAt, Date.now()) !== "solar") {
     return { error: "The Solar Shop isn't featured right now — check back later." };
   }
   if (player.diamonds < SOLAR_PACK_COST) return { error: "Not enough diamonds." };
@@ -1354,10 +1354,10 @@ export function buySolarPack(room: RoomState, player: PlayerState): { error?: st
 }
 
 export function buySolarPackBulk(
-  room: RoomState,
+  town: TownState,
   player: PlayerState,
 ): { error?: string; results?: SolarPackResult[]; cost?: number } {
-  if (getFeaturedShop(room.createdAt, Date.now()) !== "solar") {
+  if (getFeaturedShop(town.createdAt, Date.now()) !== "solar") {
     return { error: "The Solar Shop isn't featured right now — check back later." };
   }
   const cost = Math.round(SOLAR_PACK_COST * BULK_PACK_COUNT * (1 - BULK_PACK_DISCOUNT));

@@ -133,7 +133,7 @@ export async function initUserStore(): Promise<void> {
 // persist() used to write synchronously on every broadcast (i.e. on every action any
 // logged-in player takes) — with the local-file fallback that's a blocking writeFileSync of
 // the WHOLE user table on the single Node event-loop thread, growing with everyone's total
-// saved progress. On a loaded room that stalls state_update delivery to every connected
+// saved progress. On a loaded town that stalls state_update delivery to every connected
 // socket for the write's duration, which reads as a frozen/desynced UI on a flaky connection.
 // Debouncing collapses a burst of saves (e.g. several players acting within the same couple
 // of seconds) into one write, and the local-file write is now non-blocking either way.

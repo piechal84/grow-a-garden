@@ -133,7 +133,7 @@ export interface PlayerState {
   petProcAt: Record<string, number>;
 }
 
-export interface RoomState {
+export interface TownState {
   code: string;
   hostId: string;
   players: PlayerState[];
@@ -143,7 +143,7 @@ export interface RoomState {
 export interface JoinAck {
   ok: boolean;
   error?: string;
-  roomCode?: string;
+  townCode?: string;
   playerId?: string;
   positions?: Record<string, Position>;
 }
@@ -229,14 +229,14 @@ export interface AuthAck {
 }
 
 export interface ClientToServerEvents {
-  join_room: (
-    payload: { roomCode?: string; playerName: string; clientId: string },
+  join_town: (
+    payload: { townCode?: string; playerName: string; clientId: string },
     ack: (res: JoinAck) => void,
   ) => void;
-  /** Proactively detaches from the current room (marks the player disconnected there, same as a
+  /** Proactively detaches from the current town (marks the player disconnected there, same as a
    *  real socket drop) and clears socket.data.clientId, so the client can return to the lobby and
-   *  join/create a different room over the same live connection. */
-  leave_room: (ack?: (res: ActionAck) => void) => void;
+   *  join/create a different town over the same live connection. */
+  leave_town: (ack?: (res: ActionAck) => void) => void;
   buy_seed: (payload: { cropId: string; quantity: number }, ack?: (res: ActionAck) => void) => void;
   plant: (payload: { x: number; y: number; cropId: string }, ack?: (res: ActionAck) => void) => void;
   harvest: (payload: { plantingId: string }, ack?: (res: ActionAck) => void) => void;
@@ -290,7 +290,7 @@ export interface ClientToServerEvents {
 }
 
 export interface ServerToClientEvents {
-  state_update: (state: RoomState) => void;
+  state_update: (state: TownState) => void;
   error_message: (message: string) => void;
   player_spawned: (payload: { playerId: string; x: number; y: number }) => void;
   player_moved: (payload: {

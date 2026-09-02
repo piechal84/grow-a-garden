@@ -7,13 +7,13 @@ import type { Position } from "../world";
 const NAME_KEY = "grow-garden-name";
 const USERNAME_KEY = "grow-garden-username";
 const REMEMBER_KEY = "grow-garden-remembered-user";
-/** The room code of whatever room this browser last successfully joined. A plain page reload
- *  has no in-memory room/socket state left to reconnect with (unlike a dropped-then-restored
- *  connection, which App.tsx handles separately) — without this, the room code field comes up
- *  empty and reaching for "Start a New Room" out of habit silently abandons the old room and
+/** The town code of whatever town this browser last successfully joined. A plain page reload
+ *  has no in-memory town/socket state left to reconnect with (unlike a dropped-then-restored
+ *  connection, which App.tsx handles separately) — without this, the town code field comes up
+ *  empty and reaching for "Start a New Town" out of habit silently abandons the old town and
  *  rebuilds an account's player from whatever was last persisted to disk, discarding any more
- *  recent progress that was still only live in the abandoned room. */
-export const ROOM_KEY = "grow-garden-room";
+ *  recent progress that was still only live in the abandoned town. */
+export const TOWN_KEY = "grow-garden-town";
 
 type Mode = "guest" | "account";
 
@@ -47,7 +47,7 @@ export default function Lobby({
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [authedUser, setAuthedUser] = useState<{ userId: string; username: string } | null>(loadRememberedUser);
-  const [roomCode, setRoomCode] = useState("");
+  const [townCode, setTownCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(initialError ?? null);
   const autoRejoinTried = useRef(false);
@@ -72,31 +72,31 @@ export default function Lobby({
 
     setBusy(true);
     setError(null);
-    socket.emit("join_room", { roomCode: codeToJoin, playerName, clientId }, (res: JoinAck) => {
+    socket.emit("join_town", { townCode: codeToJoin, playerName, clientId }, (res: JoinAck) => {
       setBusy(false);
       if (res.ok && res.playerId) {
-        if (res.roomCode) localStorage.setItem(ROOM_KEY, res.roomCode);
+        if (res.townCode) localStorage.setItem(TOWN_KEY, res.townCode);
         onJoined(res.playerId, res.positions ?? {});
       } else {
-        // Whether this was the auto-rejoin below or a manual attempt, the remembered room is
-        // either gone or wrong — clear it so the lobby doesn't keep quietly retrying a dead room.
-        localStorage.removeItem(ROOM_KEY);
+        // Whether this was the auto-rejoin below or a manual attempt, the remembered town is
+        // either gone or wrong — clear it so the lobby doesn't keep quietly retrying a dead town.
+        localStorage.removeItem(TOWN_KEY);
         setError(res.error ?? "Could not join.");
       }
     });
   }
 
-  // Silently rejoin the last room this browser was in, the moment we know who's asking (guest
+  // Silently rejoin the last town this browser was in, the moment we know who's asking (guest
   // name or logged-in account) and the socket is connected — so a plain refresh lands back in
   // the same game instead of an empty "type in a code or start fresh" screen.
   useEffect(() => {
     if (autoRejoinTried.current || !connected) return;
-    const rememberedRoom = localStorage.getItem(ROOM_KEY);
-    if (!rememberedRoom) return;
+    const rememberedTown = localStorage.getItem(TOWN_KEY);
+    if (!rememberedTown) return;
     const identityReady = mode === "account" ? !!authedUser : !!name.trim();
     if (!identityReady) return;
     autoRejoinTried.current = true;
-    attemptJoin(rememberedRoom);
+    attemptJoin(rememberedTown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, mode, authedUser, name]);
 
@@ -130,20 +130,20 @@ export default function Lobby({
 
   function handleJoin(e: FormEvent) {
     e.preventDefault();
-    if (!roomCode.trim()) {
-      setError("Enter a room code.");
+    if (!townCode.trim()) {
+      setError("Enter a town code.");
       return;
     }
-    attemptJoin(roomCode.trim());
+    attemptJoin(townCode.trim());
   }
 
-  const readyToPickRoom = mode === "guest" || authedUser !== null;
+  const readyToPickTown = mode === "guest" || authedUser !== null;
 
   return (
     <div className="lobby">
       <div className="lobby-card">
         <h1>🌱 Grow a Garden</h1>
-        <p className="lobby-sub">Plant, grow, and sell your way from cucumbers to dragon fruit — with up to 6 friends.</p>
+        <p className="lobby-sub">Plant, grow, and sell your way from cucumbers to dragon fruit — with up to 3 friends.</p>
 
         <div className="mode-toggle">
           <button
@@ -244,21 +244,21 @@ export default function Lobby({
           </p>
         )}
 
-        {readyToPickRoom && (
+        {readyToPickTown && (
           <>
             <form onSubmit={handleJoin} className="join-form">
               <label className="field">
-                <span>Room code</span>
+                <span>Town code</span>
                 <input
-                  value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                  value={townCode}
+                  onChange={(e) => setTownCode(e.target.value.toUpperCase())}
                   maxLength={4}
                   placeholder="ABCD"
-                  className="room-code-input"
+                  className="town-code-input"
                 />
               </label>
               <button type="submit" disabled={busy || !connected} className="btn btn-secondary">
-                Join Room
+                Join Town
               </button>
             </form>
 
@@ -266,7 +266,7 @@ export default function Lobby({
 
             <form onSubmit={handleCreate}>
               <button type="submit" disabled={busy || !connected} className="btn btn-primary">
-                Start a New Room
+                Start a New Town
               </button>
             </form>
           </>

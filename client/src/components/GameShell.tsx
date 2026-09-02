@@ -1,23 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { isMuted, setMuted } from "../sound";
-import type { RoomState } from "../types";
+import type { TownState } from "../types";
 import type { Position } from "../world";
 import HarvestCursorFollower from "./HarvestCursorFollower";
 import PlayerSidebar from "./PlayerSidebar";
 import WorldView from "./WorldView";
 
 export default function GameShell({
-  room,
+  town,
   meId,
   connected,
   initialPositions,
-  onChangeRoom,
+  onChangeTown,
 }: {
-  room: RoomState;
+  town: TownState;
   meId: string;
   connected: boolean;
   initialPositions: Record<string, Position>;
-  onChangeRoom: () => void;
+  onChangeTown: () => void;
 }) {
   const [now, setNow] = useState(Date.now());
   const [copied, setCopied] = useState(false);
@@ -50,11 +50,11 @@ export default function GameShell({
     }
   }
 
-  const me = room.players.find((p) => p.id === meId)!;
+  const me = town.players.find((p) => p.id === meId)!;
 
   async function copyCode() {
     try {
-      await navigator.clipboard.writeText(room.code);
+      await navigator.clipboard.writeText(town.code);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -68,17 +68,17 @@ export default function GameShell({
       <header className="game-header">
         <div className="game-header-left">
           <span className="game-title">🌱 Grow a Garden</span>
-          <button className="room-code-badge" onClick={copyCode} title="Copy room code">
-            Room {room.code} {copied ? "✓" : "⧉"}
+          <button className="town-code-badge" onClick={copyCode} title="Copy town code">
+            Town {town.code} {copied ? "✓" : "⧉"}
           </button>
           <button
-            className="room-code-badge"
+            className="town-code-badge"
             onClick={() => {
-              if (window.confirm("Leave this room and return to the lobby?")) onChangeRoom();
+              if (window.confirm("Leave this town and return to the lobby?")) onChangeTown();
             }}
-            title="Leave this room and join or create a different one"
+            title="Leave this town and join or create a different one"
           >
-            🔀 Change Room
+            🔀 Change Town
           </button>
         </div>
         <div className="game-header-right">
@@ -116,10 +116,10 @@ export default function GameShell({
       </header>
 
       <div className="game-body">
-        <PlayerSidebar players={room.players} meId={me.id} />
+        <PlayerSidebar players={town.players} meId={me.id} />
 
         <main className="game-main">
-          <WorldView room={room} meId={meId} now={now} initialPositions={initialPositions} />
+          <WorldView town={town} meId={meId} now={now} initialPositions={initialPositions} />
         </main>
       </div>
     </div>

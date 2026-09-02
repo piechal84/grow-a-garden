@@ -7,11 +7,11 @@ function formatClock(ms: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export default function WeatherBar({ roomCreatedAt, now }: { roomCreatedAt: number; now: number }) {
-  const { isDay, msRemaining } = phaseInfo(roomCreatedAt, now);
-  const { temperature, sky } = getActiveWeather(roomCreatedAt, now);
+export default function WeatherBar({ townCreatedAt, now }: { townCreatedAt: number; now: number }) {
+  const { isDay, msRemaining } = phaseInfo(townCreatedAt, now);
+  const { temperature, sky } = getActiveWeather(townCreatedAt, now);
   const active = [temperature, sky].filter((c) => c.id !== "clear");
-  const weatherMsRemaining = msUntilWeatherChange(roomCreatedAt, now);
+  const weatherMsRemaining = msUntilWeatherChange(townCreatedAt, now);
 
   return (
     <div className={`weather-bar ${isDay ? "weather-bar-day" : "weather-bar-night"}`}>

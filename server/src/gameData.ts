@@ -162,22 +162,22 @@ export const GEAR: GearItem[] = [
 
 export const GEAR_BY_ID: Record<string, GearItem> = Object.fromEntries(GEAR.map((g) => [g.id, g]));
 
-export const MAX_PLAYERS_PER_ROOM = 6;
+export const MAX_PLAYERS_PER_TOWN = 4;
 export const STARTING_COINS = 25;
 
 /** Multiplier applied to a persistent crop's regrow time once it has been harvested at least
  *  once — keeps a reclaim+replant loop from re-rolling the fast first-grow speed indefinitely.
- *  Used by rooms.ts for the real timer and by the shop views (client) for an accurate preview. */
+ *  Used by towns.ts for the real timer and by the shop views (client) for an accurate preview. */
 export const PERSISTENT_REGROW_MULTIPLIER = 10;
 
 /** Floor on the grow-speed multiplier from stacked gear + pets — crops can never grow faster
- *  than 1/GROW_SPEED_FLOOR the normal rate (0.1 = 10x max). Used by rooms.ts for the real
+ *  than 1/GROW_SPEED_FLOOR the normal rate (0.1 = 10x max). Used by towns.ts for the real
  *  timer and by the Pet/Gear shops (client) to show when a player has maxed it out. */
 export const GROW_SPEED_FLOOR = 0.1;
 
 /** Floor on the incubator-merge-speed multiplier from equipped Bunny/Owl (the only
  *  incubatorSpeed pets) — merges can never finish faster than 1/INCUBATOR_SPEED_FLOOR the
- *  normal duration. Used by rooms.ts for the real timer and by the Pet Shop (client) to show
+ *  normal duration. Used by towns.ts for the real timer and by the Pet Shop (client) to show
  *  when a player has maxed it out. */
 export const INCUBATOR_SPEED_FLOOR = 0.1;
 
