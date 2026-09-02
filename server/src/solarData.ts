@@ -1,5 +1,6 @@
 import { CROPS_BY_ID, type Crop } from "./gameData.js";
 import { MOON_CROPS_BY_ID, type MoonCrop } from "./moonData.js";
+import { VIKING_CROPS_BY_ID, type VikingCrop } from "./vikingData.js";
 
 /** Mirrors moonData.ts's structure exactly, but as the diamond-funded counterpart — the Solar
  *  Seed Pack. Moon and Solar shops never both feature at once (see weather.ts's getFeaturedShop). */
@@ -84,7 +85,7 @@ export function resolveSolarFootprint(cropId: string, fallback: { w: number; h: 
   return fallback;
 }
 
-/** All three crop tables in one lookup — regular, Moon, and Solar. */
-export function getAnyCropDef(cropId: string): Crop | MoonCrop | SolarCrop | undefined {
-  return CROPS_BY_ID[cropId] ?? MOON_CROPS_BY_ID[cropId] ?? SOLAR_CROPS_BY_ID[cropId];
+/** All four crop tables in one lookup — regular, Moon, Solar, and Viking. */
+export function getAnyCropDef(cropId: string): Crop | MoonCrop | SolarCrop | VikingCrop | undefined {
+  return CROPS_BY_ID[cropId] ?? MOON_CROPS_BY_ID[cropId] ?? SOLAR_CROPS_BY_ID[cropId] ?? VIKING_CROPS_BY_ID[cropId];
 }

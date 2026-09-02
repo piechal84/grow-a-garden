@@ -12,6 +12,7 @@ import KitsuneShrineStructure from "./KitsuneShrineStructure";
 import { ChargedSlotEffect } from "./MutationEffects";
 import PlantPickerModal from "./PlantPickerModal";
 import RoamingPets from "./RoamingPets";
+import YggdrasilStructure from "./YggdrasilStructure";
 
 const INCUBATOR_SIZE = 3;
 /** Must match HARVEST_ALL_COST_COINS / GROW_ALL_COST_KELKA_CRYSTALS in server/src/rooms.ts. */
@@ -28,8 +29,10 @@ const TOOL_ACCENTS = {
   move: "#e0982a",
   placeIncubator: "#c27a3f",
   placeKitsuneShrine: "#c0293a",
+  placeYggdrasil: "#3f8f5e",
 } as const;
 const KITSUNE_SHRINE_SIZE = 3;
+const YGGDRASIL_SIZE = 4;
 
 /** True if two footprints share an edge (not just a corner) — mirrors the server's aura check. */
 function isOrthogonallyAdjacent(a: Planting, b: Planting): boolean {
@@ -85,9 +88,9 @@ export default function PlotView({
   zoom: number;
 }) {
   const [pickerCell, setPickerCell] = useState<{ x: number; y: number } | null>(null);
-  const [activeTool, setActiveTool] = useState<"reclaim" | "move" | "place_incubator" | "place_kitsune_shrine" | null>(
-    null,
-  );
+  const [activeTool, setActiveTool] = useState<
+    "reclaim" | "move" | "place_incubator" | "place_kitsune_shrine" | "place_yggdrasil" | null
+  >(null);
   const [movingId, setMovingId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
   const origin = plotOrigin(player.slotIndex);
@@ -111,6 +114,11 @@ export default function PlotView({
       for (let cy = shrine.y; cy < shrine.y + KITSUNE_SHRINE_SIZE; cy++) occupied.add(`${cx},${cy}`);
     }
   }
+  if (player.yggdrasil) {
+    for (let cx = player.yggdrasil.x; cx < player.yggdrasil.x + YGGDRASIL_SIZE; cx++) {
+      for (let cy = player.yggdrasil.y; cy < player.yggdrasil.y + YGGDRASIL_SIZE; cy++) occupied.add(`${cx},${cy}`);
+    }
+  }
 
   function handleEmptyCellClick(e: React.MouseEvent, x: number, y: number) {
     e.stopPropagation();
@@ -129,6 +137,8 @@ export default function PlotView({
         socket.emit("move_incubator", { incubatorId: id, x, y }, onSettled);
       } else if (player.kitsuneShrines.some((s) => s.id === id)) {
         socket.emit("move_kitsune_shrine", { shrineId: id, x, y }, onSettled);
+      } else if (player.yggdrasil?.id === id) {
+        socket.emit("move_yggdrasil", { x, y }, onSettled);
       } else {
         socket.emit("move_planting", { plantingId: id, x, y }, onSettled);
       }
@@ -147,6 +157,17 @@ export default function PlotView({
     }
     if (activeTool === "place_kitsune_shrine") {
       socket.emit("place_kitsune_shrine", { x, y }, (res) => {
+        if (res.ok) {
+          setActiveTool(null);
+          setMoveError(null);
+        } else {
+          setMoveError(res.error ?? "Won't fit there.");
+        }
+      });
+      return;
+    }
+    if (activeTool === "place_yggdrasil") {
+      socket.emit("place_yggdrasil", { x, y }, (res) => {
         if (res.ok) {
           setActiveTool(null);
           setMoveError(null);
@@ -195,6 +216,12 @@ export default function PlotView({
     });
   }
 
+  function handleReclaimYggdrasil() {
+    socket.emit("reclaim_yggdrasil", (res) => {
+      setMoveError(res.ok ? null : (res.error ?? "Could not reclaim."));
+    });
+  }
+
   function handleSelectForMove(plantingId: string) {
     setMoveError(null);
     setMovingId(plantingId);
@@ -213,7 +240,7 @@ export default function PlotView({
     if (ready) handleHarvest(planting.id);
   }
 
-  function toggleTool(tool: "reclaim" | "move" | "place_incubator" | "place_kitsune_shrine") {
+  function toggleTool(tool: "reclaim" | "move" | "place_incubator" | "place_kitsune_shrine" | "place_yggdrasil") {
     setMoveError(null);
     setMovingId(null);
     setActiveTool((cur) => (cur === tool ? null : tool));
@@ -225,6 +252,8 @@ export default function PlotView({
   const canPlaceIncubator = incubatorsOwned > player.incubators.length;
   const kitsuneShrinesOwned = player.gearOwned["kelka_kitsune_shrine"] ?? 0;
   const canPlaceKitsuneShrine = kitsuneShrinesOwned > player.kitsuneShrines.length;
+  const yggdrasilOwned = player.gearOwned["yggdrasil"] ?? 0;
+  const canPlaceYggdrasil = yggdrasilOwned > 0 && !player.yggdrasil;
   const readyCount = player.plantings.filter((p) => now >= p.readyAt).length;
   const growingCount = player.plantings.filter((p) => now < p.readyAt).length;
   const canHarvestAll = readyCount > 0 && player.coins >= HARVEST_ALL_COST_COINS;
@@ -316,11 +345,20 @@ export default function PlotView({
               🐺 Place Kitsune Shrine
             </button>
           )}
+          {canPlaceYggdrasil && (
+            <button
+              className={`plot-tool-btn ${activeTool === "place_yggdrasil" ? "plot-tool-btn-active" : ""}`}
+              style={activeTool === "place_yggdrasil" ? undefined : { borderColor: TOOL_ACCENTS.placeYggdrasil }}
+              onClick={() => toggleTool("place_yggdrasil")}
+            >
+              🌳 Place Yggdrasil
+            </button>
+          )}
         </div>
       )}
       {isOwner && activeTool === "reclaim" && (
         <div className="plot-move-banner" style={uiCounterScaleTop} onClick={(e) => e.stopPropagation()}>
-          🧲 Tap a crop to reclaim its seed, or an incubator/shrine to pick it up
+          🧲 Tap a crop to reclaim its seed, or a structure to pick it up
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
             Done
           </button>
@@ -342,9 +380,17 @@ export default function PlotView({
           </button>
         </div>
       )}
+      {isOwner && activeTool === "place_yggdrasil" && (
+        <div className="plot-move-banner" style={uiCounterScaleTop} onClick={(e) => e.stopPropagation()}>
+          🌳 Tap an empty 4x4 clearing to plant the Yggdrasil
+          <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
+            Cancel
+          </button>
+        </div>
+      )}
       {isOwner && activeTool === "move" && !movingId && (
         <div className="plot-move-banner" style={uiCounterScaleTop} onClick={(e) => e.stopPropagation()}>
-          🛠️ Tap a crop, incubator, or shrine to move it
+          🛠️ Tap a crop or structure to move it
           <button className="btn btn-secondary plot-move-cancel" onClick={() => setActiveTool(null)}>
             Done
           </button>
@@ -486,6 +532,21 @@ export default function PlotView({
           zoom={zoom}
         />
       ))}
+
+      {player.yggdrasil && (
+        <YggdrasilStructure
+          yggdrasil={player.yggdrasil}
+          player={player}
+          isOwner={isOwner}
+          now={now}
+          moveMode={activeTool === "move"}
+          isMoving={movingId === player.yggdrasil.id}
+          onSelectForMove={() => handleSelectForMove(player.yggdrasil!.id)}
+          reclaimMode={activeTool === "reclaim"}
+          onReclaim={handleReclaimYggdrasil}
+          zoom={zoom}
+        />
+      )}
 
       <RoamingPets player={player} />
 

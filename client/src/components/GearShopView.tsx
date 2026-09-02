@@ -1,11 +1,19 @@
 import { useState } from "react";
-import { GEAR, nextGearPrice, type GearItem } from "../gameData";
+import { GEAR, nextGearPrice, type GearItem, type GearPrice } from "../gameData";
 import type { PlayerState } from "../types";
 import { socket } from "../socket";
 import GrowSpeedBanner from "./GrowSpeedBanner";
 
 function formatPct(v: number): string {
   return `${Math.round(v * 1000) / 10}%`;
+}
+
+function formatGearPrice(price: GearPrice): string {
+  const parts: string[] = [];
+  if (price.coins > 0) parts.push(`${price.coins}`);
+  if (price.diamonds > 0) parts.push(`💎${price.diamonds}`);
+  if (price.kelkaCrystals) parts.push(`💠${price.kelkaCrystals}`);
+  return parts.length > 0 ? parts.join(" + ") : "0";
 }
 
 /** Watering Can / Fertilizer Bag have per-level values instead of one flat bonus — this
@@ -46,7 +54,10 @@ export default function GearShopView({ player }: { player: PlayerState }) {
           const maxedOut = gear.maxOwned !== undefined && owned >= gear.maxOwned;
           const alreadyOwned = !gear.repeatable && owned > 0;
           const price = nextGearPrice(gear, owned);
-          const affordable = player.coins >= price.coins && player.diamonds >= price.diamonds;
+          const affordable =
+            player.coins >= price.coins &&
+            player.diamonds >= price.diamonds &&
+            player.kelkaCrystals >= (price.kelkaCrystals ?? 0);
           const icon = gear.levelEmojis ? gear.levelEmojis[Math.max(0, owned - 1)] : gear.emoji;
           const effectLine = levelEffectLine(gear, owned);
 
@@ -74,13 +85,7 @@ export default function GearShopView({ player }: { player: PlayerState }) {
                   <span className="plot-ready-tag">{maxedOut ? "Maxed" : "Owned"}</span>
                 ) : (
                   <button className="btn btn-primary" disabled={!affordable} onClick={() => handleBuy(gear.id)}>
-                    Buy (
-                    {price.diamonds > 0
-                      ? price.coins > 0
-                        ? `${price.coins} + 💎${price.diamonds}`
-                        : `💎${price.diamonds}`
-                      : price.coins}
-                    )
+                    Buy ({formatGearPrice(price)})
                   </button>
                 )}
               </div>

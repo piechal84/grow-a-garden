@@ -1,5 +1,6 @@
 import type { Crop } from "./gameData";
 import { getCropDef as getRegularOrMoonCropDef, MOON_CROPS_BY_ID, type MoonCrop } from "./moonData";
+import { VIKING_CROPS_BY_ID, type VikingCrop } from "./vikingData";
 
 /** Mirrors moonData.ts's structure exactly, but as the diamond-funded counterpart — the Solar
  *  Seed Pack. Moon and Solar shops never both feature at once (see weather.ts's getFeaturedShop). */
@@ -60,9 +61,9 @@ export const SOLAR_PACK_ODDS: { pct: number; tier: SolarTier }[] = [
   { pct: 0.8, tier: "legendary" },
 ];
 
-/** All three crop tables in one lookup — regular, Moon, and Solar. */
-export function getAnyCropDef(cropId: string): Crop | MoonCrop | SolarCrop | undefined {
-  return getRegularOrMoonCropDef(cropId) ?? SOLAR_CROPS_BY_ID[cropId];
+/** All four crop tables in one lookup — regular, Moon, Solar, and Viking. */
+export function getAnyCropDef(cropId: string): Crop | MoonCrop | SolarCrop | VikingCrop | undefined {
+  return getRegularOrMoonCropDef(cropId) ?? SOLAR_CROPS_BY_ID[cropId] ?? VIKING_CROPS_BY_ID[cropId];
 }
 
 /** All footprints a seed might land on, across every table — used to keep the plant picker from
@@ -70,6 +71,7 @@ export function getAnyCropDef(cropId: string): Crop | MoonCrop | SolarCrop | und
 export function possibleFootprintsAny(cropId: string, baseFootprint: { w: number; h: number }): { w: number; h: number }[] {
   const moon = MOON_CROPS_BY_ID[cropId];
   const solar = SOLAR_CROPS_BY_ID[cropId];
-  if (moon?.variableFootprint || solar?.variableFootprint) return [{ w: 2, h: 1 }, { w: 1, h: 2 }];
+  const viking = VIKING_CROPS_BY_ID[cropId];
+  if (moon?.variableFootprint || solar?.variableFootprint || viking?.variableFootprint) return [{ w: 2, h: 1 }, { w: 1, h: 2 }];
   return [baseFootprint];
 }

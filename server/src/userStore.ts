@@ -5,7 +5,7 @@ import path from "node:path";
 import { STARTING_COINS } from "./gameData.js";
 import { BASE_PET_SLOTS, type PetSize } from "./petData.js";
 import type { Quest } from "./quests.js";
-import type { HarvestedCrop, IncubatorState, KitsuneShrineState, Planting } from "./types.js";
+import type { HarvestedCrop, IncubatorState, KitsuneShrineState, Planting, YggdrasilState } from "./types.js";
 import { BASE_GRID_HEIGHT, PLOT_GRID_WIDTH } from "./world.js";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -44,6 +44,8 @@ export interface SavedProgress {
   kelkaCrystals?: number;
   /** Absent on saves from before the full-daily-refresh option existed. */
   dailyFullRefreshCount?: number;
+  /** Absent on saves from before the Yggdrasil existed. */
+  yggdrasil?: YggdrasilState | null;
 }
 
 export interface UserRecord {
@@ -84,6 +86,7 @@ function defaultProgress(): SavedProgress {
     foxEggsOwned: 0,
     kitsuneShrines: [],
     kelkaCrystals: 0,
+    yggdrasil: null,
   };
 }
 

@@ -37,6 +37,7 @@ import {
   SOLAR_PACK_COST,
   type SolarPackResult,
 } from "./solarData.js";
+import { resolveVikingFootprint, rollVikingPack, type VikingPackResult } from "./vikingData.js";
 import {
   dayBucket,
   DAILY_FULL_REFRESH_COSTS,
@@ -134,6 +135,7 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     petProcAt: saved?.petProcAt ?? {},
     foxEggsOwned: saved?.foxEggsOwned ?? 0,
     kitsuneShrines: saved?.kitsuneShrines ?? [],
+    yggdrasil: saved?.yggdrasil ?? null,
   };
   sanitizePetState(player);
   ensureQuestsFresh(player, Date.now());
@@ -713,6 +715,7 @@ export function buyPetSlot(player: PlayerState): { error?: string } {
 
 const INCUBATOR_SIZE = 3;
 const KITSUNE_SHRINE_SIZE = 3;
+const YGGDRASIL_SIZE = 4;
 const EMPOWER_DURATION_MS = 10 * 60 * 1000;
 const TENACIOUS_DURATION_MS = 60 * 60 * 1000;
 
@@ -729,6 +732,10 @@ function canPlaceAt(player: PlayerState, x: number, y: number, w: number, h: num
   for (const shrine of player.kitsuneShrines) {
     if (shrine.id === ignoreId) continue;
     if (x < shrine.x + KITSUNE_SHRINE_SIZE && x + w > shrine.x && y < shrine.y + KITSUNE_SHRINE_SIZE && y + h > shrine.y) return false;
+  }
+  const ygg = player.yggdrasil;
+  if (ygg && ygg.id !== ignoreId) {
+    if (x < ygg.x + YGGDRASIL_SIZE && x + w > ygg.x && y < ygg.y + YGGDRASIL_SIZE && y + h > ygg.y) return false;
   }
   return true;
 }
@@ -870,6 +877,104 @@ export function reclaimKitsuneShrine(player: PlayerState, shrineId: string): { e
   return {};
 }
 
+const YGGDRASIL_BUILD_MS = 24 * 60 * 60 * 1000;
+const YGGDRASIL_RESEARCH_MS = 60 * 60 * 1000;
+export const YGGDRASIL_MAX_SLOTS = 10;
+
+/** Cost (Diamonds) to upgrade from `currentSlots` to `currentSlots + 1`, opening up one more
+ *  concurrent research job — 1000, 5000, 25000, ... (x5 per step), undefined once maxed. */
+export function yggdrasilSlotUpgradeCost(currentSlots: number): number | undefined {
+  if (currentSlots >= YGGDRASIL_MAX_SLOTS) return undefined;
+  return 1000 * Math.pow(5, currentSlots - 1);
+}
+
+/** Plants the World Tree — bought once via buyGear (1000 Diamonds + 5 Kelka Crystals, see
+ *  gameData.ts), then placed here just like an Incubator/Kitsune Shrine. It's inert (no research
+ *  can start) until YGGDRASIL_BUILD_MS has passed — see startVikingResearch. */
+export function placeYggdrasil(player: PlayerState, x: number, y: number): { error?: string } {
+  const owned = player.gearOwned["yggdrasil"] ?? 0;
+  if (owned <= 0) return { error: "You need the Yggdrasil from the Gear Shop first." };
+  if (player.yggdrasil) return { error: "You've already planted your Yggdrasil." };
+  if (!canPlaceAt(player, x, y, YGGDRASIL_SIZE, YGGDRASIL_SIZE)) return { error: "Won't fit there." };
+  const now = Date.now();
+  player.yggdrasil = { id: nanoid(8), x, y, constructionReadyAt: now + YGGDRASIL_BUILD_MS, slots: 1, research: [] };
+  return {};
+}
+
+export function moveYggdrasil(player: PlayerState, x: number, y: number): { error?: string } {
+  const owned = player.gearOwned["trowel"] ?? 0;
+  if (owned <= 0) return { error: "You need the Trowel from the Gear Shop first." };
+  const ygg = player.yggdrasil;
+  if (!ygg) return { error: "Yggdrasil not found." };
+  if (!canPlaceAt(player, x, y, YGGDRASIL_SIZE, YGGDRASIL_SIZE, ygg.id)) return { error: "Won't fit there." };
+  ygg.x = x;
+  ygg.y = y;
+  return {};
+}
+
+export function reclaimYggdrasil(player: PlayerState): { error?: string } {
+  const owned = player.gearOwned["reclaimer"] ?? 0;
+  if (owned <= 0) return { error: "You need the Reclaimer tool from the Gear Shop first." };
+  if (!player.yggdrasil) return { error: "Yggdrasil not found." };
+  if (player.yggdrasil.research.length > 0) return { error: "Finish or collect research in progress first." };
+  player.yggdrasil = null;
+  return {};
+}
+
+/** Opens up one more concurrent research slot — cost escalates steeply per yggdrasilSlotUpgradeCost. */
+export function upgradeYggdrasilSlots(player: PlayerState): { error?: string } {
+  const ygg = player.yggdrasil;
+  if (!ygg) return { error: "Yggdrasil not found." };
+  if (Date.now() < ygg.constructionReadyAt) return { error: "Still growing — check back once it's fully grown." };
+  const cost = yggdrasilSlotUpgradeCost(ygg.slots);
+  if (cost === undefined) return { error: "Research slots already maxed." };
+  if (player.diamonds < cost) return { error: "Not enough diamonds." };
+  player.diamonds -= cost;
+  ygg.slots += 1;
+  return {};
+}
+
+/** Starts one research job in a free slot — every slot runs independently and concurrently
+ *  (not queued), so `slots` research jobs can all be in flight finishing 1 hour apart at once. */
+export function startVikingResearch(player: PlayerState): { error?: string } {
+  const ygg = player.yggdrasil;
+  if (!ygg) return { error: "Yggdrasil not found." };
+  const now = Date.now();
+  if (now < ygg.constructionReadyAt) return { error: "Still growing — check back once it's fully grown." };
+  if (ygg.research.length >= ygg.slots) return { error: "No free research slots — upgrade the Yggdrasil for more." };
+  ygg.research.push({ id: nanoid(8), startedAt: now, readyAt: now + YGGDRASIL_RESEARCH_MS });
+  return {};
+}
+
+/** Collects one finished research job, immediately rolling and granting a random Viking seed —
+ *  same "always guaranteed, pull-and-grant" pattern as buyMoonPack/buySolarPack, just free and
+ *  time-gated instead of costing a currency per pull. */
+export function collectVikingResearch(player: PlayerState, researchId: string): { error?: string; result?: VikingPackResult } {
+  const ygg = player.yggdrasil;
+  if (!ygg) return { error: "Yggdrasil not found." };
+  const idx = ygg.research.findIndex((r) => r.id === researchId);
+  if (idx === -1) return { error: "Research job not found." };
+  if (Date.now() < ygg.research[idx].readyAt) return { error: "Not ready yet." };
+  ygg.research.splice(idx, 1);
+  const result = rollVikingPack();
+  player.seedInventory[result.cropId] = (player.seedInventory[result.cropId] ?? 0) + 1;
+  return { result };
+}
+
+export function collectAllVikingResearch(player: PlayerState): { error?: string; results?: VikingPackResult[] } {
+  const ygg = player.yggdrasil;
+  if (!ygg) return { error: "Yggdrasil not found." };
+  const now = Date.now();
+  const readyIds = ygg.research.filter((r) => now >= r.readyAt).map((r) => r.id);
+  if (readyIds.length === 0) return { error: "Nothing ready to collect." };
+  const results: VikingPackResult[] = [];
+  for (const id of readyIds) {
+    const outcome = collectVikingResearch(player, id);
+    if (outcome.result) results.push(outcome.result);
+  }
+  return { results };
+}
+
 /** True if two footprints share an edge (not just a corner) — "the squares next to it". */
 function isOrthogonallyAdjacent(a: Planting, b: Planting): boolean {
   const rowOverlap = a.y < b.y + b.h && b.y < a.y + a.h;
@@ -928,7 +1033,7 @@ export function plant(room: RoomState, player: PlayerState, x: number, y: number
   const crop = getCropDef(cropId);
   if (!crop) return { error: "Unknown crop." };
   if ((player.seedInventory[cropId] ?? 0) <= 0) return { error: "You don't have that seed." };
-  const { w, h } = resolveSolarFootprint(cropId, resolveFootprint(cropId, crop.footprint));
+  const { w, h } = resolveVikingFootprint(cropId, resolveSolarFootprint(cropId, resolveFootprint(cropId, crop.footprint)));
   if (!canPlaceAt(player, x, y, w, h)) return { error: "Won't fit there." };
 
   player.seedInventory[cropId] -= 1;
@@ -1162,9 +1267,11 @@ export function buyGear(room: RoomState, player: PlayerState, gearId: string): {
   const price = nextGearPrice(gear, owned);
   if (player.coins < price.coins) return { error: "Not enough coins." };
   if (player.diamonds < price.diamonds) return { error: "Not enough diamonds." };
+  if (player.kelkaCrystals < (price.kelkaCrystals ?? 0)) return { error: "Not enough Kelka Crystals." };
   const oldGrowMult = growSpeedMultiplier(player);
   player.coins -= price.coins;
   player.diamonds -= price.diamonds;
+  player.kelkaCrystals -= price.kelkaCrystals ?? 0;
   player.gearOwned[gearId] = owned + 1;
   if (gear.effect.type === "expandGarden") {
     player.gridHeight = Math.min(BASE_GRID_HEIGHT + GRID_EXPANSION_MAX, player.gridHeight + gear.effect.value);
@@ -1203,6 +1310,7 @@ export function extractProgress(player: PlayerState): SavedProgress {
     petProcAt: player.petProcAt,
     foxEggsOwned: player.foxEggsOwned,
     kitsuneShrines: player.kitsuneShrines,
+    yggdrasil: player.yggdrasil,
   };
 }
 

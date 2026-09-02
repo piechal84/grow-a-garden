@@ -2,6 +2,7 @@ import type { BlossomColor, MoonTier } from "./moonData.js";
 import type { PetSize } from "./petData.js";
 import type { Quest } from "./quests.js";
 import type { SolarTier } from "./solarData.js";
+import type { VikingTier } from "./vikingData.js";
 import type { MutationId } from "./weather.js";
 import type { Position } from "./world.js";
 
@@ -59,6 +60,25 @@ export interface KitsuneShrineState {
   craft: KitsuneCraft | null;
 }
 
+export interface YggdrasilResearchJob {
+  id: string;
+  startedAt: number;
+  readyAt: number;
+}
+
+export interface YggdrasilState {
+  id: string;
+  x: number;
+  y: number;
+  /** When construction finishes (24h after planting) — the tree is inert, no research can start,
+   *  until now >= constructionReadyAt. */
+  constructionReadyAt: number;
+  /** Concurrent research capacity — starts at 1, upgradeable up to YGGDRASIL_MAX_SLOTS. */
+  slots: number;
+  /** Active research jobs, up to `slots` long — each independently timed, not queued in series. */
+  research: YggdrasilResearchJob[];
+}
+
 export interface PlayerState {
   id: string;
   name: string;
@@ -110,6 +130,9 @@ export interface PlayerState {
   foxEggsOwned: number;
   /** Kelka Kitsune Shrines planted on this player's plot (max 1, gated by gearOwned.kelka_kitsune_shrine). */
   kitsuneShrines: KitsuneShrineState[];
+  /** The World Tree, planted on this player's plot (max 1, gated by gearOwned.yggdrasil) — null
+   *  until bought and placed. */
+  yggdrasil: YggdrasilState | null;
   /** Next timestamp (ms) each equipped pet with its own independent-cooldown ability (keyed by
    *  its slotKey) can proc again — Baby Dragon's insta-grow, Fox's auto-harvest. Every equipped
    *  instance procs on its own independent 60s cooldown, never shared. See tickDragonInstaGrow /
@@ -166,6 +189,13 @@ export interface ClientToServerEvents {
   buy_moon_pack_bulk: (ack?: (res: MoonPackBulkAck) => void) => void;
   buy_solar_pack: (ack?: (res: SolarPackAck) => void) => void;
   buy_solar_pack_bulk: (ack?: (res: SolarPackBulkAck) => void) => void;
+  place_yggdrasil: (payload: { x: number; y: number }, ack?: (res: ActionAck) => void) => void;
+  move_yggdrasil: (payload: { x: number; y: number }, ack?: (res: ActionAck) => void) => void;
+  reclaim_yggdrasil: (ack?: (res: ActionAck) => void) => void;
+  upgrade_yggdrasil: (ack?: (res: ActionAck) => void) => void;
+  start_viking_research: (ack?: (res: ActionAck) => void) => void;
+  collect_viking_research: (payload: { researchId: string }, ack?: (res: VikingPackAck) => void) => void;
+  collect_all_viking_research: (ack?: (res: VikingPackBulkAck) => void) => void;
   buy_diamonds: (payload: { quantity: number }, ack?: (res: ActionAck) => void) => void;
   sell_diamonds: (payload: { quantity: number }, ack?: (res: ActionAck) => void) => void;
   move: (payload: { x: number; y: number }) => void;
@@ -244,6 +274,19 @@ export interface SolarPackAck extends ActionAck {
 export interface SolarPackBulkAck extends ActionAck {
   results?: SolarPackResult[];
   cost?: number;
+}
+
+export interface VikingPackResult {
+  kind: VikingTier;
+  cropId: string;
+}
+
+export interface VikingPackAck extends ActionAck {
+  result?: VikingPackResult;
+}
+
+export interface VikingPackBulkAck extends ActionAck {
+  results?: VikingPackResult[];
 }
 
 export interface PetEggAck extends ActionAck {

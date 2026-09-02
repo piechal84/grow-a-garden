@@ -34,11 +34,14 @@ export type GearEffect =
   | { type: "unlockReclaim" }
   | { type: "unlockMove" }
   | { type: "unlockMerge" }
-  | { type: "unlockKitsuneShrine" };
+  | { type: "unlockKitsuneShrine" }
+  | { type: "unlockYggdrasil" };
 
 export interface GearPrice {
   coins: number;
   diamonds: number;
+  /** Only the Yggdrasil charges this — otherwise absent/0. */
+  kelkaCrystals?: number;
 }
 
 export interface GearItem {
@@ -143,6 +146,17 @@ export const GEAR: GearItem[] = [
     repeatable: false,
     levelCosts: [{ coins: 0, diamonds: 5 }],
     effect: { type: "unlockKitsuneShrine" },
+  },
+  {
+    id: "yggdrasil",
+    name: "Yggdrasil",
+    emoji: "🌳",
+    description:
+      "Plant the World Tree on a 4x4 clearing to unlock Viking Seed research — takes 24 hours to grow. Own up to 1.",
+    cost: 0,
+    repeatable: false,
+    levelCosts: [{ coins: 0, diamonds: 1000, kelkaCrystals: 5 }],
+    effect: { type: "unlockYggdrasil" },
   },
 ];
 

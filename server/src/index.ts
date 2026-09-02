@@ -18,8 +18,10 @@ import {
   buySeed,
   buySolarPack,
   buySolarPackBulk,
+  collectAllVikingResearch,
   collectKitsuneCraft,
   collectPetMerge,
+  collectVikingResearch,
   createRoom,
   ensurePosition,
   ensureQuestsFresh,
@@ -37,12 +39,15 @@ import {
   moveKitsuneShrine,
   movePlanting,
   movePlayer,
+  moveYggdrasil,
   placeIncubator,
   placeKitsuneShrine,
+  placeYggdrasil,
   plant,
   reclaim,
   reclaimIncubator,
   reclaimKitsuneShrine,
+  reclaimYggdrasil,
   refreshDailyQuests,
   rerollQuest,
   sell,
@@ -50,9 +55,11 @@ import {
   sellDiamonds,
   startKitsuneCraft,
   startPetMerge,
+  startVikingResearch,
   tickDragonInstaGrow,
   tickFoxAutoHarvest,
   unequipPet,
+  upgradeYggdrasilSlots,
 } from "./rooms.js";
 import type { ClientToServerEvents, RoomState, ServerToClientEvents } from "./types.js";
 import { flushProgress, initUserStore, login, register, saveProgress } from "./userStore.js";
@@ -387,6 +394,62 @@ io.on("connection", (socket) => {
     const outcome = buySolarPackBulk(room, player);
     ack?.({ ok: !outcome.error, error: outcome.error, results: outcome.results, cost: outcome.cost });
     if (!outcome.error) broadcast(room);
+  });
+
+  socket.on("place_yggdrasil", ({ x, y }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = placeYggdrasil(player, x, y);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("move_yggdrasil", ({ x, y }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = moveYggdrasil(player, x, y);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("reclaim_yggdrasil", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = reclaimYggdrasil(player);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("upgrade_yggdrasil", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = upgradeYggdrasilSlots(player);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("start_viking_research", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = startVikingResearch(player);
+    ack?.({ ok: !result.error, error: result.error });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("collect_viking_research", ({ researchId }, ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = collectVikingResearch(player, researchId);
+    ack?.({ ok: !result.error, error: result.error, result: result.result });
+    if (!result.error) broadcast(room);
+  });
+
+  socket.on("collect_all_viking_research", (ack) => {
+    const { room, player } = currentPlayer();
+    if (!room || !player) return ack?.({ ok: false, error: "Not in a room." });
+    const result = collectAllVikingResearch(player);
+    ack?.({ ok: !result.error, error: result.error, results: result.results });
+    if (!result.error) broadcast(room);
   });
 
   socket.on("buy_diamonds", ({ quantity }, ack) => {
