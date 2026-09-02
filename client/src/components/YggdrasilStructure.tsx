@@ -7,12 +7,24 @@ import {
   VIKING_CROPS,
   VIKING_PACK_ODDS,
   VIKING_TIER_TO_CROP_TIER,
+  YGGDRASIL_BUILD_MS,
   YGGDRASIL_MAX_SLOTS,
   yggdrasilSlotUpgradeCost,
   type VikingTier,
 } from "../vikingData";
 import { CELL_SIZE } from "../world";
 import CropIcon from "./CropIcon";
+import YggdrasilTreeArt from "./YggdrasilTreeArt";
+
+/** 5 growth stages spread evenly across the 24h build — matches the reference life-cycle art
+ *  (sprout -> bush -> sapling -> young tree -> full World Tree). Progress is derived purely from
+ *  time-left-until-constructionReadyAt against the fixed build duration, so no separate "planted
+ *  at" timestamp needs to be stored. */
+function growthStage(constructionReadyAt: number, now: number): 0 | 1 | 2 | 3 | 4 {
+  const remaining = Math.max(0, constructionReadyAt - now);
+  const progress = Math.min(1, Math.max(0, 1 - remaining / YGGDRASIL_BUILD_MS));
+  return Math.min(4, Math.floor(progress * 5)) as 0 | 1 | 2 | 3 | 4;
+}
 
 function tierLabel(tier: VikingTier): string {
   return CROP_TIER_LABELS[VIKING_TIER_TO_CROP_TIER[tier]];
@@ -124,6 +136,7 @@ export default function YggdrasilStructure({
   const canAffordUpgrade = upgradeCost !== undefined && player.diamonds >= upgradeCost;
 
   const emptySlotCount = Math.max(0, yggdrasil.slots - yggdrasil.research.length);
+  const stage = growthStage(yggdrasil.constructionReadyAt, now);
 
   return (
     <div
@@ -151,8 +164,9 @@ export default function YggdrasilStructure({
                 : "Tap to research Viking seeds"
       }
     >
-      <div className="yggdrasil-canopy" />
-      <span className="incubator-emoji">🌳</span>
+      <div className="yggdrasil-tree-wrap">
+        <YggdrasilTreeArt stage={stage} />
+      </div>
       {!built && <span className="incubator-timer">{formatDuration(yggdrasil.constructionReadyAt - now)} to grow</span>}
       {built && readyJobs.length > 0 && <span className="incubator-collect-label">{readyJobs.length} ready — tap to collect!</span>}
       {built && readyJobs.length === 0 && (
