@@ -112,6 +112,9 @@ export default function GameShell({
           <span className="kelka-crystal-display" title="Kelka Crystals — earned from daily quests, spent on Grow All">
             💠 {me.kelkaCrystals}
           </span>
+          <span className="vegvizir-token-display" title="Vegvizir Tokens — earned by selling Yggdrasil Apples, spent on Extend Roots">
+            🧭 {me.vegvizirTokens}
+          </span>
         </div>
       </header>
 

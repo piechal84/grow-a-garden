@@ -27,6 +27,7 @@ import {
   ensureQuestsFresh,
   ensureStockFresh,
   equipPet,
+  extendRoots,
   extractProgress,
   findTownByPlayer,
   getTown,
@@ -449,6 +450,14 @@ io.on("connection", (socket) => {
     if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
     const result = collectAllVikingResearch(player);
     ack?.({ ok: !result.error, error: result.error, results: result.results });
+    if (!result.error) broadcast(town);
+  });
+
+  socket.on("extend_roots", (ack) => {
+    const { town, player } = currentPlayer();
+    if (!town || !player) return ack?.({ ok: false, error: "Not in a town." });
+    const result = extendRoots(player);
+    ack?.({ ok: !result.error, error: result.error });
     if (!result.error) broadcast(town);
   });
 

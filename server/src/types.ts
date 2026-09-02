@@ -112,6 +112,12 @@ export interface PlayerState {
   /** Quest-only currency — 1 per completed daily quest (never weekly), stackable. Not earnable
    *  with coins or diamonds, so it directly rate-limits anything gated behind it (Grow All). */
   kelkaCrystals: number;
+  /** Extend Roots' currency — earned only by selling Yggdrasil Apples (1 per sale, on top of
+   *  their diamond payout). Spent on extendRoots (see towns.ts). */
+  vegvizirTokens: number;
+  /** How many times this player has used Extend Roots — caps at ROOT_EXPANSION_MAX (world.ts);
+   *  each use grows gridHeight by 1 past Garden Expansion's own cap. */
+  rootExpansions: number;
   /** Crop IDs whose persistent (regrowing) form this player has produced at least once — once
    *  set, every future planting of that crop grows at the slow persistent-regrow rate from the
    *  start, so reclaiming and replanting can't be used to keep re-rolling the fast first grow. */
@@ -196,6 +202,7 @@ export interface ClientToServerEvents {
   start_viking_research: (ack?: (res: ActionAck) => void) => void;
   collect_viking_research: (payload: { researchId: string }, ack?: (res: VikingPackAck) => void) => void;
   collect_all_viking_research: (ack?: (res: VikingPackBulkAck) => void) => void;
+  extend_roots: (ack?: (res: ActionAck) => void) => void;
   buy_diamonds: (payload: { quantity: number }, ack?: (res: ActionAck) => void) => void;
   sell_diamonds: (payload: { quantity: number }, ack?: (res: ActionAck) => void) => void;
   move: (payload: { x: number; y: number }) => void;

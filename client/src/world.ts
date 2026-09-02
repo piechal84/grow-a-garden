@@ -7,14 +7,26 @@ export const CELL_SIZE = 56;
 export const PLOT_GRID_WIDTH = 6;
 export const BASE_GRID_HEIGHT = 4;
 export const GRID_EXPANSION_MAX = 8;
-export const MAX_GRID_HEIGHT = BASE_GRID_HEIGHT + GRID_EXPANSION_MAX;
+/** Extend Roots (Yggdrasil, paid in Vegvizir Tokens) continues the same height axis Garden
+ *  Expansion (gear, paid in coins) caps out at. Deliberately NOT folded into PLOT_ROW_SPACING_Y
+ *  below — reserving world-layout row space for every plot's absolute theoretical max (20 rows)
+ *  bloated the map into a mostly-empty, portrait-feeling wall for the vast majority of plots that
+ *  never grow that tall. A fully roots-extended plot may visually crowd the row beneath it; that's
+ *  an acceptable, rare trade for a much tighter default. */
+export const ROOT_EXPANSION_MAX = 8;
+export const MAX_GRID_HEIGHT = BASE_GRID_HEIGHT + GRID_EXPANSION_MAX + ROOT_EXPANSION_MAX;
 
-/** Plots render 2-per-row (bigger, wrapping into further rows) instead of one long strip. */
-export const PLOTS_PER_ROW = 2;
+/** All MAX_PLAYERS_PER_TOWN (4) plots render in a single row — the town is landscape overall,
+ *  not a tall stack, and there's never a partially-empty row to leave dead space below. */
+export const PLOTS_PER_ROW = 4;
 export const PLOT_ORIGIN_X_START = 80;
 export const PLOT_SPACING_X = PLOT_GRID_WIDTH * CELL_SIZE + 84;
-export const PLOT_ORIGIN_Y = 230;
-export const PLOT_ROW_SPACING_Y = MAX_GRID_HEIGHT * CELL_SIZE + 80;
+/** Extra headroom above the first plot row so its toolbar (which floats above the plot, see
+ *  .plot-toolbar) has room to wrap into a few rows without reaching the in-world NPC shop icons
+ *  pinned near the top of the map (MARKET_Y below). */
+export const PLOT_ORIGIN_Y = 320;
+/** Sized for Garden Expansion's cap (not Extend Roots' far larger one — see ROOT_EXPANSION_MAX). */
+export const PLOT_ROW_SPACING_Y = (BASE_GRID_HEIGHT + GRID_EXPANSION_MAX) * CELL_SIZE + 80;
 
 export const MARKET_Y = 90;
 export const NPC_POSITIONS = {
@@ -28,8 +40,8 @@ export const NPC_POSITIONS = {
 };
 
 export const WORLD_WIDTH = PLOT_ORIGIN_X_START + PLOTS_PER_ROW * PLOT_SPACING_X + 230;
-/** 3 rows of PLOTS_PER_ROW covers all 6 player seats. */
-export const WORLD_HEIGHT = PLOT_ORIGIN_Y + 3 * PLOT_ROW_SPACING_Y;
+/** 1 row of PLOTS_PER_ROW covers all MAX_PLAYERS_PER_TOWN (4) seats. */
+export const WORLD_HEIGHT = PLOT_ORIGIN_Y + PLOT_ROW_SPACING_Y;
 export const MOVE_SPEED = 180; // px/sec
 
 export interface Position {

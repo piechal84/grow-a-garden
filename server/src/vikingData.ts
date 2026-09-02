@@ -17,6 +17,9 @@ export interface VikingCrop {
   /** Mythic and Historic Viking crops pay out in Diamonds instead of coins when sold — same
    *  convention as Solar's Mythic/Legendary (see solarData.ts). */
   diamondReward?: number;
+  /** Yggdrasil Apple only — the sole source of Vegvizir Tokens (Extend Roots' currency), on top
+   *  of its diamondReward. See sell/sellAll in towns.ts. */
+  vegvizirTokenReward?: number;
 }
 
 export const VIKING_CROPS: VikingCrop[] = [
@@ -25,7 +28,10 @@ export const VIKING_CROPS: VikingCrop[] = [
   { id: "rune_apple", name: "Rune-Carved Apple", emoji: "🍏", tier: "rare", growSeconds: 80, sellPrice: 150000, footprint: { w: 1, h: 1 }, persistent: true },
   { id: "berserker_banana", name: "Berserker Banana", emoji: "🍌", tier: "epic", growSeconds: 110, sellPrice: 380000, footprint: { w: 2, h: 1 }, variableFootprint: true, persistent: true },
   { id: "drakkar_coconut", name: "Drakkar Coconut", emoji: "🥥", tier: "mythic", growSeconds: 150, sellPrice: 6000, footprint: { w: 2, h: 1 }, variableFootprint: true, persistent: true, diamondReward: 3 },
-  { id: "yggdrasil_apple", name: "Yggdrasil Apple", emoji: "🍎", tier: "historic", growSeconds: 220, sellPrice: 20000, footprint: { w: 2, h: 2 }, persistent: true, diamondReward: 5 },
+  // Regrows every hour flat (see EXEMPT_FROM_REGROW_PENALTY in towns.ts) — the 10x persistent
+  // slowdown every other non-basic-shop crop gets after its first harvest would otherwise turn
+  // this into a 10-hour wait, defeating its purpose as the steady Vegvizir Token source.
+  { id: "yggdrasil_apple", name: "Yggdrasil Apple", emoji: "🍎", tier: "historic", growSeconds: 3600, sellPrice: 20000, footprint: { w: 2, h: 2 }, persistent: true, diamondReward: 5, vegvizirTokenReward: 1 },
 ];
 
 export const VIKING_CROPS_BY_ID: Record<string, VikingCrop> = Object.fromEntries(VIKING_CROPS.map((c) => [c.id, c]));

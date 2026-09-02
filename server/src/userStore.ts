@@ -46,6 +46,9 @@ export interface SavedProgress {
   dailyFullRefreshCount?: number;
   /** Absent on saves from before the Yggdrasil existed. */
   yggdrasil?: YggdrasilState | null;
+  /** Absent on saves from before Vegvizir Tokens / Extend Roots existed. */
+  vegvizirTokens?: number;
+  rootExpansions?: number;
 }
 
 export interface UserRecord {
@@ -87,6 +90,8 @@ function defaultProgress(): SavedProgress {
     kitsuneShrines: [],
     kelkaCrystals: 0,
     yggdrasil: null,
+    vegvizirTokens: 0,
+    rootExpansions: 0,
   };
 }
 

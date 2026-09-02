@@ -109,6 +109,11 @@ export interface PlayerState {
   /** Quest-only currency — 1 per completed daily quest (never weekly), stackable. Not earnable
    *  with coins or diamonds, so it directly rate-limits anything gated behind it (Grow All). */
   kelkaCrystals: number;
+  /** Extend Roots' currency — earned only by selling Yggdrasil Apples (1 per sale, on top of
+   *  their diamond payout). */
+  vegvizirTokens: number;
+  /** How many times this player has used Extend Roots — caps at ROOT_EXPANSION_MAX (world.ts). */
+  rootExpansions: number;
   persistentUnlocked: Record<string, boolean>;
   /** Pets hatched/merged, keyed by pet ID -> size -> how many copies owned. Duplicates stack —
    *  4 identical (pet, size) copies can be merged into the next evolution via an Incubator. */
@@ -277,6 +282,7 @@ export interface ClientToServerEvents {
   start_viking_research: (ack?: (res: ActionAck) => void) => void;
   collect_viking_research: (payload: { researchId: string }, ack?: (res: VikingPackAck) => void) => void;
   collect_all_viking_research: (ack?: (res: VikingPackBulkAck) => void) => void;
+  extend_roots: (ack?: (res: ActionAck) => void) => void;
   buy_diamonds: (payload: { quantity: number }, ack?: (res: ActionAck) => void) => void;
   sell_diamonds: (payload: { quantity: number }, ack?: (res: ActionAck) => void) => void;
   move: (payload: { x: number; y: number }) => void;

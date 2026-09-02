@@ -332,8 +332,9 @@ export default function PlotView({
               className={`plot-tool-btn ${activeTool === "place_incubator" ? "plot-tool-btn-active" : ""}`}
               style={activeTool === "place_incubator" ? undefined : { borderColor: TOOL_ACCENTS.placeIncubator }}
               onClick={() => toggleTool("place_incubator")}
+              title="Place Incubator"
             >
-              🥚 Place Incubator
+              🥚 Incubator
             </button>
           )}
           {canPlaceKitsuneShrine && (
@@ -341,8 +342,9 @@ export default function PlotView({
               className={`plot-tool-btn ${activeTool === "place_kitsune_shrine" ? "plot-tool-btn-active" : ""}`}
               style={activeTool === "place_kitsune_shrine" ? undefined : { borderColor: TOOL_ACCENTS.placeKitsuneShrine }}
               onClick={() => toggleTool("place_kitsune_shrine")}
+              title="Place Kitsune Shrine"
             >
-              🐺 Place Kitsune Shrine
+              🐺 Shrine
             </button>
           )}
           {canPlaceYggdrasil && (
@@ -350,8 +352,9 @@ export default function PlotView({
               className={`plot-tool-btn ${activeTool === "place_yggdrasil" ? "plot-tool-btn-active" : ""}`}
               style={activeTool === "place_yggdrasil" ? undefined : { borderColor: TOOL_ACCENTS.placeYggdrasil }}
               onClick={() => toggleTool("place_yggdrasil")}
+              title="Place Yggdrasil"
             >
-              🌳 Place Yggdrasil
+              🌳 Yggdrasil
             </button>
           )}
         </div>

@@ -368,6 +368,16 @@ button {
   border-radius: 999px;
 }
 
+.vegvizir-token-display {
+  font-weight: 800;
+  font-size: 16px;
+  background: #eafaf0;
+  border: 1px solid #b8e8c8;
+  color: #2a7a4a;
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
 .game-body {
   flex: 1;
   display: flex;
@@ -1128,7 +1138,9 @@ button {
      regardless of how many rows it wraps to — a fixed offset only fit the original 3-4 tools
      and started overlapping/crowding once Harvest All and Grow All were added. The +30px clears
      .world-plot-name (the player's name tag, pinned at top:-22px on the plot itself) so a
-     single-row toolbar doesn't sit on top of it. */
+     single-row toolbar doesn't sit on top of it. Buttons are kept small (see .plot-tool-btn) so
+     even the full 7-tool set stays short enough not to reach the in-world NPC shop icons above
+     the plot (see PLOT_ORIGIN_Y's extra headroom in world.ts). */
   position: absolute;
   bottom: calc(100% + 30px);
   left: 0;
@@ -1136,17 +1148,17 @@ button {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   z-index: 6;
 }
 
 .plot-tool-btn {
-  border: 2px solid var(--border);
+  border: 1.5px solid var(--border);
   background: #fff;
   color: var(--ink);
   font-weight: 700;
-  font-size: 12px;
-  padding: 6px 12px;
+  font-size: 10px;
+  padding: 4px 9px;
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;

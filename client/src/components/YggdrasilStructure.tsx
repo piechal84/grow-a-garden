@@ -4,6 +4,7 @@ import { CROP_TIER_COLORS, CROP_TIER_LABELS } from "../gameData";
 import type { PlayerState, YggdrasilState } from "../types";
 import { socket } from "../socket";
 import {
+  EXTEND_ROOTS_TOKEN_COST,
   VIKING_CROPS,
   VIKING_PACK_ODDS,
   VIKING_TIER_TO_CROP_TIER,
@@ -12,7 +13,7 @@ import {
   yggdrasilSlotUpgradeCost,
   type VikingTier,
 } from "../vikingData";
-import { CELL_SIZE } from "../world";
+import { CELL_SIZE, ROOT_EXPANSION_MAX } from "../world";
 import CropIcon from "./CropIcon";
 import YggdrasilTreeArt from "./YggdrasilTreeArt";
 
@@ -132,8 +133,19 @@ export default function YggdrasilStructure({
     });
   }
 
+  function handleExtendRoots() {
+    setBusy(true);
+    setError(null);
+    socket.emit("extend_roots", (res) => {
+      setBusy(false);
+      if (!res.ok) setError(res.error ?? "Could not extend roots.");
+    });
+  }
+
   const upgradeCost = yggdrasilSlotUpgradeCost(yggdrasil.slots);
   const canAffordUpgrade = upgradeCost !== undefined && player.diamonds >= upgradeCost;
+  const rootsMaxed = player.rootExpansions >= ROOT_EXPANSION_MAX;
+  const canAffordRoots = !rootsMaxed && player.vegvizirTokens >= EXTEND_ROOTS_TOKEN_COST;
 
   const emptySlotCount = Math.max(0, yggdrasil.slots - yggdrasil.research.length);
   const stage = growthStage(yggdrasil.constructionReadyAt, now);
@@ -254,6 +266,25 @@ export default function YggdrasilStructure({
                 )}
               </div>
 
+              <div className="ygg-upgrade-row">
+                <div>
+                  <div className="shop-row-name">
+                    🌱 Extend Roots
+                    <span className="owned-badge">
+                      {player.rootExpansions}/{ROOT_EXPANSION_MAX}
+                    </span>
+                  </div>
+                  <div className="shop-row-stats">Buy the plot next to your garden — one more row of growing space.</div>
+                </div>
+                {rootsMaxed ? (
+                  <span className="plot-ready-tag">Maxed</span>
+                ) : (
+                  <button className="btn btn-primary" disabled={busy || !canAffordRoots} onClick={handleExtendRoots}>
+                    Extend (🧭{EXTEND_ROOTS_TOKEN_COST})
+                  </button>
+                )}
+              </div>
+
               <h3 className="moon-section-title">The 6 Viking Seeds</h3>
               <div className="shop-list">
                 {VIKING_CROPS.map((crop) => (
@@ -269,8 +300,11 @@ export default function YggdrasilStructure({
                         </span>
                       </div>
                       <div className="shop-row-stats">
-                        <span>⏱ {crop.growSeconds}s to grow</span>
-                        <span>💰 sells {crop.diamondReward ? `💎${crop.diamondReward}` : crop.sellPrice}</span>
+                        <span>⏱ {formatDuration(crop.growSeconds * 1000)} to grow</span>
+                        <span>
+                          💰 sells {crop.diamondReward ? `💎${crop.diamondReward}` : crop.sellPrice}
+                          {crop.vegvizirTokenReward ? ` + 🧭${crop.vegvizirTokenReward}` : ""}
+                        </span>
                       </div>
                     </div>
                   </div>

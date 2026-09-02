@@ -80,6 +80,7 @@ import {
   GRID_EXPANSION_MAX,
   MOVE_SPEED,
   PLOT_GRID_WIDTH,
+  ROOT_EXPANSION_MAX,
   spawnPositionForSlot,
   type Position,
 } from "./world.js";
@@ -125,6 +126,8 @@ function makePlayer(id: string, name: string, slotIndex: number): PlayerState {
     seedStockBucket: saved?.seedStockBucket ?? -1,
     diamonds: saved?.diamonds ?? 0,
     kelkaCrystals: saved?.kelkaCrystals ?? 0,
+    vegvizirTokens: saved?.vegvizirTokens ?? 0,
+    rootExpansions: saved?.rootExpansions ?? 0,
     persistentUnlocked: saved?.persistentUnlocked ?? {},
     petsOwned: saved?.petsOwned ?? {},
     petSlots: saved?.petSlots ?? BASE_PET_SLOTS,
@@ -975,6 +978,27 @@ export function collectAllVikingResearch(player: PlayerState): { error?: string;
   return { results };
 }
 
+/** Vegvizir Tokens per row — flat, not escalating (unlike upgradeYggdrasilSlots' x5 curve above):
+ *  "every plot requires tokens", not a steepening sink, since tokens already trickle in slowly
+ *  (1 per Yggdrasil Apple sale, 1 apple/hour per planted tree). */
+export const EXTEND_ROOTS_TOKEN_COST = 3;
+
+/** Extends the player's plot one row further south — the same gridHeight axis Garden Expansion
+ *  (gear, coins) caps out at, continued here in Vegvizir Tokens once the Yggdrasil has fully
+ *  grown. Reuses gridHeight directly (no separate plot/coordinate system) so every other piece of
+ *  plot logic — canPlaceAt, rendering, Garden Expansion itself — needs no changes at all. */
+export function extendRoots(player: PlayerState): { error?: string } {
+  const ygg = player.yggdrasil;
+  if (!ygg) return { error: "You need a fully-grown Yggdrasil first." };
+  if (Date.now() < ygg.constructionReadyAt) return { error: "Your Yggdrasil is still growing." };
+  if (player.rootExpansions >= ROOT_EXPANSION_MAX) return { error: "Roots already fully extended." };
+  if (player.vegvizirTokens < EXTEND_ROOTS_TOKEN_COST) return { error: "Not enough Vegvizir Tokens." };
+  player.vegvizirTokens -= EXTEND_ROOTS_TOKEN_COST;
+  player.rootExpansions += 1;
+  player.gridHeight = Math.min(BASE_GRID_HEIGHT + GRID_EXPANSION_MAX + ROOT_EXPANSION_MAX, player.gridHeight + 1);
+  return {};
+}
+
 /** True if two footprints share an edge (not just a corner) — "the squares next to it". */
 function isOrthogonallyAdjacent(a: Planting, b: Planting): boolean {
   const rowOverlap = a.y < b.y + b.h && b.y < a.y + a.h;
@@ -1021,12 +1045,14 @@ export function buySeed(player: PlayerState, cropId: string, quantity: number): 
   return {};
 }
 
-/** Basic Seed Shop crops (as opposed to Moon/Solar shop crops) are exempt from the
+/** Basic Seed Shop crops (as opposed to Moon/Solar/Viking shop crops) are exempt from the
  *  persistent-regrow slowdown below — new players kept getting hit with it just from reclaiming
  *  and replanting normally, which read as an unadvertised, unfairly harsh growth penalty. Moon
- *  and Solar crops keep the exact same penalty as before. */
-function isBasicShopCrop(cropId: string): boolean {
-  return !!CROPS_BY_ID[cropId];
+ *  and Solar crops keep the exact same penalty as before. Yggdrasil Apple is also exempt — it's
+ *  meant to regrow every hour flat as a steady Vegvizir Token source, not slow to 10 hours after
+ *  its first harvest like every other non-basic persistent crop. */
+function isExemptFromRegrowPenalty(cropId: string): boolean {
+  return !!CROPS_BY_ID[cropId] || cropId === "yggdrasil_apple";
 }
 
 export function plant(town: TownState, player: PlayerState, x: number, y: number, cropId: string): { error?: string } {
@@ -1042,8 +1068,9 @@ export function plant(town: TownState, player: PlayerState, x: number, y: number
   // Once a player has harvested this crop's persistent form before, every future planting of it
   // grows at the slow persistent-regrow rate from the start — otherwise reclaiming a regrowing
   // tree and replanting the recovered seed would re-roll the fast first grow indefinitely. Basic
-  // Seed Shop crops are exempt (see isBasicShopCrop) — always the advertised speed, reclaimed or not.
-  const alreadyUnlocked = !!crop.persistent && !!player.persistentUnlocked[cropId] && !isBasicShopCrop(cropId);
+  // Seed Shop crops (and Yggdrasil Apple) are exempt (see isExemptFromRegrowPenalty) — always the
+  // advertised speed, reclaimed or not.
+  const alreadyUnlocked = !!crop.persistent && !!player.persistentUnlocked[cropId] && !isExemptFromRegrowPenalty(cropId);
   const requiredMs = crop.growSeconds * 1000 * growSpeedMultiplier(player) * (alreadyUnlocked ? PERSISTENT_REGROW_MULTIPLIER : 1);
   const planting: Planting = {
     id: nanoid(8),
@@ -1085,11 +1112,12 @@ export function harvest(town: TownState, player: PlayerState, plantingId: string
     // Persistent crops are trees/vines: they stay planted and immediately start regrowing
     // a fresh fruit (new size/mutation roll) instead of being consumed — at 10x the normal
     // grow time, since otherwise a one-time seed cost prints money forever. Basic Seed Shop
-    // crops are exempt (see isBasicShopCrop) — they always regrow at the advertised speed.
+    // crops (and Yggdrasil Apple) are exempt (see isExemptFromRegrowPenalty) — they always regrow
+    // at the advertised speed.
     player.persistentUnlocked[planting.cropId] = true;
     const now = Date.now();
     const tier = rollSizeTier();
-    const regrowMult = isBasicShopCrop(planting.cropId) ? 1 : PERSISTENT_REGROW_MULTIPLIER;
+    const regrowMult = isExemptFromRegrowPenalty(planting.cropId) ? 1 : PERSISTENT_REGROW_MULTIPLIER;
     const requiredMs = crop.growSeconds * 1000 * growSpeedMultiplier(player) * regrowMult;
     planting.plantedAt = now;
     planting.readyAt = computeReadyAt(town.createdAt, now, requiredMs);
@@ -1204,9 +1232,12 @@ export function sell(
   const mult = sellMultiplier(player);
   const diamondMult = diamondSellMultiplier(player);
   const diamondReward = (crop as { diamondReward?: number }).diamondReward;
+  const vegvizirTokenReward = (crop as { vegvizirTokenReward?: number }).vegvizirTokenReward;
   let earned = 0;
   let diamonds = 0;
+  let vegvizirTokens = 0;
   for (const item of toSell) {
+    if (vegvizirTokenReward) vegvizirTokens += vegvizirTokenReward;
     if (diamondReward) {
       diamonds += Math.round(diamondReward * diamondMult);
       continue;
@@ -1220,6 +1251,7 @@ export function sell(
   player.coins += earned;
   player.lifetimeCoins += earned;
   player.diamonds += diamonds;
+  player.vegvizirTokens += vegvizirTokens;
   advanceQuests(player, "sell", qty);
   advanceQuests(player, "earn_coins", earned);
   return {};
@@ -1231,10 +1263,13 @@ export function sellAll(player: PlayerState): { error?: string; earned?: number;
   const diamondMult = diamondSellMultiplier(player);
   let earned = 0;
   let diamonds = 0;
+  let vegvizirTokens = 0;
   for (const item of player.cropInventory) {
     const crop = getCropDef(item.cropId);
     if (!crop) continue;
     const diamondReward = (crop as { diamondReward?: number }).diamondReward;
+    const vegvizirTokenReward = (crop as { vegvizirTokenReward?: number }).vegvizirTokenReward;
+    if (vegvizirTokenReward) vegvizirTokens += vegvizirTokenReward;
     if (diamondReward) {
       diamonds += Math.round(diamondReward * diamondMult);
       continue;
@@ -1248,6 +1283,7 @@ export function sellAll(player: PlayerState): { error?: string; earned?: number;
   player.coins += earned;
   player.lifetimeCoins += earned;
   player.diamonds += diamonds;
+  player.vegvizirTokens += vegvizirTokens;
   advanceQuests(player, "sell", count);
   advanceQuests(player, "earn_coins", earned);
   return { earned, diamonds, count };
@@ -1302,6 +1338,8 @@ export function extractProgress(player: PlayerState): SavedProgress {
     seedStockBucket: player.seedStockBucket,
     diamonds: player.diamonds,
     kelkaCrystals: player.kelkaCrystals,
+    vegvizirTokens: player.vegvizirTokens,
+    rootExpansions: player.rootExpansions,
     persistentUnlocked: player.persistentUnlocked,
     petsOwned: player.petsOwned,
     petSlots: player.petSlots,

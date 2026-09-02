@@ -14,6 +14,9 @@ export interface VikingCrop {
   variableFootprint?: boolean;
   persistent?: boolean;
   diamondReward?: number;
+  /** Yggdrasil Apple only — the sole source of Vegvizir Tokens (Extend Roots' currency), on top
+   *  of its diamondReward. */
+  vegvizirTokenReward?: number;
 }
 
 export const VIKING_CROPS: VikingCrop[] = [
@@ -22,7 +25,9 @@ export const VIKING_CROPS: VikingCrop[] = [
   { id: "rune_apple", name: "Rune-Carved Apple", emoji: "🍏", tier: "rare", growSeconds: 80, sellPrice: 150000, footprint: { w: 1, h: 1 }, persistent: true },
   { id: "berserker_banana", name: "Berserker Banana", emoji: "🍌", tier: "epic", growSeconds: 110, sellPrice: 380000, footprint: { w: 2, h: 1 }, variableFootprint: true, persistent: true },
   { id: "drakkar_coconut", name: "Drakkar Coconut", emoji: "🥥", tier: "mythic", growSeconds: 150, sellPrice: 6000, footprint: { w: 2, h: 1 }, variableFootprint: true, persistent: true, diamondReward: 3 },
-  { id: "yggdrasil_apple", name: "Yggdrasil Apple", emoji: "🍎", tier: "historic", growSeconds: 220, sellPrice: 20000, footprint: { w: 2, h: 2 }, persistent: true, diamondReward: 5 },
+  // Regrows every hour flat — exempt from the usual 10x persistent-regrow slowdown (see
+  // EXEMPT_FROM_REGROW_PENALTY in towns.ts) so it stays a steady Vegvizir Token source.
+  { id: "yggdrasil_apple", name: "Yggdrasil Apple", emoji: "🍎", tier: "historic", growSeconds: 3600, sellPrice: 20000, footprint: { w: 2, h: 2 }, persistent: true, diamondReward: 5, vegvizirTokenReward: 1 },
 ];
 
 export const VIKING_CROPS_BY_ID: Record<string, VikingCrop> = Object.fromEntries(VIKING_CROPS.map((c) => [c.id, c]));
@@ -56,6 +61,9 @@ export const VIKING_PACK_ODDS: { pct: number; tier: VikingTier }[] = [
 export const YGGDRASIL_BUILD_MS = 24 * 60 * 60 * 1000;
 export const YGGDRASIL_RESEARCH_MS = 60 * 60 * 1000;
 export const YGGDRASIL_MAX_SLOTS = 10;
+
+/** Mirrors server/src/towns.ts's EXTEND_ROOTS_TOKEN_COST — flat Vegvizir Token cost per row. */
+export const EXTEND_ROOTS_TOKEN_COST = 3;
 
 /** Mirrors server/src/towns.ts's yggdrasilSlotUpgradeCost — cost (Diamonds) to go from
  *  `currentSlots` to `currentSlots + 1`: 1000, 5000, 25000, ... (x5 per step). Used here only to
